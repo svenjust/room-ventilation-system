@@ -124,9 +124,15 @@ const char *TOPICKwlAntifreeze           = "d15/state/kwl/antifreeze";
 const char *TOPICKwlBypassState          = "d15/state/kwl/summerbypass/flap";
 const char *TOPICKwlBypassMode           = "d15/state/kwl/summerbypass/mode";
 
-const char *TOPICKwlBypassTempAbluftMin  = "d15/state/kwl/summerbypass/TempAbluftMin";
+const char *TOPICKwlBypassTempAbluftMin     = "d15/state/kwl/summerbypass/TempAbluftMin";
 const char *TOPICKwlBypassTempAussenluftMin = "d15/state/kwl/summerbypass/TempAussenluftMin";
 const char *TOPICKwlBypassHystereseMinutes  = "d15/state/kwl/summerbypass/HystereseMinutes";
+
+// Die folgenden Topics sind nur für die SW-Entwicklung, und schalten Debugausgaben per mqtt ein und aus
+const char *TOPICKwlDebugsetFan1Getvalues = "d15/debugset/kwl/fan1/getvalues";
+const char *TOPICKwlDebugsetFan2Getvalues = "d15/debugset/kwl/fan2/getvalues";
+const char *TOPICKwlDebugstateFan1        = "d15/debugstate/kwl/fan1";
+const char *TOPICKwlDebugstateFan2        = "d15/debugstate/kwl/fan2";
 
 // Die folgenden Topics sind nur für die SW-Entwicklung, es werden Messwerte überschrieben, es kann damit der Sommer-Bypass und die Frostschutzschaltung getestet werden
 const char *TOPICKwlDebugsetTemperaturAussenluft = "d15/debugset/kwl/aussenluft/temperatur";
@@ -141,6 +147,9 @@ boolean mqttCmdSendTemp = false;
 boolean mqttCmdSendFans = false;
 boolean mqttCmdSendBypassState = false;
 boolean mqttCmdSendBypassAllValues = false;
+// mqttDebug Messages
+boolean mqttCmdSendAlwaysDebugFan1 = false;
+boolean mqttCmdSendAlwaysDebugFan2 = false;
 //
 
 char   TEMPChar[10]; // Hilfsvariable zu Konvertierung
@@ -400,6 +409,19 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     TEMP4_Fortluft = String((char*)payload).toFloat();
     mqttCmdSendTemp = true;
   }
+
+    if (topicStr == TOPICKwlDebugsetFan1Getvalues) {
+    payload[length] = '\0';
+    String s = String((char*)payload);
+    if (s == "on")   {mqttCmdSendAlwaysDebugFan1 = true;}
+    if (s == "off")  {mqttCmdSendAlwaysDebugFan1 = false;}
+  } 
+  if (topicStr == TOPICKwlDebugsetFan2Getvalues) {
+    payload[length] = '\0';
+    String s = String((char*)payload);
+    if (s == "on")   {mqttCmdSendAlwaysDebugFan2 = true;}
+    if (s == "off")  {mqttCmdSendAlwaysDebugFan2 = false;}
+  } 
   // Debug Messages, bis hier auskommentieren
    
 }
@@ -759,9 +781,13 @@ void loopTachoFan() {
       speedTachoFan1 = _cycleFan1Counter * 60 / ((currentMillis - previousMillisFan) / 1000);  // Umdrehungen pro Minute
       speedTachoFan2 = _cycleFan2Counter * 60 / ((currentMillis - previousMillisFan) / 1000);
     */
+    if (mqttCmdSendAlwaysDebugFan1) { mqtt_debug_fan1(); }
+    if (mqttCmdSendAlwaysDebugFan2) { mqtt_debug_fan2(); }
+    
     if (serialDebugFan == 1) {
-
-      Serial.print("tachoFan1TimeSum ");
+      Serial.print ("Timestamp: ");
+      Serial.print (millis());
+      Serial.print("\ttachoFan1TimeSum ");
       Serial.print(tachoFan1TimeSum);
       Serial.print("\tUmdrehungen pro Minute: ");
       Serial.print(speedTachoFan1);
