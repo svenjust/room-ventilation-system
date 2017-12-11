@@ -116,6 +116,7 @@ const char *TOPICFHeartbeat              = "d15/state/kwl/heartbeat";
 const char *TOPICFan1Speed               = "d15/state/kwl/fan1/speed";
 const char *TOPICFan2Speed               = "d15/state/kwl/fan2/speed";
 const char *TOPICKwlOnline               = "d15/state/kwl/heartbeat";
+const char *TOPICStateKwlMode            = "d15/state/kwl/lueftungsstufe";
 const char *TOPICKwlTemperaturAussenluft = "d15/state/kwl/aussenluft/temperatur";
 const char *TOPICKwlTemperaturZuluft     = "d15/state/kwl/zuluft/temperatur";
 const char *TOPICKwlTemperaturAbluft     = "d15/state/kwl/abluft/temperatur";
@@ -147,6 +148,7 @@ boolean mqttCmdSendTemp = false;
 boolean mqttCmdSendFans = false;
 boolean mqttCmdSendBypassState = false;
 boolean mqttCmdSendBypassAllValues = false;
+boolean mqttCmdSendMode = false;
 // mqttDebug Messages
 boolean mqttCmdSendAlwaysDebugFan1 = true;
 boolean mqttCmdSendAlwaysDebugFan2 = true;
@@ -208,6 +210,7 @@ unsigned long intervalBypassSummerCheck = 1 * 60 * 1000;     // Zeitraum zum Che
 unsigned long intervalBypassSummerSetFlaps = 5 * 60 * 1000;  // Zeitraum zum Setzen des Bypasses, 5 Minuten
 
 unsigned long intervalMqttFan = 5000;
+unsigned long intervalMqttMode = 5 * 60 * 1000;;
 unsigned long intervalMqttTemp = 5000;
 unsigned long intervalMqttTempOversampling = 5 * 60 * 1000;
 unsigned long intervalMqttFanOversampling = 5 * 60 * 1000;
@@ -220,6 +223,7 @@ unsigned long previousMillisBypassSummerCheck = 0;
 unsigned long previousMillisBypassSummerSetFlaps = 0;
 
 unsigned long previousMillisMqttFan = 0;
+unsigned long previousMillisMqttMode = 0;
 unsigned long previousMillisMqttFanOversampling = 0;
 unsigned long previousMillisMqttTemp = 0;
 unsigned long previousMillisMqttTempOversampling = 0;
@@ -344,6 +348,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     String s = String((char*)payload);
     int i = s.toInt();
     kwlMode = i;
+    mqttCmdSendMode = true;
     // KWL Stufe
   }
   if (topicStr == TOPICCmdAntiFreezeHyst) {
@@ -831,6 +836,19 @@ void loopMqttSendFan() {
   }
 }
 
+void loopMqttSendMode() {
+  // Senden der Lüftungsstufe
+  // Bedingung: a) alle x Sekunden (Standard 5 Minuten)
+  //            b) mqttCmdSendMode == true
+  currentMillis = millis();
+  if ((currentMillis - previousMillisMqttMode > intervalMqttMode) || mqttCmdSendMode) {
+    previousMillisMqttMode = currentMillis;
+    mqttCmdSendMode = false;
+    itoa(kwlMode, buffer, 10);
+    mqttClient.publish(TOPICStateKwlMode, buffer);
+  }
+}
+
 void loopMqttSendBypass() {
   // Senden der Bypass - Einstellung per Mqtt
   // Bedingung: a) alle x Sekunden
@@ -1132,7 +1150,7 @@ void loop()
 {
 
   //loopWrite100Millis();
-  
+  loopMqttSendMode();
   loopMqttSendFan();
   loopMqttSendTemp();
   loopMqttSendBypass();
