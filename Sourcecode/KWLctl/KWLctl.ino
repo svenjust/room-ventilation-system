@@ -68,7 +68,7 @@
 #define TEMP2_ONE_WIRE_BUS 31
 #define TEMP3_ONE_WIRE_BUS 32
 #define TEMP4_ONE_WIRE_BUS 33
-#define TEMPERATURE_PRECISION 9
+#define TEMPERATURE_PRECISION TEMP_9_BIT     // Genauigkeit der Temperatursensoren 9_BIT, Standard sind 12_BIT
 
 // Ansteuerung der Relais
 // Für die Lüfter und den Sommer-Bypass können bis zu vier Relais verbaut sein.
@@ -294,7 +294,6 @@ DallasTemperature Temp1Sensor(&Temp1OneWire); // Bindung der Sensoren an den One
 DallasTemperature Temp2Sensor(&Temp2OneWire); 
 DallasTemperature Temp3Sensor(&Temp3OneWire); 
 DallasTemperature Temp4Sensor(&Temp4OneWire);
-#define TEMPERATURE_PRECISION TEMP_10_BIT     // Genauigkeit der Temperatursensoren 10_BIT, Standard sind 12_BIT
 
 // 
 float SendMqttTEMP1 = 0;    // Temperatur Außenluft, gesendet per Mqtt
