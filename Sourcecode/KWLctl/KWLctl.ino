@@ -148,8 +148,8 @@ boolean mqttCmdSendFans = false;
 boolean mqttCmdSendBypassState = false;
 boolean mqttCmdSendBypassAllValues = false;
 // mqttDebug Messages
-boolean mqttCmdSendAlwaysDebugFan1 = false;
-boolean mqttCmdSendAlwaysDebugFan2 = false;
+boolean mqttCmdSendAlwaysDebugFan1 = true;
+boolean mqttCmdSendAlwaysDebugFan2 = true;
 //
 
 char   TEMPChar[10]; // Hilfsvariable zu Konvertierung
@@ -487,6 +487,12 @@ void setSpeedToFan() {
   PidFan1.Compute();
   PidFan2.Compute();
 
+  Serial.print ("mqttCmdSendAlwaysDebugFan1: ");
+  Serial.println(mqttCmdSendAlwaysDebugFan1);
+  
+  if (mqttCmdSendAlwaysDebugFan1) { mqtt_debug_fan1(); }
+  if (mqttCmdSendAlwaysDebugFan2) { mqtt_debug_fan2(); }
+  
   if (serialDebugFan == 1){
     Serial.print ("Timestamp: ");
     Serial.println ((long)millis());
@@ -776,29 +782,6 @@ void loopTachoFan() {
       speedTachoFan2 = (float)_cycleFan2Counter * 60 / ((float)(_tachoFan2TimeSum) / 1000.0);
     } else {
       speedTachoFan2 = 0;
-    }
-    /*
-      speedTachoFan1 = _cycleFan1Counter * 60 / ((currentMillis - previousMillisFan) / 1000);  // Umdrehungen pro Minute
-      speedTachoFan2 = _cycleFan2Counter * 60 / ((currentMillis - previousMillisFan) / 1000);
-    */
-    if (mqttCmdSendAlwaysDebugFan1) { mqtt_debug_fan1(); }
-    if (mqttCmdSendAlwaysDebugFan2) { mqtt_debug_fan2(); }
-    
-    if (serialDebugFan == 1) {
-      Serial.print ("Timestamp: ");
-      Serial.print (millis());
-      Serial.print("\ttachoFan1TimeSum ");
-      Serial.print(tachoFan1TimeSum);
-      Serial.print("\tUmdrehungen pro Minute: ");
-      Serial.print(speedTachoFan1);
-      Serial.print(" , ");
-      Serial.println(speedTachoFan2);
-      Serial.print("number of Puls:  ");
-      Serial.print(cycleFan1Counter);
-      Serial.print(" , ");
-      Serial.println(cycleFan2Counter);
-      Serial.print("Intervall (mS): ");
-      Serial.println(currentMillis - previousMillisFan);
     }
     previousMillisFan = currentMillis;
   }
