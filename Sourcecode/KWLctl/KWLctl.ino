@@ -1,7 +1,7 @@
 /*
   Steuerung einer Lüftungsanlage für Wohnhäuser
   Diese Steuerung wurde als Ersatz der Originalsteuerung entwickelt.
-  Das Original war Pluggit P300
+  Das Original war Pluggit P300. Diese Steuerung funktioniert ebenso für P450 und viele weitere Lüftungsanlagen.
   
   Es werden:
    a) zwei Lüfter angesteuert und deren Tachosignale ausgelesen
@@ -33,14 +33,14 @@
 // Tachosignal auslesen wie
 // https://forum.arduino.cc/index.php?topic=145226.msg1102102#msg1102102
 
-#include <EEPROM.h>
+#include <Adafruit_GFX.h>       // TFT 
+#include <MCUFRIEND_kbv.h>      // TFT
+#include <EEPROM.h>             // Speicherung von Einstellungen
 #include <SPI.h>
 #include <Ethernet.h>
-#include <PubSubClient.h>
-//
-#include <PID_v1.h>
-// OneWire
-#include <OneWire.h>
+#include <PubSubClient.h>       // mqtt Client
+#include <PID_v1.h>             // PID-Regler für die Drehzahlregelung
+#include <OneWire.h>            // OneWire Temperatursensoren
 #include <DallasTemperature.h>
 
 // ntpClient, der folgende Client ist nonblocking, auch im Fehlerfall
@@ -62,6 +62,48 @@
 #define relPinFan1Power         42  // Stromversorgung Lüfter 1
 #define relPinFan2Power         43  // Stromversorgung Lüfter 2
 
+// OneWire Sensoren, für jeder Temperatursensor gibt es einen Anschluss auf dem Board, Vorteil: Temperatursensoren können per Kabel definiert werden, nicht Software
+// Data wire is plugged into pin 30-33 on the Arduino
+#define TEMP1_ONE_WIRE_BUS 30
+#define TEMP2_ONE_WIRE_BUS 31
+#define TEMP3_ONE_WIRE_BUS 32
+#define TEMP4_ONE_WIRE_BUS 33
+#define TEMPERATURE_PRECISION 9
+
+// Ansteuerung der Relais
+// Für die Lüfter und den Sommer-Bypass können bis zu vier Relais verbaut sein.
+// Ohne Sommer-Bypass kann die Schaltung auch ohne Relais betrieben werden.
+// Das verschiedene Relais unterschiedlich geschaltet werden, kann hier die logische
+// Schaltung definiert werden.
+#define RELAY_ON   LOW
+#define RELAY_OFF  HIGH
+
+// Update these with values suitable for your hardware/network.
+byte mac[] = {  0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };  // MAC Adresse des Ethernet Shields
+IPAddress    ip(192, 168, 20, 201);           // IP Adresse für diese Gerät im eigenen Netz
+IPAddress    mqttserver(192, 168, 20, 240);       // IP Adresse des MQTT Brokers
+
+int serialDebug = 1;            // 1 = Allgemein Debugausgaben auf der seriellen Schnittstelle aktiviert
+int serialDebugFan = 1;         // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
+int serialDebugAntifreeze = 1;  // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
+
+// *** TFT
+// Assign human-readable names to some common 16-bit color values:
+#define BLACK   0x0000
+#define BLUE    0x001F
+#define RED     0xF800
+#define GREEN   0x07E0
+#define CYAN    0x07FF
+#define MAGENTA 0xF81F
+#define YELLOW  0xFFE0
+#define WHITE   0xFFFF
+#define GREY    0x7BEF
+uint16_t ID;
+MCUFRIEND_kbv tft;
+
+// MQTT Topics für die Kommunikation zwischen dieser Steuerung und einem mqtt Broker
+// Die Topics sind in https://github.com/svenjust/room-ventilation-system/blob/master/Docs/mqtt%20topics/mqtt_topics.ods erläutert.
+
 const char *TOPICCommand                 = "d15/set/#";
 const char *TOPICCommandDebug            = "d15/debugset/#";
 const char *TOPICCmdFan1Speed            = "d15/set/kwl/fan1/standardspeed";
@@ -73,7 +115,6 @@ const char *TOPICCmdAntiFreezeHyst       = "d15/set/kwl/antifreeze/hysterese";
 const char *TOPICCmdBypassGetValues      = "d15/set/kwl/summerbypass/getvalues";
 const char *TOPICCmdBypassManualFlap     = "d15/set/kwl/summerbypass/flap";
 const char *TOPICCmdBypassMode           = "d15/set/kwl/summerbypass/mode";
-
 
 const char *TOPICFHeartbeat              = "d15/state/kwl/heartbeat";
 const char *TOPICFan1Speed               = "d15/state/kwl/fan1/speed";
@@ -96,17 +137,15 @@ const char *TOPICKwlDebugsetTemperaturAussenluft = "d15/debugset/kwl/aussenluft/
 const char *TOPICKwlDebugsetTemperaturZuluft     = "d15/debugset/kwl/zuluft/temperatur";
 const char *TOPICKwlDebugsetTemperaturAbluft     = "d15/debugset/kwl/abluft/temperatur";
 const char *TOPICKwlDebugsetTemperaturFortluft   = "d15/debugset/kwl/fortluft/temperatur";
+// Ende Topics
 
-
-
-int serialDebug = 0;
-int serialDebugFan = 0;
-int serialDebugAntifreeze = 1;
-
+// Sind die folgenden Variablen auf true, wenn beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
+// anschliessend wird die Variable wieder auf false gesetzt
 boolean mqttCmdSendTemp = false;
 boolean mqttCmdSendFans = false;
 boolean mqttCmdSendBypassState = false;
 boolean mqttCmdSendBypassAllValues = false;
+//
 
 char   TEMPChar[10]; // Hilfsvariable zu Konvertierung
 char   buffer[7];    // the ASCII of the integer will be stored in this char array
@@ -208,8 +247,6 @@ boolean       bypassFlapsRunning = false;                         // True, wenn 
 unsigned long bypassFlapsStartTime = 0;                           // Startzeit für den Beginn Klappenwechsels
 // Ende  - Variablen für Bypass ///////////////////////////////////////////
 
-
-
 // Begin EEPROM
 #define    WRITE_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
 const int  BUFSIZE = 50;
@@ -219,16 +256,9 @@ const int  EEPROM_MIN_ADDR = 0;
 const int  EEPROM_MAX_ADDR = 1023;
 // Ende EEPROM
 
-
 // Ntp Zeit
 EthernetUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
-
-
-// Update these with values suitable for your hardware/network.
-byte mac[] = {  0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };
-IPAddress    ip(192, 168, 20, 201);
-IPAddress    mqttserver(192, 168, 20, 240);
 
 EthernetClient ethClient;
 PubSubClient mqttClient(ethClient);
@@ -255,24 +285,18 @@ PID PidFan2(&speedTachoFan2, &techSetpointFan2, &speedSetpointFan2, consKp, cons
 PID PidPreheater(&TEMP4_Fortluft, &techSetpointPreheater, &antifreezeTempUpperLimit, heaterKp, heaterKi, heaterKd, P_ON_M, DIRECT);
 ///////////////////////
 
-// OneWire Sensoren, für jeder Temperatursensor gibt es einen Anschluss auf dem Board, Vorteil: Temperatursensoren können per Kabel definiert werden, nicht Software
-// Data wire is plugged into pin 30-33 on the Arduino
-
-#define TEMP1_ONE_WIRE_BUS 30
-#define TEMP2_ONE_WIRE_BUS 31
-#define TEMP3_ONE_WIRE_BUS 32
-#define TEMP4_ONE_WIRE_BUS 33
-#define TEMPERATURE_PRECISION 9
-
+// Temperatur Sensoren, Pinbelegung steht oben
 OneWire Temp1OneWire(TEMP1_ONE_WIRE_BUS); // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
-OneWire Temp2OneWire(TEMP2_ONE_WIRE_BUS); // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
-OneWire Temp3OneWire(TEMP3_ONE_WIRE_BUS); // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
-OneWire Temp4OneWire(TEMP4_ONE_WIRE_BUS); // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
+OneWire Temp2OneWire(TEMP2_ONE_WIRE_BUS); 
+OneWire Temp3OneWire(TEMP3_ONE_WIRE_BUS); 
+OneWire Temp4OneWire(TEMP4_ONE_WIRE_BUS); 
 DallasTemperature Temp1Sensor(&Temp1OneWire); // Bindung der Sensoren an den OneWire Bus
-DallasTemperature Temp2Sensor(&Temp2OneWire); // Bindung der Sensoren an den OneWire Bus
-DallasTemperature Temp3Sensor(&Temp3OneWire); // Bindung der Sensoren an den OneWire Bus
-DallasTemperature Temp4Sensor(&Temp4OneWire); // Bindung der Sensoren an den OneWire Bus
+DallasTemperature Temp2Sensor(&Temp2OneWire); 
+DallasTemperature Temp3Sensor(&Temp3OneWire); 
+DallasTemperature Temp4Sensor(&Temp4OneWire);
+#define TEMPERATURE_PRECISION TEMP_10_BIT     // Genauigkeit der Temperatursensoren 10_BIT, Standard sind 12_BIT
 
+// 
 float SendMqttTEMP1 = 0;    // Temperatur Außenluft, gesendet per Mqtt
 float SendMqttTEMP2 = 0;    // Temperatur Zuluft
 float SendMqttTEMP3 = 0;    // Temperatur Abluft
@@ -660,8 +684,8 @@ void loopBypassSummerSetFlaps() {
           if (bypassFlapSetpoint == bypassFlapState_Close) {
 
             // Erst Richtung, dann Power
-            digitalWrite(relPinBypassDirection, HIGH);
-            digitalWrite(relPinBypassPower, LOW);
+            digitalWrite(relPinBypassDirection, RELAY_OFF);
+            digitalWrite(relPinBypassPower, RELAY_ON);
 
             bypassFlapsRunning = true;
             bypassFlapStateDriveRunning = bypassFlapState_Close;
@@ -669,8 +693,8 @@ void loopBypassSummerSetFlaps() {
           } else if (bypassFlapSetpoint == bypassFlapState_Open) {
 
             // Erst Richtung, dann Power
-            digitalWrite(relPinBypassDirection, LOW);
-            digitalWrite(relPinBypassPower, LOW);
+            digitalWrite(relPinBypassDirection, RELAY_ON);
+            digitalWrite(relPinBypassPower, RELAY_ON);
 
             bypassFlapsRunning = true;
             bypassFlapStateDriveRunning = bypassFlapState_Open;
@@ -680,8 +704,8 @@ void loopBypassSummerSetFlaps() {
           // Klappe wurde gefahren, jetzt abschalten
           // Realis ausschalten
           // Erst Power, dann Richtung beim Ausschalten
-          digitalWrite(relPinBypassPower, HIGH);
-          digitalWrite(relPinBypassDirection, HIGH);
+          digitalWrite(relPinBypassPower, RELAY_OFF);
+          digitalWrite(relPinBypassDirection, RELAY_OFF);
 
           bypassFlapsRunning = false;
           bypassFlapState = bypassFlapStateDriveRunning;
@@ -988,27 +1012,65 @@ void initializeVariables()
   // bypassMode Auto
   eeprom_read_int (16, &temp);
   bypassMode = temp;
-
-
-
 }
 
+void loopWrite100Millis() {
+ currentMillis = millis();
+  if (currentMillis - previous100Millis > 100) {
+    previous100Millis = currentMillis;
+    Serial.print ("Timestamp: ");
+    Serial.println ((long)currentMillis);
+  }
+}
+
+// *** SETUP START ***
 void setup()
 {
-  Serial.begin(57600);
+  Serial.begin(57600); // Serielle Ausgabe starten
 
+  // *** TFT AUSGABE ***
+  start_tft();
+  print_header();
+  print_footer();
+   
   initializeEEPROM();
   initializeVariables();
 
+  Serial.println();
+  Serial.println("Booting...");
+  tft.setCursor(0, 30);
+  tft.println("Booting...");
   mqttClient.setServer(mqttserver, 1883);
   mqttClient.setCallback(mqttReceiveMsg);
 
   Ethernet.begin(mac, ip);
   delay(1500);    // Delay in Setup erlaubt
   lastReconnectAttempt = 0;
-
+  
+  Serial.println("Warte auf Zeitsynchronisation");
+  tft.println("Warte auf Zeitsynchronisation");
+  
   // NTP Client starten
-  timeClient.begin();
+  timeClient.begin(); // NTP Provider starten / erstmalig abfragen
+
+  Serial.print("Server Adresse: ");
+  Serial.println(Ethernet.localIP());
+  tft.print("Server Adresse: ");
+  tft.println(Ethernet.localIP());
+
+  // Temperatursensoren
+  Temp1Sensor.begin();
+  Temp1Sensor.setResolution(TEMPERATURE_PRECISION);
+  Temp1Sensor.setWaitForConversion(false);
+  Temp2Sensor.begin();
+  Temp2Sensor.setResolution(TEMPERATURE_PRECISION);
+  Temp2Sensor.setWaitForConversion(false); 
+  Temp3Sensor.begin();
+  Temp3Sensor.setResolution(TEMPERATURE_PRECISION);
+  Temp3Sensor.setWaitForConversion(false); 
+  Temp4Sensor.begin();
+  Temp4Sensor.setResolution(TEMPERATURE_PRECISION);
+  Temp4Sensor.setWaitForConversion(false); 
 
   // Lüfter Speed
   pinMode(pwmPinFan1, OUTPUT);
@@ -1017,31 +1079,27 @@ void setup()
   digitalWrite(pwmPinFan2, LOW);
 
   // Lüfter Tacho Interrupt
-  pinMode(tachoPinFan1, INPUT);
+  Serial.print("Teste Ventilatoren");
+  tft.println("Teste Ventilatoren");
+  pinMode(tachoPinFan1, INPUT_PULLUP);
   attachInterrupt(tachoPinFan1, countUpFan1, RISING );
-  pinMode(tachoPinFan2, INPUT);
+  pinMode(tachoPinFan2, INPUT_PULLUP);
   attachInterrupt(tachoPinFan2, countUpFan2, RISING );
 
-  // Relais Ansteuerung
-  pinMode(relPinBypassPower, OUTPUT);
-  digitalWrite(relPinBypassPower, HIGH);
-  pinMode(relPinBypassDirection, OUTPUT);
-  digitalWrite(relPinBypassDirection, HIGH);
-
+  // Relais Ansteuerung Lüfter
   pinMode(relPinFan1Power, OUTPUT);
-  digitalWrite(relPinFan1Power, HIGH);
+  digitalWrite(relPinFan1Power, RELAY_ON);
   pinMode(relPinFan2Power, OUTPUT);
-  digitalWrite(relPinFan2Power, HIGH);
+  digitalWrite(relPinFan2Power, RELAY_ON);
+  
+  // Relais Ansteuerung Bypass
+  pinMode(relPinBypassPower, OUTPUT);
+  digitalWrite(relPinBypassPower, RELAY_OFF);
+  pinMode(relPinBypassDirection, OUTPUT);
+  digitalWrite(relPinBypassDirection, RELAY_OFF);
 
-  // Temperatursensoren
-  Temp1Sensor.begin();
-  Temp1Sensor.setWaitForConversion(false); 
-  Temp2Sensor.begin();
-  Temp2Sensor.setWaitForConversion(false); 
-  Temp3Sensor.begin();
-  Temp3Sensor.setWaitForConversion(false); 
-  Temp4Sensor.begin();
-  Temp4Sensor.setWaitForConversion(false); 
+  // 4 Sekunden Pause für die TFT Anzeige, damit man sie auch lesen kann
+  delay (4000); 
 
   //PID
   //turn the PID on
@@ -1058,18 +1116,14 @@ void setup()
   PidPreheater.SetSampleTime(intervalSetFan);  // SetFan ruft Preheater auf, deswegen hier intervalSetFan
 
   previousMillisTemp = millis();
+
+  Serial.println("Setup completed...");
+  tft.println("Setup completed...");
+  tft.fillRect(0, 30, 480, 200, BLACK);
 }
+// *** SETUP ENDE
 
-void loopWrite100Millis() {
- currentMillis = millis();
-  if (currentMillis - previous100Millis > 100) {
-    previous100Millis = currentMillis;
-    Serial.print ("Timestamp: ");
-    Serial.println ((long)currentMillis);
-  }
-}
-
-
+// *** LOOP START ***
 void loop()
 {
 
@@ -1090,4 +1144,6 @@ void loop()
   loopMqttConnection();
 
 }
+// *** LOOP ENDE ***
+
 
