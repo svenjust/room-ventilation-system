@@ -48,8 +48,8 @@
 #define pwmPinFan1              44  // Lüfter Zuluft
 #define pwmPinFan2              46  // Lüfter Abluft
 #define pwmPinPreheater         45  // Vorheizer
-#define tachoPinFan1             2  // Eingang mit Interrupt, Mega2560 Pin D2, INT4
-#define tachoPinFan2             3  // Eingang mit Interrupt, Mega2560 Pin D3, INT5
+#define tachoPinFan1            20  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
+#define tachoPinFan2            21  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
 // BypassPower steuert, ob Strom am Bypass geschaltet ist, BypassDirection bestimmt Öffnen oder Schliessen.
 // Damit ist schaltungstechnisch sichergestellt, dass nicht gleichzeitig geöffnet und geschlossen wird.
 // Dies ist die klassische Rolladenschaltung.
@@ -513,12 +513,12 @@ void setSpeedToFan() {
   double gap2 = abs(speedSetpointFan2 - speedTachoFan2); //distance away from setpoint
 
   if (FansCalculateSpeed == CalculateSpeed_PID) {
-    if (gap1 < 20) {
+    if (gap1 < 1000) {
       PidFan1.SetTunings(consKp, consKi, consKd);
     }  else   {
       PidFan1.SetTunings(aggKp, aggKi, aggKd);
     }
-    if (gap2 < 20) {
+    if (gap2 < 1000) {
       PidFan2.SetTunings(consKp, consKi, consKd);
     }  else   {
       PidFan2.SetTunings(aggKp, aggKi, aggKd);
@@ -1185,13 +1185,25 @@ void setup()
   digitalWrite(pwmPinFan2, LOW);
 
   // Lüfter Tacho Interrupt
-  Serial.print("Teste Ventilatoren");
+  Serial.println("Teste Ventilatoren");
   tft.println("Teste Ventilatoren");
   pinMode(tachoPinFan1, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(tachoPinFan1), countUpFan1, RISING );
+  
+  Serial.print ("Pin und Interrupt: ");
+  Serial.print (tachoPinFan1);
+  Serial.print ("\t");
+  Serial.println (digitalPinToInterrupt(tachoPinFan1));
+  
   pinMode(tachoPinFan2, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(tachoPinFan2), countUpFan2, RISING );
-
+  
+  Serial.print ("Pin und Interrupt: ");
+  Serial.print (tachoPinFan2);  
+  Serial.print ("\t");
+  Serial.println (digitalPinToInterrupt(tachoPinFan2));
+  delay(4000);
+  
   // Relais Ansteuerung Lüfter
   pinMode(relPinFan1Power, OUTPUT);
   digitalWrite(relPinFan1Power, RELAY_ON);
