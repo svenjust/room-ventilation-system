@@ -48,8 +48,8 @@
 #define pwmPinFan1              44  // Lüfter Zuluft
 #define pwmPinFan2              46  // Lüfter Abluft
 #define pwmPinPreheater         45  // Vorheizer
-#define tachoPinFan1             3  // Interrupt 1 Eingang ist beim Mega2560 Pin D20
-#define tachoPinFan2             2  // Interrupt 0 Eingang ist beim Mega2560 Pin D21
+#define tachoPinFan1             2  // Eingang mit Interrupt, Mega2560 Pin D2, INT4
+#define tachoPinFan2             3  // Eingang mit Interrupt, Mega2560 Pin D3, INT5
 // BypassPower steuert, ob Strom am Bypass geschaltet ist, BypassDirection bestimmt Öffnen oder Schliessen.
 // Damit ist schaltungstechnisch sichergestellt, dass nicht gleichzeitig geöffnet und geschlossen wird.
 // Dies ist die klassische Rolladenschaltung.
@@ -1188,9 +1188,9 @@ void setup()
   Serial.print("Teste Ventilatoren");
   tft.println("Teste Ventilatoren");
   pinMode(tachoPinFan1, INPUT_PULLUP);
-  attachInterrupt(tachoPinFan1, countUpFan1, RISING );
+  attachInterrupt(digitalPinToInterrupt(tachoPinFan1), countUpFan1, RISING );
   pinMode(tachoPinFan2, INPUT_PULLUP);
-  attachInterrupt(tachoPinFan2, countUpFan2, RISING );
+  attachInterrupt(digitalPinToInterrupt(tachoPinFan2), countUpFan2, RISING );
 
   // Relais Ansteuerung Lüfter
   pinMode(relPinFan1Power, OUTPUT);
