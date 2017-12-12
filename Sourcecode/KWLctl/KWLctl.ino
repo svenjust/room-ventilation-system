@@ -112,7 +112,7 @@ const char *TOPICCmdBypassGetValues      = "d15/set/kwl/summerbypass/getvalues";
 const char *TOPICCmdBypassManualFlap     = "d15/set/kwl/summerbypass/flap";
 const char *TOPICCmdBypassMode           = "d15/set/kwl/summerbypass/mode";
 
-const char *TOPICFHeartbeat              = "d15/state/kwl/heartbeat";
+const char *TOPICHeartbeat               = "d15/state/kwl/heartbeat";
 const char *TOPICFan1Speed               = "d15/state/kwl/fan1/speed";
 const char *TOPICFan2Speed               = "d15/state/kwl/fan2/speed";
 const char *TOPICKwlOnline               = "d15/state/kwl/heartbeat";
@@ -222,6 +222,7 @@ unsigned long previousMillisAntifreeze = 0;
 unsigned long previousMillisBypassSummerCheck = 0;
 unsigned long previousMillisBypassSummerSetFlaps = 0;
 
+unsigned long previousMillisMqttHeartbeat = 0;
 unsigned long previousMillisMqttFan = 0;
 unsigned long previousMillisMqttMode = 0;
 unsigned long previousMillisMqttFanOversampling = 0;
@@ -434,9 +435,9 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
 boolean mqttReconnect() {
   Serial.println ("reconnect start");
   Serial.println ((long)currentMillis);
-  if (mqttClient.connect("arduinoClientKwl", TOPICFHeartbeat, 0, true, "offline")) {
+  if (mqttClient.connect("arduinoClientKwl", TOPICHeartbeat, 0, true, "offline")) {
     // Once connected, publish an announcement...
-    mqttClient.publish(TOPICFHeartbeat, "online");
+    mqttClient.publish(TOPICHeartbeat, "online");
     // ... and resubscribe
     mqttClient.subscribe(TOPICCommand);
     mqttClient.subscribe(TOPICCommandDebug);
@@ -967,6 +968,13 @@ void loopMqttSendTemp() {
   }
 }
 
+void loopMqttHeartbeat(){
+  if (millis() - previousMillisMqttHeartbeat > 30000){
+    previousMillisMqttHeartbeat = millis();
+    mqttClient.publish(TOPICHeartbeat, "online");
+  }
+}
+
 void loopMqttConnection() {
   // mqtt Client connected?
   if (!mqttClient.connected()) {
@@ -1163,6 +1171,7 @@ void loop()
   loopTemperaturRequest();
   loopTemperaturRead();
 
+  loopMqttHeartbeat();
   loopMqttConnection();
 
 }
