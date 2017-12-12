@@ -1,27 +1,27 @@
 /*
-# Steuerung einer Lüftungsanlage für Wohnhäuser
+  # Steuerung einer Lüftungsanlage für Wohnhäuser
 
-Diese Steuerung wurde als Ersatz der Originalsteuerung entwickelt.
+  Diese Steuerung wurde als Ersatz der Originalsteuerung entwickelt.
 
-Das Original war Pluggit P300. Diese Steuerung funktioniert ebenso für P450 und viele weitere Lüftungsanlagen.
+  Das Original war Pluggit P300. Diese Steuerung funktioniert ebenso für P450 und viele weitere Lüftungsanlagen.
 
-Es werden:
-1. zwei Lüfter angesteuert und deren Tachosignale ausgelesen
-2. vier Temperatursensoren abgefragt
-3. Steuerung Abluftventilator zum Frostschutz
-4. Optional: Vorheizregister als Frostschutz 
-5. Optional: Sommer-Bypass geschaltet
-6. Optional: Vorheizregister als Frostschutz
-Die Drehzahlregelung der Lüftermotoren erfolgt durch PID-Regler. Dies sorgt dafür, das die geforderten Drehzahlen der Lüfter sicher erreicht werden. Die Leistungssteuerung des Vorheizregisters erfolgt durch einen PID-Regler.
+  Es werden:
+  1. zwei Lüfter angesteuert und deren Tachosignale ausgelesen
+  2. vier Temperatursensoren abgefragt
+  3. Steuerung Abluftventilator zum Frostschutz
+  4. Optional: Vorheizregister als Frostschutz
+  5. Optional: Sommer-Bypass geschaltet
+  6. Optional: Vorheizregister als Frostschutz
+  Die Drehzahlregelung der Lüftermotoren erfolgt durch PID-Regler. Dies sorgt dafür, das die geforderten Drehzahlen der Lüfter sicher erreicht werden. Die Leistungssteuerung des Vorheizregisters erfolgt durch einen PID-Regler.
 
-Differenzdrucksensoren werden bisher nicht berücksichtigt.
+  Differenzdrucksensoren werden bisher nicht berücksichtigt.
 
-Die Steuerung ist per LAN (W5100) erreichbar. Als Protokoll wird mqtt verwendet. Über mqtt liefert die Steuerung Temperaturen, Drehzahlen der Lüfter, Stellung der Bypassklappe und den Status der AntiFreeze Funktion zurück.
+  Die Steuerung ist per LAN (W5100) erreichbar. Als Protokoll wird mqtt verwendet. Über mqtt liefert die Steuerung Temperaturen, Drehzahlen der Lüfter, Stellung der Bypassklappe und den Status der AntiFreeze Funktion zurück.
 
-Codeteile stammen von:
-- Tachosignal auslesen wie
+  Codeteile stammen von:
+  - Tachosignal auslesen wie
   https://forum.arduino.cc/index.php?topic=145226.msg1102102#msg1102102
-- ntpClient, nonblocking, auch im Fehlerfall
+  - ntpClient, nonblocking, auch im Fehlerfall
   Der Standard Arduino ntpClient blockiert im Fehlerfall für mindestens eine Sekunde
   https://github.com/blackketter/NTPClient
 */
@@ -102,6 +102,7 @@ MCUFRIEND_kbv tft;
 
 const char *TOPICCommand                 = "d15/set/#";
 const char *TOPICCommandDebug            = "d15/debugset/#";
+const char *TOPICCmdFansCalculateSpeed   = "d15/set/kwl/fans/calculatespeed";
 const char *TOPICCmdFan1Speed            = "d15/set/kwl/fan1/standardspeed";
 const char *TOPICCmdFan2Speed            = "d15/set/kwl/fan2/standardspeed";
 const char *TOPICCmdGetSpeed             = "d15/set/kwl/fans/getspeed";
@@ -159,6 +160,9 @@ char   buffer[7];    // the ASCII of the integer will be stored in this char arr
 String TEMPAsString; // Ausgelesene Wert als String
 
 // Variablen für Lüfter Tacho
+#define CalculateSpeed_PID    1
+#define CalculateSpeed_PROP   0
+int FansCalculateSpeed = CalculateSpeed_PROP;   // 0 = Berechne das PWM Signal Proportional zur Nenndrehzahl der Lüfter; 1=PID-Regler verwenden
 double speedTachoFan1 = 0;    // Zuluft U/min
 double speedTachoFan2 = 0;    // Abluft U/min
 double SendMqttSpeedTachoFan1 = 0;
@@ -192,7 +196,7 @@ int kwlMode = 3;      // Standardlüftungsstufe
 
 boolean antifreezeState = false;
 float   antifreezeTemp = 2.0;
-int     antifreezeHyst = 3; 
+int     antifreezeHyst = 3;
 double  antifreezeTempUpperLimit = antifreezeTemp + antifreezeHyst;
 boolean antifreezeAlarm = false;
 
@@ -297,15 +301,15 @@ PID PidPreheater(&TEMP4_Fortluft, &techSetpointPreheater, &antifreezeTempUpperLi
 
 // Temperatur Sensoren, Pinbelegung steht oben
 OneWire Temp1OneWire(TEMP1_ONE_WIRE_BUS); // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
-OneWire Temp2OneWire(TEMP2_ONE_WIRE_BUS); 
-OneWire Temp3OneWire(TEMP3_ONE_WIRE_BUS); 
-OneWire Temp4OneWire(TEMP4_ONE_WIRE_BUS); 
+OneWire Temp2OneWire(TEMP2_ONE_WIRE_BUS);
+OneWire Temp3OneWire(TEMP3_ONE_WIRE_BUS);
+OneWire Temp4OneWire(TEMP4_ONE_WIRE_BUS);
 DallasTemperature Temp1Sensor(&Temp1OneWire); // Bindung der Sensoren an den OneWire Bus
-DallasTemperature Temp2Sensor(&Temp2OneWire); 
-DallasTemperature Temp3Sensor(&Temp3OneWire); 
+DallasTemperature Temp2Sensor(&Temp2OneWire);
+DallasTemperature Temp3Sensor(&Temp3OneWire);
 DallasTemperature Temp4Sensor(&Temp4OneWire);
 
-// 
+//
 float SendMqttTEMP1 = 0;    // Temperatur Außenluft, gesendet per Mqtt
 float SendMqttTEMP2 = 0;    // Temperatur Zuluft
 float SendMqttTEMP3 = 0;    // Temperatur Abluft
@@ -328,6 +332,17 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   String topicStr = topic;
 
   // Set Values
+  if (topicStr == TOPICCmdFansCalculateSpeed) {
+    payload[length] = '\0';
+    String s = String((char*)payload);
+    if (s == "PROP")  {
+      FansCalculateSpeed = CalculateSpeed_PROP;
+    }
+    if (s == "PID") {
+      FansCalculateSpeed = CalculateSpeed_PID;
+    }
+
+  }
   if (topicStr == TOPICCmdFan1Speed) {
     payload[length] = '\0';
     String s = String((char*)payload);
@@ -364,17 +379,27 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   if (topicStr == TOPICCmdBypassManualFlap) {
     payload[length] = '\0';
     String s = String((char*)payload);
-    if (s == "open")  {bypassManualSetpoint = bypassFlapState_Open; }
-    if (s == "close") {bypassManualSetpoint = bypassFlapState_Close;}
+    if (s == "open")  {
+      bypassManualSetpoint = bypassFlapState_Open;
+    }
+    if (s == "close") {
+      bypassManualSetpoint = bypassFlapState_Close;
+    }
     // Stellung Bypassklappe bei manuellem Modus
-  }  
+  }
   if (topicStr == TOPICCmdBypassMode) {
     payload[length] = '\0';
     String s = String((char*)payload);
-    if (s == "auto")   {bypassMode = bypassMode_Auto;   mqttCmdSendBypassState=true;}
-    if (s == "manual") {bypassMode = bypassMode_Manual; mqttCmdSendBypassState=true;}
+    if (s == "auto")   {
+      bypassMode = bypassMode_Auto;
+      mqttCmdSendBypassState = true;
+    }
+    if (s == "manual") {
+      bypassMode = bypassMode_Manual;
+      mqttCmdSendBypassState = true;
+    }
     // Auto oder manueller Modus
-  }  
+  }
 
   // Get Commands
   if (topicStr == TOPICCmdGetTemp) {
@@ -391,7 +416,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     payload[length] = '\0';
     String s = String((char*)payload);
     mqttCmdSendBypassAllValues = true;
-  }  
+  }
 
 
   // Debug Messages, den folgenden Block in der produktiven Version auskommentieren
@@ -416,20 +441,28 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     mqttCmdSendTemp = true;
   }
 
-    if (topicStr == TOPICKwlDebugsetFan1Getvalues) {
+  if (topicStr == TOPICKwlDebugsetFan1Getvalues) {
     payload[length] = '\0';
     String s = String((char*)payload);
-    if (s == "on")   {mqttCmdSendAlwaysDebugFan1 = true;}
-    if (s == "off")  {mqttCmdSendAlwaysDebugFan1 = false;}
-  } 
+    if (s == "on")   {
+      mqttCmdSendAlwaysDebugFan1 = true;
+    }
+    if (s == "off")  {
+      mqttCmdSendAlwaysDebugFan1 = false;
+    }
+  }
   if (topicStr == TOPICKwlDebugsetFan2Getvalues) {
     payload[length] = '\0';
     String s = String((char*)payload);
-    if (s == "on")   {mqttCmdSendAlwaysDebugFan2 = true;}
-    if (s == "off")  {mqttCmdSendAlwaysDebugFan2 = false;}
-  } 
+    if (s == "on")   {
+      mqttCmdSendAlwaysDebugFan2 = true;
+    }
+    if (s == "off")  {
+      mqttCmdSendAlwaysDebugFan2 = false;
+    }
+  }
   // Debug Messages, bis hier auskommentieren
-   
+
 }
 
 boolean mqttReconnect() {
@@ -479,27 +512,38 @@ void setSpeedToFan() {
   double gap1 = abs(speedSetpointFan1 - speedTachoFan1); //distance away from setpoint
   double gap2 = abs(speedSetpointFan2 - speedTachoFan2); //distance away from setpoint
 
-  if (gap1 < 20) {
-    PidFan1.SetTunings(consKp, consKi, consKd);
-  }  else   {
-    PidFan1.SetTunings(aggKp, aggKi, aggKd);
+  if (FansCalculateSpeed == CalculateSpeed_PID) {
+    if (gap1 < 20) {
+      PidFan1.SetTunings(consKp, consKi, consKd);
+    }  else   {
+      PidFan1.SetTunings(aggKp, aggKi, aggKd);
+    }
+    if (gap2 < 20) {
+      PidFan2.SetTunings(consKp, consKi, consKd);
+    }  else   {
+      PidFan2.SetTunings(aggKp, aggKi, aggKd);
+    }
+    PidFan1.Compute();
+    PidFan2.Compute();
+    
+  } else if (FansCalculateSpeed == CalculateSpeed_PROP) {
+    // Nenndrehzahl Lüfter lt Datenblatt 3200 U/min
+    int Nenndrehzahl = 3200;
+    techSetpointFan1 = speedSetpointFan1 * 1000 / Nenndrehzahl;
+    techSetpointFan2 = speedSetpointFan2 * 1000 / Nenndrehzahl;
   }
-  if (gap2 < 20) {
-    PidFan2.SetTunings(consKp, consKi, consKd);
-  }  else   {
-    PidFan2.SetTunings(aggKp, aggKi, aggKd);
-  }
-
-  PidFan1.Compute();
-  PidFan2.Compute();
-
+  
   Serial.print ("mqttCmdSendAlwaysDebugFan1: ");
   Serial.println(mqttCmdSendAlwaysDebugFan1);
-  
-  if (mqttCmdSendAlwaysDebugFan1) { mqtt_debug_fan1(); }
-  if (mqttCmdSendAlwaysDebugFan2) { mqtt_debug_fan2(); }
-  
-  if (serialDebugFan == 1){
+
+  if (mqttCmdSendAlwaysDebugFan1) {
+    mqtt_debug_fan1();
+  }
+  if (mqttCmdSendAlwaysDebugFan2) {
+    mqtt_debug_fan2();
+  }
+
+  if (serialDebugFan == 1) {
     Serial.print ("Timestamp: ");
     Serial.println ((long)millis());
     Serial.print ("Fan 1: ");
@@ -511,7 +555,7 @@ void setSpeedToFan() {
     Serial.print (techSetpointFan1);
     Serial.print ("\tspeedSetpointFan1: ");
     Serial.println(speedSetpointFan1);
-  
+
     Serial.print ("Fan 2: ");
     Serial.print ("\tGap: ");
     Serial.print (gap2);
@@ -534,7 +578,7 @@ void setSpeedToFan() {
 
   SetPreheating();
 
-  if (serialDebugFan == 1){
+  if (serialDebugFan == 1) {
     Serial.print ("techSetpointFan2: ");
     Serial.println (techSetpointFan2);
   }
@@ -549,11 +593,17 @@ void SetPreheating() {
   // Wenn der Zuluftventilator unter einer Schwelle des Tachosignals liegt, wird das Vorheizregister IMMER ausgeschaltet (SICHERHEIT)
   // Schwelle: 1200 U/min
 
-  if (serialDebugAntifreeze == 1) {Serial.println ("SetPreheating start");}
+  if (serialDebugAntifreeze == 1) {
+    Serial.println ("SetPreheating start");
+  }
   if (antifreezeState) {
-    if (serialDebugAntifreeze == 1) {Serial.println ("antifreezeState true");}
+    if (serialDebugAntifreeze == 1) {
+      Serial.println ("antifreezeState true");
+    }
     if (!antifreezeAlarm) {
-      if (serialDebugAntifreeze == 1) {Serial.println ("Vorheizer versuchen");}
+      if (serialDebugAntifreeze == 1) {
+        Serial.println ("Vorheizer versuchen");
+      }
       // Vorheizer versuchen
       if (PidPreheater.GetMode() == MANUAL) {
         PidPreheater.SetMode(AUTOMATIC);  // Pid einschalten
@@ -562,11 +612,15 @@ void SetPreheating() {
     } else {
       // antifreezeAlarm == true also 10 Minuten vergangen seit antifreezeState == true
       // jetzt pidPreheater ausschalten,techSetpointPreheater=0 und Zuluftventilator ausschalten
-      if (serialDebugAntifreeze == 1) {Serial.println ("antifreezeAlarm == true also 10 Minuten vergangen seit antifreezeState == true");}
+      if (serialDebugAntifreeze == 1) {
+        Serial.println ("antifreezeAlarm == true also 10 Minuten vergangen seit antifreezeState == true");
+      }
       if (PidPreheater.GetMode() == AUTOMATIC) {
         PidPreheater.SetMode(MANUAL); // Pid ausschalten
       }
-      if (serialDebugAntifreeze == 1) {Serial.println ("fan2 = 0");}
+      if (serialDebugAntifreeze == 1) {
+        Serial.println ("fan2 = 0");
+      }
       techSetpointFan2 = 0;
       techSetpointPreheater = 0;
     }
@@ -617,26 +671,40 @@ void loopTemperaturRead() {
   if (currentMillis - previousMillisTemp >= intervalTempRead) {
     previousMillisTemp = currentMillis;
     float t;
-    t = Temp1Sensor.getTempCByIndex(0); if (t > -127.0) {TEMP1_Aussenluft = t;}
-    t = Temp2Sensor.getTempCByIndex(0); if (t > -127.0) {TEMP2_Zuluft = t;}
-    t = Temp3Sensor.getTempCByIndex(0); if (t > -127.0) {TEMP3_Abluft = t;}
-    t = Temp4Sensor.getTempCByIndex(0); if (t > -127.0) {TEMP4_Fortluft = t;}
+    t = Temp1Sensor.getTempCByIndex(0); if (t > -127.0) {
+      TEMP1_Aussenluft = t;
+    }
+    t = Temp2Sensor.getTempCByIndex(0); if (t > -127.0) {
+      TEMP2_Zuluft = t;
+    }
+    t = Temp3Sensor.getTempCByIndex(0); if (t > -127.0) {
+      TEMP3_Abluft = t;
+    }
+    t = Temp4Sensor.getTempCByIndex(0); if (t > -127.0) {
+      TEMP4_Fortluft = t;
+    }
   }
 }
 
 void loopAntiFreezeCheck() {
   currentMillis = millis();
   if (currentMillis - previousMillisAntifreeze >= intervalAntifreezeCheck) {
-    if (serialDebugAntifreeze == 1) {Serial.println ("loopAntiFreezeCheck start");}
-     previousMillisAntifreeze = currentMillis;
+    if (serialDebugAntifreeze == 1) {
+      Serial.println ("loopAntiFreezeCheck start");
+    }
+    previousMillisAntifreeze = currentMillis;
     // Antifreeze Flag einschalten
     if ((TEMP4_Fortluft <= antifreezeTemp) && (TEMP1_Aussenluft < 0.0)
         && (TEMP4_Fortluft > -127.0) && (TEMP1_Aussenluft > -127.0))         // Wenn Sensoren fehlen, ist der Wert -127
     {
-      if (serialDebugAntifreeze == 1) {Serial.println ("Antifreeze Flag einschalten?");}
+      if (serialDebugAntifreeze == 1) {
+        Serial.println ("Antifreeze Flag einschalten?");
+      }
       if (!antifreezeState) {
         // Nur bei Zustandsänderung Senden anstossen und PID einschalten
-        if (serialDebugAntifreeze == 1) {Serial.println ("Antifreeze Flag einschalten");}
+        if (serialDebugAntifreeze == 1) {
+          Serial.println ("Antifreeze Flag einschalten");
+        }
         mqttCmdSendTemp = true;
         antifreezeState = true;
         PreheaterStartMillis = millis();
@@ -644,10 +712,14 @@ void loopAntiFreezeCheck() {
     }
     // Antifreeze Flag ausschalten
     if (TEMP4_Fortluft > antifreezeTemp + antifreezeHyst) {
-      if (serialDebugAntifreeze == 1) {Serial.println ("Antifreeze Flag ausschalten?");}
+      if (serialDebugAntifreeze == 1) {
+        Serial.println ("Antifreeze Flag ausschalten?");
+      }
       if (antifreezeState) {
         // Nur bei Zustandsänderung Senden anstossen
-        if (serialDebugAntifreeze == 1) {Serial.println ("Antifreeze Flag ausschalten");}
+        if (serialDebugAntifreeze == 1) {
+          Serial.println ("Antifreeze Flag ausschalten");
+        }
         mqttCmdSendTemp = true;
       }
       // AntifreezeState und Alarm aufheben, Tempertatur liegt im "normalen" Bereich
@@ -656,9 +728,13 @@ void loopAntiFreezeCheck() {
       PreheaterStartMillis = 0;
     }
     if (antifreezeState && (millis() - PreheaterStartMillis >= intervalAntifreezeAlarmCheck)) {
-      if (serialDebugAntifreeze == 1) {Serial.println ("Antifreeze antifreezeAlarm Checktemp");}
+      if (serialDebugAntifreeze == 1) {
+        Serial.println ("Antifreeze antifreezeAlarm Checktemp");
+      }
       if (TEMP4_Fortluft <= antifreezeTemp) {
-        if (serialDebugAntifreeze == 1) {Serial.println ("Antifreeze antifreezeAlarm");}
+        if (serialDebugAntifreeze == 1) {
+          Serial.println ("Antifreeze antifreezeAlarm");
+        }
         // Temperatur konnte auch nach 10 Minuten nicht erhöht werden, Alarm setzen
         antifreezeAlarm = true;
       }
@@ -669,8 +745,8 @@ void loopAntiFreezeCheck() {
 void loopBypassSummerCheck() {
   // Bedingungen für Sommer Bypass überprüfen und Variable ggfs setzen
   currentMillis = millis();
-  if (currentMillis - previousMillisBypassSummerCheck >= intervalBypassSummerCheck) {    
-    previousMillisBypassSummerCheck = currentMillis;    
+  if (currentMillis - previousMillisBypassSummerCheck >= intervalBypassSummerCheck) {
+    previousMillisBypassSummerCheck = currentMillis;
     // Auto oder Manual?
     if (bypassMode == bypassMode_Auto) {
       // Automatic
@@ -761,7 +837,7 @@ void loopTachoFan() {
   // geschieht per Interrupt in countUpFan1 und countUpFan2
   currentMillis = millis();
   if (currentMillis - previousMillisFan >= intervalTachoFan) {
-    
+
     byte _cycleFan1Counter;
     byte _cycleFan2Counter;
     unsigned long _tachoFan1TimeSum;
@@ -968,8 +1044,8 @@ void loopMqttSendTemp() {
   }
 }
 
-void loopMqttHeartbeat(){
-  if (millis() - previousMillisMqttHeartbeat > 30000){
+void loopMqttHeartbeat() {
+  if (millis() - previousMillisMqttHeartbeat > 30000) {
     previousMillisMqttHeartbeat = millis();
     mqttClient.publish(TOPICHeartbeat, "online");
   }
@@ -1045,7 +1121,7 @@ void initializeVariables()
 }
 
 void loopWrite100Millis() {
- currentMillis = millis();
+  currentMillis = millis();
   if (currentMillis - previous100Millis > 100) {
     previous100Millis = currentMillis;
     Serial.print ("Timestamp: ");
@@ -1062,7 +1138,7 @@ void setup()
   start_tft();
   print_header();
   print_footer();
-   
+
   initializeEEPROM();
   initializeVariables();
 
@@ -1076,10 +1152,10 @@ void setup()
   Ethernet.begin(mac, ip);
   delay(1500);    // Delay in Setup erlaubt
   lastReconnectAttempt = 0;
-  
+
   Serial.println("Warte auf Zeitsynchronisation");
   tft.println("Warte auf Zeitsynchronisation");
-  
+
   // NTP Client starten
   timeClient.begin(); // NTP Provider starten / erstmalig abfragen
 
@@ -1094,13 +1170,13 @@ void setup()
   Temp1Sensor.setWaitForConversion(false);
   Temp2Sensor.begin();
   Temp2Sensor.setResolution(TEMPERATURE_PRECISION);
-  Temp2Sensor.setWaitForConversion(false); 
+  Temp2Sensor.setWaitForConversion(false);
   Temp3Sensor.begin();
   Temp3Sensor.setResolution(TEMPERATURE_PRECISION);
-  Temp3Sensor.setWaitForConversion(false); 
+  Temp3Sensor.setWaitForConversion(false);
   Temp4Sensor.begin();
   Temp4Sensor.setResolution(TEMPERATURE_PRECISION);
-  Temp4Sensor.setWaitForConversion(false); 
+  Temp4Sensor.setWaitForConversion(false);
 
   // Lüfter Speed
   pinMode(pwmPinFan1, OUTPUT);
@@ -1121,7 +1197,7 @@ void setup()
   digitalWrite(relPinFan1Power, RELAY_ON);
   pinMode(relPinFan2Power, OUTPUT);
   digitalWrite(relPinFan2Power, RELAY_ON);
-  
+
   // Relais Ansteuerung Bypass
   pinMode(relPinBypassPower, OUTPUT);
   digitalWrite(relPinBypassPower, RELAY_OFF);
@@ -1129,7 +1205,7 @@ void setup()
   digitalWrite(relPinBypassDirection, RELAY_OFF);
 
   // 4 Sekunden Pause für die TFT Anzeige, damit man sie auch lesen kann
-  delay (4000); 
+  delay (4000);
 
   //PID
   //turn the PID on
