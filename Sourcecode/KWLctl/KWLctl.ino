@@ -165,9 +165,6 @@ String TEMPAsString; // Ausgelesene Wert als String
 #define CalculateSpeed_PID    1
 #define CalculateSpeed_PROP   0
 int FansCalculateSpeed = CalculateSpeed_PROP;   // 0 = Berechne das PWM Signal Proportional zur Nenndrehzahl der Lüfter; 1=PID-Regler verwenden
-#define FanMode_Normal        0
-#define FanMode_Calibration   1
-int FanMode = FanMode_Normal;                   // Umschaltung zum Kalibrieren der PWM Signale zur Erreichung der Lüfterdrehzahlen für jede Stufe
 double speedTachoFan1                 = 0;    // Zuluft U/min
 double speedTachoFan2                 = 0;    // Abluft U/min
 double SendMqttSpeedTachoFan1         = 0;
@@ -182,8 +179,8 @@ unsigned long tachoFan2LastMillis     = 0;
 int cycleFan1Counter                  = 0;
 int cycleFan2Counter                  = 0;
 
-double StandardSpeedSetpointFan1      = 0;      // Solldrehzahl im U/min für Zuluft bei kwlMode = 3 (Standardlüftungsstufe), Drehzahlen werden aus EEPROM gelesen.
-double StandardSpeedSetpointFan2      = 0;      // Solldrehzahl im U/min für Abluft bei kwlMode = 3 (Standardlüftungsstufe)
+double StandardSpeedSetpointFan1      = 2500;      // Solldrehzahl im U/min für Zuluft bei kwlMode = 3 (Standardlüftungsstufe), Drehzahlen werden aus EEPROM gelesen.
+double StandardSpeedSetpointFan2      = 1830;      // Solldrehzahl im U/min für Abluft bei kwlMode = 3 (Standardlüftungsstufe)
 double speedSetpointFan1              = 0;              // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
 double speedSetpointFan2              = 0;              // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
 double techSetpointFan1               = 0;              // PWM oder Analogsignal 0..1000 für Zuluft
@@ -191,13 +188,24 @@ double techSetpointFan2               = 0;              // PWM oder Analogsignal
 // Ende Variablen für Lüfter
 
 
+int NenndrehzahlFan     =   3200; // Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min
+
 // Mode 0: Aus
 // mode 1: 60%
 // mode 2: 80%
 // mode 3: 100%
 // mode 4: 120%
 // mode 5: 140%
-int kwlMode = 3;      // Standardlüftungsstufe
+int  kwlMode = 3;      // Standardlüftungsstufe
+#define ModeCnt 6
+double KwlModeFactor[ModeCnt] = {0, 0.6, 0.8, 1, 1.2, 1.4};       // Speichert die Solldrehzahlen in Relation zur Stufe 3
+int  PwmSetpointFan1[ModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
+int  PwmSetpointFan2[ModeCnt];
+
+#define FanMode_Normal        0
+#define FanMode_Calibration   1
+int FanMode = FanMode_Normal;                   // Umschaltung zum Kalibrieren der PWM Signale zur Erreichung der Lüfterdrehzahlen für jede Stufe
+
 
 boolean antifreezeState           = false;
 float   antifreezeTemp            = 2.0;
@@ -267,7 +275,7 @@ unsigned long bypassFlapsStartTime = 0;                           // Startzeit f
 // Ende  - Variablen für Bypass ///////////////////////////////////////////
 
 // Begin EEPROM
-#define    WRITE_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
+#define    WRITE_EEPROM true // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
 const int  BUFSIZE = 50;
 char       eeprombuffer[BUFSIZE];
 
@@ -491,28 +499,8 @@ void setSpeedToFan() {
   // max. Lüfterdrehzahl bei Pabstlüfter 3200 U/min
   // max. Drehzahl 2300 U/min bei Testaufbau (alten Prozessorlüftern)
 
-  double KwlModeFactor = 1.0;
-  if (kwlMode == 0) {
-    KwlModeFactor = 0;
-  }
-  if (kwlMode == 1) {
-    KwlModeFactor = 0.6;
-  }
-  if (kwlMode == 2) {
-    KwlModeFactor = 0.8;
-  }
-  if (kwlMode == 3) {
-    KwlModeFactor = 1.0;
-  }
-  if (kwlMode == 4) {
-    KwlModeFactor = 1.2;
-  }
-  if (kwlMode == 5) {
-    KwlModeFactor = 1.4;
-  }
-
-  speedSetpointFan1 = StandardSpeedSetpointFan1 * KwlModeFactor;
-  speedSetpointFan2 = StandardSpeedSetpointFan2 * KwlModeFactor;
+  speedSetpointFan1 = StandardSpeedSetpointFan1 * KwlModeFactor[kwlMode];
+  speedSetpointFan2 = StandardSpeedSetpointFan2 * KwlModeFactor[kwlMode];
 
   double gap1 = abs(speedSetpointFan1 - speedTachoFan1); //distance away from setpoint
   double gap2 = abs(speedSetpointFan2 - speedTachoFan2); //distance away from setpoint
@@ -531,14 +519,12 @@ void setSpeedToFan() {
     }
     PidFan1.Compute();
     PidFan2.Compute();
-    
+
   } else if (FansCalculateSpeed == CalculateSpeed_PROP) {
-    // Nenndrehzahl Lüfter lt Datenblatt 3200 U/min
-    int Nenndrehzahl = 3200;
-    techSetpointFan1 = speedSetpointFan1 * 1000 / Nenndrehzahl;
-    techSetpointFan2 = speedSetpointFan2 * 1000 / Nenndrehzahl;
+    techSetpointFan1 = speedSetpointFan1 * 1000 / NenndrehzahlFan;
+    techSetpointFan2 = speedSetpointFan2 * 1000 / NenndrehzahlFan;
   }
-  
+
   if (kwlMode == 0)               {
     techSetpointFan1 = 0 ;  // Lüfungsstufe 0 alles ausschalten
     techSetpointFan2 = 0;
@@ -546,7 +532,7 @@ void setSpeedToFan() {
 
   // Sicherheitsüberprüfung, um ein einfrieren des Wärmetauschers zu vermeiden
   if ((TEMP4_Fortluft <= -1)
-      && (TEMP4_Fortluft != -127.0))       {
+      && (TEMP4_Fortluft != -127.0)) {
     techSetpointFan2 = 0; // Frostschutzalarm bei -1.0 wird der Zuluftventilator abgeschaltet
     // Eventuell sollte hier ein Fehler per mqtt gesenden werden!!!
   }
@@ -737,10 +723,10 @@ void loopAntiFreezeCheck() {
       Serial.print ("millis: ");
       Serial.println (millis());
       Serial.print ("PreheaterStartMillis: ");
-      Serial.println (PreheaterStartMillis);  
+      Serial.println (PreheaterStartMillis);
       Serial.print ("intervalAntiFreezeAlarmCheck: ");
-      Serial.println (intervalAntiFreezeAlarmCheck);      
-    }    
+      Serial.println (intervalAntiFreezeAlarmCheck);
+    }
     if (antifreezeState && (millis() - PreheaterStartMillis >= intervalAntiFreezeAlarmCheck)) {
       if (serialDebugAntifreeze == 1) {
         Serial.println ("Antifreeze antifreezeAlarm Checktemp");
@@ -888,7 +874,11 @@ void loopSetFan() {
   if (currentMillis - previousMillisSetFan > intervalSetFan) {
     //Serial.println ("loopSetFan");
     previousMillisSetFan = currentMillis;
-    setSpeedToFan();
+    if (FanMode == FanMode_Normal) {
+      setSpeedToFan();
+    } else if (FanMode == FanMode_Calibration) {
+      SpeedCalibrationPwm();
+    }
   }
 }
 
@@ -1132,7 +1122,25 @@ void initializeVariables()
   // bypassMode Auto
   eeprom_read_int (16, &temp);
   bypassMode = temp;
+
+  // PWM für max 10 Lüftungsstufen und zwei Lüfter und einem Integer
+  // max 10 Werte * 2 Lüfter * 2 Byte
+  // 20 bis 60
+  if (ModeCnt > 10) {
+    Serial.println("ERROR: ModeCnt zu groß");
+  }
+  for (int i = 0; ((i < ModeCnt) && (i < 10)); i++) {
+    eeprom_read_int (20 + (i * 4), &temp);
+    PwmSetpointFan1[i] = temp;
+    eeprom_read_int (22 + (i * 4), &temp);
+    PwmSetpointFan2[i] = temp;
+  }
+  // ENDE PWM für max 10 Lüftungsstufen
+  // Weiter geht es ab Speicherplatz 60dez ff
+
+
 }
+
 
 void loopWrite100Millis() {
   currentMillis = millis();
@@ -1203,21 +1211,21 @@ void setup()
   tft.println("Teste Ventilatoren");
   pinMode(tachoPinFan1, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(tachoPinFan1), countUpFan1, RISING );
-  
+
   Serial.print ("Pin und Interrupt: ");
   Serial.print (tachoPinFan1);
   Serial.print ("\t");
   Serial.println (digitalPinToInterrupt(tachoPinFan1));
-  
+
   pinMode(tachoPinFan2, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(tachoPinFan2), countUpFan2, RISING );
-  
+
   Serial.print ("Pin und Interrupt: ");
-  Serial.print (tachoPinFan2);  
+  Serial.print (tachoPinFan2);
   Serial.print ("\t");
   Serial.println (digitalPinToInterrupt(tachoPinFan2));
   delay(4000);
-  
+
   // Relais Ansteuerung Lüfter
   pinMode(relPinFan1Power, OUTPUT);
   digitalWrite(relPinFan1Power, RELAY_ON);
@@ -1242,7 +1250,7 @@ void setup()
   PidFan2.SetOutputLimits(0, 1000);
   PidFan2.SetMode(AUTOMATIC);
   PidFan2.SetSampleTime(intervalSetFan);
-  
+
   PidPreheater.SetOutputLimits(0, 1000);
   PidPreheater.SetMode(MANUAL);
   PidPreheater.SetSampleTime(intervalSetFan);  // SetFan ruft Preheater auf, deswegen hier intervalSetFan
