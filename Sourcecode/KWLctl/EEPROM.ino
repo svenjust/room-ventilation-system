@@ -155,10 +155,10 @@ void initializeEEPROM(boolean EraseMemory)
     eeprom_write_string(0, eeprombuffer);
 
     // Normdrehzahl Lüfter 1
-    eeprom_write_int(2, StandardSpeedSetpointFan1);
-
+    eeprom_write_int(2, defStandardSpeedSetpointFan1);
+    
     // Normdrehzahl Lüfter 2
-    eeprom_write_int(4, StandardSpeedSetpointFan2);
+    eeprom_write_int(4, defStandardSpeedSetpointFan2);
 
     // bypassTempAbluftMin
     eeprom_write_int(6, 24);
@@ -181,12 +181,13 @@ void initializeEEPROM(boolean EraseMemory)
     // PWM für max 10 Lüftungsstufen und zwei Lüfter und einem Integer
     // max 10 Werte * 2 Lüfter * 2 Byte
     // 20 bis 60
+    
     if (ModeCnt > 10) {
       Serial.println("ERROR: ModeCnt zu groß");
     }
     for (int i = 0; ((i < ModeCnt) && (i < 10)); i++) {
-      eeprom_write_int(20 + (i * 4), (int)StandardSpeedSetpointFan1 * KwlModeFactor[i] * 1000 / NenndrehzahlFan);
-      eeprom_write_int(22 + (i * 4), (int)StandardSpeedSetpointFan2 * KwlModeFactor[i] * 1000 / NenndrehzahlFan);
+      eeprom_write_int(20 + (i * 4), (int)(defStandardSpeedSetpointFan1 * KwlModeFactor[i] * 1000 / defNenndrehzahlFan));
+      eeprom_write_int(22 + (i * 4), (int)(defStandardSpeedSetpointFan2 * KwlModeFactor[i] * 1000 / defNenndrehzahlFan));
     }
     // ENDE PWM für max 10 Lüftungsstufen
     // Weiter geht es ab Speicherplatz 60dez ff

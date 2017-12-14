@@ -10,6 +10,8 @@ boolean       CalibrationStartet      = false;
 unsigned long CalibrationStartMillis  = 0;
 unsigned long timeoutCalibration      = 600000;   // zehn Minuten, sollte in der Zeit die Kalibrierung nicht abgelossen werden können wird trotzdem beendet
 
+int actFansCalculateSpeed = CalculateSpeed_PROP;
+
 // Kalibrierung einer Stufe
 boolean       CalibrationPwmStufeStartet      = false;
 unsigned long CalibrationPwmStufeStartMillis  = 0;
@@ -25,6 +27,14 @@ int  goodPwmsFan1[goodPwmsCnt];
 int  goodPwmsFan2[goodPwmsCnt];
 int  ActGoodPwmsFan1;
 int  ActGoodPwmsFan2;
+
+
+void SpeedCalibrationStart() {
+  CalibrationPwmStufeStartet = false;
+  CalibrationStartet = false;
+  FanMode = FanMode_Calibration;
+}
+
 
 
 boolean SpeedCalibrationPwmStufe(int actKwlMode) {
@@ -91,9 +101,34 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
     if (mqttCmdSendAlwaysDebugFan2) {
       mqtt_debug_fan2();
     }
+
+    if (1 == 1) {
+      Serial.print ("Timestamp: ");
+      Serial.println ((long)millis());
+      Serial.print ("Fan 1: ");
+      Serial.print ("\tGap: ");
+      Serial.print (gap1);
+      Serial.print ("\tspeedTachoFan1: ");
+      Serial.print (speedTachoFan1);
+      Serial.print ("\ttechSetpointFan1: ");
+      Serial.print (techSetpointFan1);
+      Serial.print ("\tspeedSetpointFan1: ");
+      Serial.println(speedSetpointFan1);
+
+      Serial.print ("Fan 2: ");
+      Serial.print ("\tGap: ");
+      Serial.print (gap2);
+      Serial.print ("\tspeedTachoFan2: ");
+      Serial.print (speedTachoFan2);
+      Serial.print ("\ttechSetpointFan2: ");
+      Serial.print (techSetpointFan2);
+      Serial.print ("\tspeedSetpointFan2: ");
+      Serial.println(speedSetpointFan2);
+    }
     // Lüfter ansteuern
     analogWrite(pwmPinFan1, techSetpointFan1 / 4);
     analogWrite(pwmPinFan2, techSetpointFan2 / 4);
+    return false;
   }
 }
 
@@ -106,12 +141,15 @@ void SpeedCalibrationPwm() {
     CalibrationStartet = true;
     CalibrationStartMillis = millis();
     actKwlMode = 0;
+    actFansCalculateSpeed = FansCalculateSpeed;
+    FansCalculateSpeed = CalculateSpeed_PROP;
   }
   if (CalibrationStartet && (millis() - CalibrationStartMillis >= timeoutCalibration)) {
     // Timeout, Kalibrierung abbrechen
     FanMode = FanMode_Normal;
     CalibrationStartet = false;
     CalibrationStartMillis = 0;
+    Serial.println ("Error: Kalibrierung NICHT erfolgreich");
   } else {
     if (!CalibrationPwmStufeStartet) {
       // Erste Durchlauf der Kalibrierung
@@ -121,28 +159,29 @@ void SpeedCalibrationPwm() {
       ActGoodPwmsFan1 = 0;
       ActGoodPwmsFan2 = 0;
     }
-    if (CalibrationPwmStufeStartet && (millis() - CalibrationPwmStufeStartMillis >= timeoutPwmStufeCalibration)) {
+    if (CalibrationPwmStufeStartet && (millis() - CalibrationPwmStufeStartMillis <= timeoutPwmStufeCalibration)) {
       // Einzelne Stufen kalibrieren
       if (SpeedCalibrationPwmStufe(actKwlMode)) {
         // true = Kalibrierung der Lüftungsstufe beendet
         if (actKwlMode == ModeCnt - 1) {
           // fertig mit allen Stufen!!!
           // Speichern in EEProm und Variablen
-          for (int i = 0; ((i < ModeCnt)&&(i<10)); i++) {
+          for (int i = 0; ((i < ModeCnt) && (i < 10)); i++) {
             PwmSetpointFan1[i] = tempPwmSetpointFan1[i];
             PwmSetpointFan2[i] = tempPwmSetpointFan2[i];
             eeprom_write_int(20 + (i * 4), PwmSetpointFan1[i]);
-            eeprom_write_int(22 + (i * 4), PwmSetpointFan2[i]);            
-
+            eeprom_write_int(22 + (i * 4), PwmSetpointFan2[i]);
             Serial.print ("Stufe: ");
             Serial.print (i);
             Serial.print ("  PWM Fan 1: ");
             Serial.print (PwmSetpointFan1[i]);
             Serial.print ("  PWM Fan 2: ");
-            Serial.print (PwmSetpointFan2[i]);
+            Serial.println (PwmSetpointFan2[i]);
           }
-          
-
+          FanMode = FanMode_Normal;
+          CalibrationStartet = false;
+          CalibrationStartMillis = 0;
+          Serial.println ("Kalibrierung erfolgreich beendet.");
         } else {
           // nächste Stufe
           CalibrationPwmStufeStartet = false;

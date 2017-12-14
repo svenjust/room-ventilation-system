@@ -94,8 +94,11 @@ int serialDebugAntifreeze = 1;  // 1 = Debugausgaben für die Antifreezeschaltun
 // ModeCnt definiert die Anzahl der Stufen
 //
 #define  ModeCnt 4
-double   KwlModeFactor[ModeCnt] = {0, 0.7, 1, 1.3};       // Speichert die Solldrehzahlen in Relation zur Stufe 3
-int      kwlMode                = 2;                      // Standardlüftungsstufe
+double   KwlModeFactor[ModeCnt]       = {0, 0.7, 1, 1.3};       // Speichert die Solldrehzahlen in Relation zur Standardlüftungsstufe 
+int      kwlMode                      = 2;                      // Standardlüftungsstufe
+#define  defStandardSpeedSetpointFan1 1450                      // Drehzahlen für Standardlüftungsstufe
+#define  defStandardSpeedSetpointFan2 1100
+#define  defNenndrehzahlFan           3200                      // Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min
 
 // *** TFT
 // Assign human-readable names to some common 16-bit color values:
@@ -178,8 +181,8 @@ char   buffer[7];    // the ASCII of the integer will be stored in this char arr
 String TEMPAsString; // Ausgelesene Wert als String
 
 // Variablen für Lüfter Tacho
-#define CalculateSpeed_PID    1
-#define CalculateSpeed_PROP   0
+#define CalculateSpeed_PID     1
+#define CalculateSpeed_PROP    0
 int FansCalculateSpeed = CalculateSpeed_PROP;   // 0 = Berechne das PWM Signal Proportional zur Nenndrehzahl der Lüfter; 1=PID-Regler verwenden
 double speedTachoFan1                 = 0;    // Zuluft U/min
 double speedTachoFan2                 = 0;    // Abluft U/min
@@ -195,16 +198,13 @@ unsigned long tachoFan2LastMillis     = 0;
 int cycleFan1Counter                  = 0;
 int cycleFan2Counter                  = 0;
 
-double StandardSpeedSetpointFan1      = 2500;      // Solldrehzahl im U/min für Zuluft bei kwlMode = 3 (Standardlüftungsstufe), Drehzahlen werden aus EEPROM gelesen.
-double StandardSpeedSetpointFan2      = 1830;      // Solldrehzahl im U/min für Abluft bei kwlMode = 3 (Standardlüftungsstufe)
-double speedSetpointFan1              = 0;              // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
-double speedSetpointFan2              = 0;              // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
-double techSetpointFan1               = 0;              // PWM oder Analogsignal 0..1000 für Zuluft
-double techSetpointFan2               = 0;              // PWM oder Analogsignal 0..1000 für Abluft
+double StandardSpeedSetpointFan1      = defStandardSpeedSetpointFan1;      // Solldrehzahl im U/min für Zuluft bei kwlMode = 2 (Standardlüftungsstufe), Drehzahlen werden aus EEPROM gelesen.
+double StandardSpeedSetpointFan2      = defStandardSpeedSetpointFan2;      // Solldrehzahl im U/min für Abluft bei kwlMode = 2 (Standardlüftungsstufe)
+double speedSetpointFan1              = 0;                                 // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
+double speedSetpointFan2              = 0;                                 // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
+double techSetpointFan1               = 0;                                 // PWM oder Analogsignal 0..1000 für Zuluft
+double techSetpointFan2               = 0;                                 // PWM oder Analogsignal 0..1000 für Abluft
 // Ende Variablen für Lüfter
-
-
-int NenndrehzahlFan     =   3200; // Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min
 
 int  PwmSetpointFan1[ModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
 int  PwmSetpointFan2[ModeCnt];
@@ -282,7 +282,7 @@ unsigned long bypassFlapsStartTime = 0;                           // Startzeit f
 // Ende  - Variablen für Bypass ///////////////////////////////////////////
 
 // Begin EEPROM
-#define    WRITE_EEPROM true // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
+#define    WRITE_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
 const int  BUFSIZE = 50;
 char       eeprombuffer[BUFSIZE];
 
@@ -367,7 +367,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     String s = String((char*)payload);
     if (s == "YES")   {
       Serial.println("Kalibrierung Lüfter wird gestartet");
-      FanMode = FanMode_Calibration;
+      SpeedCalibrationStart();
     }
   }  
   if (topicStr == TOPICCmdResetAll) {
@@ -402,7 +402,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
-    kwlMode = i;
+    if (i<=ModeCnt)  kwlMode = i;
     mqttCmdSendMode = true;
     // KWL Stufe
   }
@@ -547,8 +547,8 @@ void setSpeedToFan() {
     PidFan2.Compute();
 
   } else if (FansCalculateSpeed == CalculateSpeed_PROP) {
-    techSetpointFan1 = speedSetpointFan1 * 1000 / NenndrehzahlFan;
-    techSetpointFan2 = speedSetpointFan2 * 1000 / NenndrehzahlFan;
+    techSetpointFan1 = PwmSetpointFan1[kwlMode] ;
+    techSetpointFan2 = PwmSetpointFan2[kwlMode];
   }
 
   if (kwlMode == 0)               {
