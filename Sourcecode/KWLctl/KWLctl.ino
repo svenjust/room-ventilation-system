@@ -83,6 +83,20 @@ int serialDebug = 0;            // 1 = Allgemein Debugausgaben auf der seriellen
 int serialDebugFan = 0;         // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
 int serialDebugAntifreeze = 1;  // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
 
+// Definition der Lüftungsstufen. Es können bis zu 10 Lüftungsstufen definiert werden. Im Allgemeinen sollten 4 oder 6 Stufen ausreichen.
+// Die Originalsteuerung stellt 3 Stufen zur Verfügung
+// Ein Definition für 4 Stufen, ähnlich der Originalsteuerung wäre:
+// Stufe 0 = 0%, Stufe 1 = 70%, Stufe 2 = 100%, Stufe 3 = 130%. Stufe 0 ist hier zusätzlich.
+//
+// Ein mögliche Definition für 6 Stufen wäre bspw.:
+// Stufe 0 = 0%, Stufe 1 = 60%, Stufe 2 = 80%, Stufe 3 = 100%, Stufe 4 = 120%, Stufe 4 = 140%
+// 
+// ModeCnt definiert die Anzahl der Stufen
+//
+#define  ModeCnt 4
+double   KwlModeFactor[ModeCnt] = {0, 0.7, 1, 1.3};       // Speichert die Solldrehzahlen in Relation zur Stufe 3
+int      kwlMode                = 2;                      // Standardlüftungsstufe
+
 // *** TFT
 // Assign human-readable names to some common 16-bit color values:
 #define BLACK   0x0000
@@ -191,15 +205,6 @@ double techSetpointFan2               = 0;              // PWM oder Analogsignal
 
 int NenndrehzahlFan     =   3200; // Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min
 
-// Mode 0: Aus
-// mode 1: 60%
-// mode 2: 80%
-// mode 3: 100%
-// mode 4: 120%
-// mode 5: 140%
-int  kwlMode = 3;      // Standardlüftungsstufe
-#define ModeCnt 6
-double KwlModeFactor[ModeCnt] = {0, 0.6, 0.8, 1, 1.2, 1.4};       // Speichert die Solldrehzahlen in Relation zur Stufe 3
 int  PwmSetpointFan1[ModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
 int  PwmSetpointFan2[ModeCnt];
 
