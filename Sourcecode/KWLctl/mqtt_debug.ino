@@ -32,3 +32,15 @@ void mqtt_debug_fan2() {
   mqttClient.publish(TOPICKwlDebugstateFan2, _buffer);
 }
 
+void mqtt_debug_Preheater() {
+  String out = "";
+  out =  "Preheater - M: ";
+  out += millis();
+  out += ", Gap: ";
+  out += abs(antifreezeTempUpperLimit - TEMP4_Fortluft);
+  out += ", techSetpointPreheater: ";
+  out += techSetpointPreheater;
+  char _buffer[out.length()];
+  out.toCharArray(_buffer,out.length()); 
+  mqttClient.publish(TOPICKwlDebugstatePreheater, _buffer);
+}
