@@ -123,7 +123,11 @@ boolean eeprom_read_string(int addr, char* eeprombuffer, int bufSize) {
   Wenn WRITE_EEPROM = true oder statusFlag != 49  *
   dann EEPROM löschen und Standardwerte schreiben *
   ************************************************/
-void initializeEEPROM()
+void initializeEEPROM() {
+  initializeEEPROM(false);
+}
+
+void initializeEEPROM(boolean EraseMemory)
 {
   int i;
   int statusFlag = EEPROM.read(0);
@@ -134,7 +138,7 @@ void initializeEEPROM()
   Serial.println("Lese EEPROM...");
   eeprom_serial_dump_table();
 
-  if (WRITE_EEPROM || statusFlag != 49)
+  if (WRITE_EEPROM || statusFlag != 49 || EraseMemory)
   {
     Serial.println("Loesche Speicherbereich...");
     eeprom_erase_all();
@@ -180,13 +184,13 @@ void initializeEEPROM()
     if (ModeCnt > 10) {
       Serial.println("ERROR: ModeCnt zu groß");
     }
-    for (int i = 0; ((i < ModeCnt)&&(i<10)); i++) {
+    for (int i = 0; ((i < ModeCnt) && (i < 10)); i++) {
       eeprom_write_int(20 + (i * 4), (int)StandardSpeedSetpointFan1 * KwlModeFactor[i] * 1000 / NenndrehzahlFan);
       eeprom_write_int(22 + (i * 4), (int)StandardSpeedSetpointFan2 * KwlModeFactor[i] * 1000 / NenndrehzahlFan);
     }
     // ENDE PWM für max 10 Lüftungsstufen
     // Weiter geht es ab Speicherplatz 60dez ff
-    
+
     delay(1000);
 
     Serial.println("Lese Speicherbereich...");

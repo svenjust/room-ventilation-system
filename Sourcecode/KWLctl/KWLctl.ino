@@ -102,6 +102,7 @@ MCUFRIEND_kbv tft;
 
 const char *TOPICCommand                 = "d15/set/#";
 const char *TOPICCommandDebug            = "d15/debugset/#";
+const char *TOPICCmdResetAll             = "d15/set/kwl/resetAll_IKNOWWHATIMDOING";
 const char *TOPICCmdFansCalculateSpeed   = "d15/set/kwl/fans/calculatespeed";
 const char *TOPICCmdFan1Speed            = "d15/set/kwl/fan1/standardspeed";
 const char *TOPICCmdFan2Speed            = "d15/set/kwl/fan2/standardspeed";
@@ -354,7 +355,19 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     if (s == "PID") {
       FansCalculateSpeed = CalculateSpeed_PID;
     }
+  }
 
+  if (topicStr == TOPICCmdResetAll) {
+    payload[length] = '\0';
+    String s = String((char*)payload);
+    if (s == "YES")   {
+      Serial.println("Speicherbereich wird gelöscht");
+      initializeEEPROM(true);
+      // Reboot
+      Serial.println("Reboot");
+      delay (1000);
+      asm volatile ("jmp 0");
+    }
   }
   if (topicStr == TOPICCmdFan1Speed) {
     payload[length] = '\0';
