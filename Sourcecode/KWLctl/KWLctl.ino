@@ -117,7 +117,8 @@ MCUFRIEND_kbv tft;
 const char *TOPICCommand                 = "d15/set/#";
 const char *TOPICCommandDebug            = "d15/debugset/#";
 const char *TOPICCmdResetAll             = "d15/set/kwl/resetAll_IKNOWWHATIMDOING";
-const char *TOPICCmdFansCalculateSpeed   = "d15/set/kwl/fans/calculatespeed";
+const char *TOPICCmdCalibrateFans        = "d15/set/kwl/calibratefans";
+const char *TOPICCmdFansCalculateSpeedMode= "d15/set/kwl/fans/calculatespeed";
 const char *TOPICCmdFan1Speed            = "d15/set/kwl/fan1/standardspeed";
 const char *TOPICCmdFan2Speed            = "d15/set/kwl/fan2/standardspeed";
 const char *TOPICCmdGetSpeed             = "d15/set/kwl/fans/getspeed";
@@ -351,7 +352,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   String topicStr = topic;
 
   // Set Values
-  if (topicStr == TOPICCmdFansCalculateSpeed) {
+  if (topicStr == TOPICCmdFansCalculateSpeedMode) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "PROP")  {
@@ -361,7 +362,14 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       FansCalculateSpeed = CalculateSpeed_PID;
     }
   }
-
+  if (topicStr == TOPICCmdCalibrateFans) {
+    payload[length] = '\0';
+    String s = String((char*)payload);
+    if (s == "YES")   {
+      Serial.println("Kalibrierung Lüfter wird gestartet");
+      FanMode = FanMode_Calibration;
+    }
+  }  
   if (topicStr == TOPICCmdResetAll) {
     payload[length] = '\0';
     String s = String((char*)payload);
