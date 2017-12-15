@@ -54,12 +54,12 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
     double gap2 = abs(speedSetpointFan2 - speedTachoFan2); //distance away from setpoint
 
 
-    if ((gap1 < 20) && (ActGoodPwmsFan1 < goodPwmsCnt)) {
+    if ((gap1 < 10) && (ActGoodPwmsFan1 < goodPwmsCnt)) {
       // einen PWM Wert gefunden
       goodPwmsFan1[ActGoodPwmsFan1] = techSetpointFan1;
       ActGoodPwmsFan1++;
     }
-    if ((gap2 < 20) && (ActGoodPwmsFan2 < goodPwmsCnt)) {
+    if ((gap2 < 10) && (ActGoodPwmsFan2 < goodPwmsCnt)) {
       // einen PWM Wert gefunden
       goodPwmsFan2[ActGoodPwmsFan2] = techSetpointFan2;
       ActGoodPwmsFan2++;

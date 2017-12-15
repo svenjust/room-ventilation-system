@@ -44,6 +44,9 @@
 // https://github.com/blackketter/NTPClient
 #include <NTPClient.h>
 
+// Das LAN Modul nutzt standardmäßig PIN10, dieser wird aber vom Display genutzt.
+// Die Library muss direkt geändert werden, siehe http://forum.arduino.cc/index.php?topic=217423.msg1590334#msg1590334
+// bei mir /usr/local/bin/arduino-1.6.12/libraries/Ethernet/src/utility/w5100.h
 
 #define pwmPinFan1              44  // Lüfter Zuluft
 #define pwmPinFan2              46  // Lüfter Abluft
@@ -92,19 +95,20 @@ int serialDebugAntifreeze = 1;  // 1 = Debugausgaben für die Antifreezeschaltun
 
 // Definition der Lüftungsstufen. Es können bis zu 10 Lüftungsstufen definiert werden. Im Allgemeinen sollten 4 oder 6 Stufen ausreichen.
 // Die Originalsteuerung stellt 3 Stufen zur Verfügung
+//
 // Ein Definition für 4 Stufen, ähnlich der Originalsteuerung wäre:
 // Stufe 0 = 0%, Stufe 1 = 70%, Stufe 2 = 100%, Stufe 3 = 130%. Stufe 0 ist hier zusätzlich.
 //
 // Ein mögliche Definition für 6 Stufen wäre bspw.:
 // Stufe 0 = 0%, Stufe 1 = 60%, Stufe 2 = 80%, Stufe 3 = 100%, Stufe 4 = 120%, Stufe 4 = 140%
-// 
+//
 // ModeCnt definiert die Anzahl der Stufen
 //
 #define  ModeCnt 4
-double   KwlModeFactor[ModeCnt]       = {0, 0.7, 1, 1.3};       // Speichert die Solldrehzahlen in Relation zur Standardlüftungsstufe 
+double   KwlModeFactor[ModeCnt]       = {0, 0.7, 1, 1.3};       // Speichert die Solldrehzahlen in Relation zur Standardlüftungsstufe
 int      kwlMode                      = 2;                      // Standardlüftungsstufe
-#define  defStandardSpeedSetpointFan1 1450                      // Drehzahlen für Standardlüftungsstufe
-#define  defStandardSpeedSetpointFan2 1100
+#define  defStandardSpeedSetpointFan1 1550       // sju: 1450   // Drehzahlen für Standardlüftungsstufe
+#define  defStandardSpeedSetpointFan2 1550       // sju: 1100
 #define  defNenndrehzahlFan           3200                      // Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min
 
 // *** TFT
@@ -128,7 +132,7 @@ const char *TOPICCommand                 = "d15/set/#";
 const char *TOPICCommandDebug            = "d15/debugset/#";
 const char *TOPICCmdResetAll             = "d15/set/kwl/resetAll_IKNOWWHATIMDOING";
 const char *TOPICCmdCalibrateFans        = "d15/set/kwl/calibratefans";
-const char *TOPICCmdFansCalculateSpeedMode= "d15/set/kwl/fans/calculatespeed";
+const char *TOPICCmdFansCalculateSpeedMode = "d15/set/kwl/fans/calculatespeed";
 const char *TOPICCmdFan1Speed            = "d15/set/kwl/fan1/standardspeed";
 const char *TOPICCmdFan2Speed            = "d15/set/kwl/fan2/standardspeed";
 const char *TOPICCmdGetSpeed             = "d15/set/kwl/fans/getspeed";
@@ -375,7 +379,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       Serial.println("Kalibrierung Lüfter wird gestartet");
       SpeedCalibrationStart();
     }
-  }  
+  }
   if (topicStr == TOPICCmdResetAll) {
     payload[length] = '\0';
     String s = String((char*)payload);
@@ -408,7 +412,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
-    if (i<=ModeCnt)  kwlMode = i;
+    if (i <= ModeCnt)  kwlMode = i;
     mqttCmdSendMode = true;
     // KWL Stufe
   }
@@ -576,7 +580,7 @@ void setSpeedToFan() {
   if (techSetpointFan2 < 0)    techSetpointFan2 = 0;
   if (techSetpointFan1 > 1000) techSetpointFan1 = 1000;
   if (techSetpointFan2 > 1000) techSetpointFan2 = 1000;
-  
+
 
   if (mqttCmdSendAlwaysDebugFan1) {
     mqtt_debug_fan1();
@@ -1194,7 +1198,7 @@ void loopWrite100Millis() {
 void setup()
 {
   Serial.begin(57600); // Serielle Ausgabe starten
-
+  
   // *** TFT AUSGABE ***
   start_tft();
   print_header();
@@ -1319,6 +1323,8 @@ void loop()
   loopBypassSummerCheck();
   loopTemperaturRequest();
   loopTemperaturRead();
+
+  loopDisplayUpdate();
 
   loopMqttHeartbeat();
   loopMqttConnection();
