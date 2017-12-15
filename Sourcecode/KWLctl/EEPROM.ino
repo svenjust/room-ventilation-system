@@ -138,7 +138,7 @@ void initializeEEPROM(boolean EraseMemory)
   Serial.println("Lese EEPROM...");
   eeprom_serial_dump_table();
 
-  if (WRITE_EEPROM || statusFlag != 49 || EraseMemory)
+  if (FACTORY_RESET_EEPROM || statusFlag != 49 || EraseMemory)
   {
     Serial.println("Loesche Speicherbereich...");
     eeprom_erase_all();

@@ -83,6 +83,13 @@ int serialDebug = 0;            // 1 = Allgemein Debugausgaben auf der seriellen
 int serialDebugFan = 0;         // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
 int serialDebugAntifreeze = 1;  // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
 
+// FACTORY_RESET_EEPROM = true setzt alle Werte der Steuerung auf eine definierte Werte zurück. Dieses entspricht einem zurück-
+// setzen auf den Werkzustand. Ein Factory-Reset kann auch per mqtt Befehl erreicht werden:
+//     mosquitto_pub -t d15/set/kwl/resetAll_IKNOWWHATIMDOING -m YES
+//
+#define    FACTORY_RESET_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
+
+
 // Definition der Lüftungsstufen. Es können bis zu 10 Lüftungsstufen definiert werden. Im Allgemeinen sollten 4 oder 6 Stufen ausreichen.
 // Die Originalsteuerung stellt 3 Stufen zur Verfügung
 // Ein Definition für 4 Stufen, ähnlich der Originalsteuerung wäre:
@@ -282,7 +289,6 @@ unsigned long bypassFlapsStartTime = 0;                           // Startzeit f
 // Ende  - Variablen für Bypass ///////////////////////////////////////////
 
 // Begin EEPROM
-#define    WRITE_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
 const int  BUFSIZE = 50;
 char       eeprombuffer[BUFSIZE];
 
@@ -564,6 +570,13 @@ void setSpeedToFan() {
   }
 
   SetPreheating();
+
+  // Grenzwertbehandlung: Max- / Min-Werte
+  if (techSetpointFan1 < 0)    techSetpointFan1 = 0;
+  if (techSetpointFan2 < 0)    techSetpointFan2 = 0;
+  if (techSetpointFan1 > 1000) techSetpointFan1 = 1000;
+  if (techSetpointFan2 > 1000) techSetpointFan2 = 1000;
+  
 
   if (mqttCmdSendAlwaysDebugFan1) {
     mqtt_debug_fan1();
