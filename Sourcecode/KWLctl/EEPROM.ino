@@ -161,33 +161,33 @@ void initializeEEPROM(boolean EraseMemory)
     eeprom_write_int(4, defStandardSpeedSetpointFan2);
 
     // bypassTempAbluftMin
-    eeprom_write_int(6, 24);
+    eeprom_write_int(6, defStandardBypassTempAbluftMin);
 
     // bypassTempAussenluftMin
-    eeprom_write_int(8, 13);
+    eeprom_write_int(8, defStandardBypassTempAussenluftMin);
 
     // bypassHystereseMinutes Close
     eeprom_write_int(10, 0);
 
     // antifreezeHyst 3
-    eeprom_write_int(12, 3);
+    eeprom_write_int(12, defStandardBypassHystereseTemp);
 
     // bypassManualSetpoint Close
-    eeprom_write_int(14, bypassFlapState_Close);
+    eeprom_write_int(14, defStandardBypassManualSetpoint);
 
     // bypassMode Auto
-    eeprom_write_int(16, bypassMode_Auto);
+    eeprom_write_int(16, defStandardBypassMode);
 
     // PWM für max 10 Lüftungsstufen und zwei Lüfter und einem Integer
     // max 10 Werte * 2 Lüfter * 2 Byte
     // 20 bis 60
     
-    if (ModeCnt > 10) {
+    if (defStandardModeCnt > 10) {
       Serial.println("ERROR: ModeCnt zu groß");
     }
-    for (int i = 0; ((i < ModeCnt) && (i < 10)); i++) {
-      eeprom_write_int(20 + (i * 4), (int)(defStandardSpeedSetpointFan1 * KwlModeFactor[i] * 1000 / defNenndrehzahlFan));
-      eeprom_write_int(22 + (i * 4), (int)(defStandardSpeedSetpointFan2 * KwlModeFactor[i] * 1000 / defNenndrehzahlFan));
+    for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
+      eeprom_write_int(20 + (i * 4), (int)(defStandardSpeedSetpointFan1 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
+      eeprom_write_int(22 + (i * 4), (int)(defStandardSpeedSetpointFan2 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
     }
     // ENDE PWM für max 10 Lüftungsstufen
     // Weiter geht es ab Speicherplatz 60dez ff

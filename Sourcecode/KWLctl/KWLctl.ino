@@ -26,10 +26,7 @@
   https://github.com/blackketter/NTPClient
 */
 
-// Tachosignal auslesen wie
-// https://forum.arduino.cc/index.php?topic=145226.msg1102102#msg1102102
-
-#include <Adafruit_GFX.h>       // TFT 
+#include <Adafruit_GFX.h>       // TFT
 #include <MCUFRIEND_kbv.h>      // TFT
 #include <EEPROM.h>             // Speicherung von Einstellungen
 #include <SPI.h>
@@ -38,12 +35,10 @@
 #include <PID_v1.h>             // PID-Regler für die Drehzahlregelung
 #include <OneWire.h>            // OneWire Temperatursensoren
 #include <DallasTemperature.h>
+#include <NTPClient.h>          // NTPClient, der Client ist nonblocking, auch im Fehlerfall.
 
-// ntpClient, der folgende Client ist nonblocking, auch im Fehlerfall
-// Der Standard Arduino ntpClient blockt im Fehlerfall für mindestens eine Sekunde
-// https://github.com/blackketter/NTPClient
-#include <NTPClient.h>
 
+// ***************************************************  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
 // Das LAN Modul nutzt standardmäßig PIN10, dieser wird aber vom Display genutzt.
 // Die Library muss direkt geändert werden, siehe http://forum.arduino.cc/index.php?topic=217423.msg1590334#msg1590334
 // bei mir /usr/local/bin/arduino-1.6.12/libraries/Ethernet/src/utility/w5100.h
@@ -53,47 +48,29 @@
 #define pwmPinPreheater         45  // Vorheizer
 #define tachoPinFan1            20  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
 #define tachoPinFan2            21  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
-// BypassPower steuert, ob Strom am Bypass geschaltet ist, BypassDirection bestimmt Öffnen oder Schliessen.
-// Damit ist schaltungstechnisch sichergestellt, dass nicht gleichzeitig geöffnet und geschlossen wird.
-// Dies ist die klassische Rolladenschaltung.
 #define relPinBypassPower       40  // Bypass Strom an/aus. Das BypassPower steuert, ob Strom am Bypass geschaltet ist, BypassDirection bestimmt Öffnen oder Schliessen
 #define relPinBypassDirection   41  // Bypass Richtung, Stromlos = Schliessen (Winterstellung), Strom = Öffnen (Sommerstellung)
 #define relPinFan1Power         42  // Stromversorgung Lüfter 1
 #define relPinFan2Power         43  // Stromversorgung Lüfter 2
 
-// OneWire Sensoren, für jeder Temperatursensor gibt es einen Anschluss auf dem Board, Vorteil: Temperatursensoren können per Kabel definiert werden, nicht Software
-// Data wire is plugged into pin 30-33 on the Arduino
-#define TEMP1_ONE_WIRE_BUS 30
-#define TEMP2_ONE_WIRE_BUS 31
-#define TEMP3_ONE_WIRE_BUS 32
-#define TEMP4_ONE_WIRE_BUS 33
-#define TEMPERATURE_PRECISION TEMP_9_BIT     // Genauigkeit der Temperatursensoren 9_BIT, Standard sind 12_BIT
+#define TEMP1_ONE_WIRE_BUS      30  // Für jeder Temperatursensor gibt es einen Anschluss auf dem Board, Vorteil: Temperatursensoren können per Kabel definiert werden, nicht Software
+#define TEMP2_ONE_WIRE_BUS      31
+#define TEMP3_ONE_WIRE_BUS      32
+#define TEMP4_ONE_WIRE_BUS      33
+// *******************************************E N D E ***  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
 
-// Ansteuerung der Relais
-// Für die Lüfter und den Sommer-Bypass können bis zu vier Relais verbaut sein.
-// Ohne Sommer-Bypass kann die Schaltung auch ohne Relais betrieben werden.
-// Das verschiedene Relais unterschiedlich geschaltet werden, kann hier die logische
-// Schaltung definiert werden.
-#define RELAY_ON   LOW
-#define RELAY_OFF  HIGH
 
-// Update these with values suitable for your hardware/network.
+// ***************************************************  N E T Z W E R K E I N S T E L L U N G E N ********************************************************
+// Hier die IP Adresse für diese Steuerung und den MQTT Broker definieren.
 byte mac[] = {  0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };  // MAC Adresse des Ethernet Shields
-IPAddress    ip(192, 168, 20, 201);           // IP Adresse für diese Gerät im eigenen Netz
-IPAddress    mqttserver(192, 168, 20, 240);       // IP Adresse des MQTT Brokers
-
-int serialDebug = 0;            // 1 = Allgemein Debugausgaben auf der seriellen Schnittstelle aktiviert
-int serialDebugFan = 0;         // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
-int serialDebugAntifreeze = 1;  // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
-
-// FACTORY_RESET_EEPROM = true setzt alle Werte der Steuerung auf eine definierte Werte zurück. Dieses entspricht einem zurück-
-// setzen auf den Werkzustand. Ein Factory-Reset kann auch per mqtt Befehl erreicht werden:
-//     mosquitto_pub -t d15/set/kwl/resetAll_IKNOWWHATIMDOING -m YES
-//
-#define    FACTORY_RESET_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
+IPAddress    ip(192, 168, 20, 201);                    // IP Adresse für diese Gerät im eigenen Netz
+IPAddress    mqttbroker(192, 168, 20, 240);            // IP Adresse des MQTT Brokers
+// *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N *****************************************************
 
 
-// Definition der Lüftungsstufen. Es können bis zu 10 Lüftungsstufen definiert werden. Im Allgemeinen sollten 4 oder 6 Stufen ausreichen.
+// ******************************************* W E R K S E I N S T E L L U N G E N *************************************************************************
+// Definition der Werkeinstellungen. 
+// Es können bis zu 10 Lüftungsstufen definiert werden. Im Allgemeinen sollten 4 oder 6 Stufen ausreichen.
 // Die Originalsteuerung stellt 3 Stufen zur Verfügung
 //
 // Ein Definition für 4 Stufen, ähnlich der Originalsteuerung wäre:
@@ -102,14 +79,45 @@ int serialDebugAntifreeze = 1;  // 1 = Debugausgaben für die Antifreezeschaltun
 // Ein mögliche Definition für 6 Stufen wäre bspw.:
 // Stufe 0 = 0%, Stufe 1 = 60%, Stufe 2 = 80%, Stufe 3 = 100%, Stufe 4 = 120%, Stufe 4 = 140%
 //
-// ModeCnt definiert die Anzahl der Stufen
+// defStandardModeCnt definiert die Anzahl der Stufen
 //
-#define  ModeCnt 4
-double   KwlModeFactor[ModeCnt]       = {0, 0.7, 1, 1.3};       // Speichert die Solldrehzahlen in Relation zur Standardlüftungsstufe
-int      kwlMode                      = 2;                      // Standardlüftungsstufe
-#define  defStandardSpeedSetpointFan1 1550       // sju: 1450   // Drehzahlen für Standardlüftungsstufe
-#define  defStandardSpeedSetpointFan2 1550       // sju: 1100
-#define  defNenndrehzahlFan           3200                      // Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min
+// FACTORY_RESET_EEPROM = true setzt alle Werte der Steuerung auf eine definierte Werte zurück. Dieses entspricht einem zurück-
+// setzen auf den Werkzustand. Ein Factory-Reset kann auch per mqtt Befehl erreicht werden:
+//     mosquitto_pub -t d15/set/kwl/resetAll_IKNOWWHATIMDOING -m YES
+//
+#define  FACTORY_RESET_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
+
+#define  defStandardModeCnt 4
+double   defStandardKwlModeFactor[defStandardModeCnt] = {0, 0.7, 1, 1.3};   // Speichert die Solldrehzahlen in Relation zur Standardlüftungsstufe
+int      kwlMode                            = 2;                            // Standardlüftungsstufe
+#define  defStandardSpeedSetpointFan1      1550              // sju: 1450   // Drehzahlen für Standardlüftungsstufe
+#define  defStandardSpeedSetpointFan2      1550              // sju: 1100
+#define  defStandardNenndrehzahlFan        3200                             // Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min
+#define  defStandardBypassTempAbluftMin      24                             // Mindestablufttemperatur für die Öffnung des Bypasses im Automatik Betrieb
+#define  defStandardBypassTempAussenluftMin  13                             // Mindestaussenlufttemperatur für die Öffnung des Bypasses im Automatik Betrieb
+#define  defStandardBypassHystereseMinutes   60                             // Hystereszeit für eine Umstellung des Bypasses im Automatik Betrieb
+#define  defStandardBypassHystereseTemp       3                             // Hysteretemperatur für eine Umstellung des Bypasses im Automatik Betrieb
+#define  defStandardBypassManualSetpoint      1                             // 1 = Close, Stellung der Bypassklappen im manuellen Betrieb
+#define  defStandardBypassMode                0                             // 0 = Auto, Automatik oder manueller Betrieb der Bypassklappe. Im Automatikbetrieb steuert diese Steuerung die Bypass-Klappe, im manuellen Betrieb wird die Bypass-Klappe durch mqtt-Kommandos gesteuert.
+// **************************************E N D E *** W E R K S E I N S T E L L U N G E N **********************************************************************
+
+
+// ************************************** A N S T E U E R U N G   D E R    R E L A I S ************************************************************************
+// Für die Lüfter und den Sommer-Bypass können bis zu vier Relais verbaut sein.
+// Ohne Sommer-Bypass kann die Schaltung auch ohne Relais betrieben werden.
+// Da verschiedene Relais unterschiedlich geschaltet werden, kann hier die logische
+// Schaltung definiert werden.
+#define RELAY_ON   LOW
+#define RELAY_OFF  HIGH
+// ************************************** E N D E   A N S T E U E R U N G   D E R    R E L A I S ***************************************************************
+
+
+// ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
+int serialDebug = 0;            // 1 = Allgemein Debugausgaben auf der seriellen Schnittstelle aktiviert
+int serialDebugFan = 0;         // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
+int serialDebugAntifreeze = 0;  // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
+// *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
+
 
 // *** TFT
 // Assign human-readable names to some common 16-bit color values:
@@ -128,44 +136,44 @@ MCUFRIEND_kbv tft;
 // MQTT Topics für die Kommunikation zwischen dieser Steuerung und einem mqtt Broker
 // Die Topics sind in https://github.com/svenjust/room-ventilation-system/blob/master/Docs/mqtt%20topics/mqtt_topics.ods erläutert.
 
-const char *TOPICCommand                 = "d15/set/#";
-const char *TOPICCommandDebug            = "d15/debugset/#";
-const char *TOPICCmdResetAll             = "d15/set/kwl/resetAll_IKNOWWHATIMDOING";
-const char *TOPICCmdCalibrateFans        = "d15/set/kwl/calibratefans";
-const char *TOPICCmdFansCalculateSpeedMode = "d15/set/kwl/fans/calculatespeed";
-const char *TOPICCmdFan1Speed            = "d15/set/kwl/fan1/standardspeed";
-const char *TOPICCmdFan2Speed            = "d15/set/kwl/fan2/standardspeed";
-const char *TOPICCmdGetSpeed             = "d15/set/kwl/fans/getspeed";
-const char *TOPICCmdGetTemp              = "d15/set/kwl/temperatur/gettemp";
-const char *TOPICCmdMode                 = "d15/set/kwl/lueftungsstufe";
-const char *TOPICCmdAntiFreezeHyst       = "d15/set/kwl/antifreeze/hysterese";
-const char *TOPICCmdBypassGetValues      = "d15/set/kwl/summerbypass/getvalues";
-const char *TOPICCmdBypassManualFlap     = "d15/set/kwl/summerbypass/flap";
-const char *TOPICCmdBypassMode           = "d15/set/kwl/summerbypass/mode";
+const char *TOPICCommand                    = "d15/set/#";
+const char *TOPICCommandDebug               = "d15/debugset/#";
+const char *TOPICCmdResetAll                = "d15/set/kwl/resetAll_IKNOWWHATIMDOING";
+const char *TOPICCmdCalibrateFans           = "d15/set/kwl/calibratefans";
+const char *TOPICCmdFansCalculateSpeedMode  = "d15/set/kwl/fans/calculatespeed";
+const char *TOPICCmdFan1Speed               = "d15/set/kwl/fan1/standardspeed";
+const char *TOPICCmdFan2Speed               = "d15/set/kwl/fan2/standardspeed";
+const char *TOPICCmdGetSpeed                = "d15/set/kwl/fans/getspeed";
+const char *TOPICCmdGetTemp                 = "d15/set/kwl/temperatur/gettemp";
+const char *TOPICCmdMode                    = "d15/set/kwl/lueftungsstufe";
+const char *TOPICCmdAntiFreezeHyst          = "d15/set/kwl/antifreeze/hysterese";
+const char *TOPICCmdBypassGetValues         = "d15/set/kwl/summerbypass/getvalues";
+const char *TOPICCmdBypassManualFlap        = "d15/set/kwl/summerbypass/flap";
+const char *TOPICCmdBypassMode              = "d15/set/kwl/summerbypass/mode";
 
-const char *TOPICHeartbeat               = "d15/state/kwl/heartbeat";
-const char *TOPICFan1Speed               = "d15/state/kwl/fan1/speed";
-const char *TOPICFan2Speed               = "d15/state/kwl/fan2/speed";
-const char *TOPICKwlOnline               = "d15/state/kwl/heartbeat";
-const char *TOPICStateKwlMode            = "d15/state/kwl/lueftungsstufe";
-const char *TOPICKwlTemperaturAussenluft = "d15/state/kwl/aussenluft/temperatur";
-const char *TOPICKwlTemperaturZuluft     = "d15/state/kwl/zuluft/temperatur";
-const char *TOPICKwlTemperaturAbluft     = "d15/state/kwl/abluft/temperatur";
-const char *TOPICKwlTemperaturFortluft   = "d15/state/kwl/fortluft/temperatur";
-const char *TOPICKwlAntifreeze           = "d15/state/kwl/antifreeze";
-const char *TOPICKwlBypassState          = "d15/state/kwl/summerbypass/flap";
-const char *TOPICKwlBypassMode           = "d15/state/kwl/summerbypass/mode";
+const char *TOPICHeartbeat                  = "d15/state/kwl/heartbeat";
+const char *TOPICFan1Speed                  = "d15/state/kwl/fan1/speed";
+const char *TOPICFan2Speed                  = "d15/state/kwl/fan2/speed";
+const char *TOPICKwlOnline                  = "d15/state/kwl/heartbeat";
+const char *TOPICStateKwlMode               = "d15/state/kwl/lueftungsstufe";
+const char *TOPICKwlTemperaturAussenluft    = "d15/state/kwl/aussenluft/temperatur";
+const char *TOPICKwlTemperaturZuluft        = "d15/state/kwl/zuluft/temperatur";
+const char *TOPICKwlTemperaturAbluft        = "d15/state/kwl/abluft/temperatur";
+const char *TOPICKwlTemperaturFortluft      = "d15/state/kwl/fortluft/temperatur";
+const char *TOPICKwlAntifreeze              = "d15/state/kwl/antifreeze";
+const char *TOPICKwlBypassState             = "d15/state/kwl/summerbypass/flap";
+const char *TOPICKwlBypassMode              = "d15/state/kwl/summerbypass/mode";
 
 const char *TOPICKwlBypassTempAbluftMin     = "d15/state/kwl/summerbypass/TempAbluftMin";
 const char *TOPICKwlBypassTempAussenluftMin = "d15/state/kwl/summerbypass/TempAussenluftMin";
 const char *TOPICKwlBypassHystereseMinutes  = "d15/state/kwl/summerbypass/HystereseMinutes";
 
 // Die folgenden Topics sind nur für die SW-Entwicklung, und schalten Debugausgaben per mqtt ein und aus
-const char *TOPICKwlDebugsetFan1Getvalues = "d15/debugset/kwl/fan1/getvalues";
-const char *TOPICKwlDebugsetFan2Getvalues = "d15/debugset/kwl/fan2/getvalues";
-const char *TOPICKwlDebugstateFan1        = "d15/debugstate/kwl/fan1";
-const char *TOPICKwlDebugstateFan2        = "d15/debugstate/kwl/fan2";
-const char *TOPICKwlDebugstatePreheater   = "d15/debugstate/kwl/preheater";
+const char *TOPICKwlDebugsetFan1Getvalues   = "d15/debugset/kwl/fan1/getvalues";
+const char *TOPICKwlDebugsetFan2Getvalues   = "d15/debugset/kwl/fan2/getvalues";
+const char *TOPICKwlDebugstateFan1          = "d15/debugstate/kwl/fan1";
+const char *TOPICKwlDebugstateFan2          = "d15/debugstate/kwl/fan2";
+const char *TOPICKwlDebugstatePreheater     = "d15/debugstate/kwl/preheater";
 
 // Die folgenden Topics sind nur für die SW-Entwicklung, es werden Messwerte überschrieben, es kann damit der Sommer-Bypass und die Frostschutzschaltung getestet werden
 const char *TOPICKwlDebugsetTemperaturAussenluft = "d15/debugset/kwl/aussenluft/temperatur";
@@ -174,27 +182,28 @@ const char *TOPICKwlDebugsetTemperaturAbluft     = "d15/debugset/kwl/abluft/temp
 const char *TOPICKwlDebugsetTemperaturFortluft   = "d15/debugset/kwl/fortluft/temperatur";
 // Ende Topics
 
+
 // Sind die folgenden Variablen auf true, wenn beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
 // anschliessend wird die Variable wieder auf false gesetzt
-boolean mqttCmdSendTemp = false;
-boolean mqttCmdSendFans = false;
-boolean mqttCmdSendBypassState = false;
-boolean mqttCmdSendBypassAllValues = false;
-boolean mqttCmdSendMode = false;
+boolean mqttCmdSendTemp                        = false;
+boolean mqttCmdSendFans                        = false;
+boolean mqttCmdSendBypassState                 = false;
+boolean mqttCmdSendBypassAllValues             = false;
+boolean mqttCmdSendMode                        = false;
 // mqttDebug Messages
-boolean mqttCmdSendAlwaysDebugFan1      = true;
-boolean mqttCmdSendAlwaysDebugFan2      = true;
-boolean mqttCmdSendAlwaysDebugPreheater = true;
-//
+boolean mqttCmdSendAlwaysDebugFan1             = true;
+boolean mqttCmdSendAlwaysDebugFan2             = true;
+boolean mqttCmdSendAlwaysDebugPreheater        = true;
+
 
 char   TEMPChar[10]; // Hilfsvariable zu Konvertierung
 char   buffer[7];    // the ASCII of the integer will be stored in this char array
 String TEMPAsString; // Ausgelesene Wert als String
 
 // Variablen für Lüfter Tacho
-#define CalculateSpeed_PID     1
-#define CalculateSpeed_PROP    0
-int FansCalculateSpeed = CalculateSpeed_PROP;   // 0 = Berechne das PWM Signal Proportional zur Nenndrehzahl der Lüfter; 1=PID-Regler verwenden
+#define CalculateSpeed_PID             1
+#define CalculateSpeed_PROP            0
+int FansCalculateSpeed                = CalculateSpeed_PROP;   // 0 = Berechne das PWM Signal Proportional zur Nenndrehzahl der Lüfter; 1=PID-Regler verwenden
 double speedTachoFan1                 = 0;    // Zuluft U/min
 double speedTachoFan2                 = 0;    // Abluft U/min
 double SendMqttSpeedTachoFan1         = 0;
@@ -217,22 +226,22 @@ double techSetpointFan1               = 0;                                 // PW
 double techSetpointFan2               = 0;                                 // PWM oder Analogsignal 0..1000 für Abluft
 // Ende Variablen für Lüfter
 
-int  PwmSetpointFan1[ModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
-int  PwmSetpointFan2[ModeCnt];
+int  PwmSetpointFan1[defStandardModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
+int  PwmSetpointFan2[defStandardModeCnt];
 
-#define FanMode_Normal        0
-#define FanMode_Calibration   1
-int FanMode = FanMode_Normal;                   // Umschaltung zum Kalibrieren der PWM Signale zur Erreichung der Lüfterdrehzahlen für jede Stufe
+#define FanMode_Normal                 0
+#define FanMode_Calibration            1
+int FanMode                           = FanMode_Normal;                   // Umschaltung zum Kalibrieren der PWM Signale zur Erreichung der Lüfterdrehzahlen für jede Stufe
 
 
-boolean antifreezeState           = false;
-float   antifreezeTemp            = 2.0;
-int     antifreezeHyst            = 3;
+boolean antifreezeState               = false;
+float   antifreezeTemp                = 2.0;
+int     antifreezeHyst                = 3;
 double  antifreezeTempUpperLimit;
-boolean antifreezeAlarm           = false;
+boolean antifreezeAlarm               = false;
 
-double        techSetpointPreheater = 0.0;     // Analogsignal 0..1000 für Vorheizer
-unsigned long PreheaterStartMillis  = 0;        // Beginn der Vorheizung
+double        techSetpointPreheater   = 0.0;     // Analogsignal 0..1000 für Vorheizer
+unsigned long PreheaterStartMillis    = 0;        // Beginn der Vorheizung
 
 // Definitionen für das Scheduling
 unsigned long intervalNtpTime                = 1000;
@@ -251,24 +260,24 @@ unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minut
 unsigned long intervalMqttFanOversampling    = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttBypassState        = 900000; //15 * 60 * 1000; 15 Minuten
 
-unsigned long previousMillisFan = 0;
-unsigned long previousMillisSetFan = 0;
-unsigned long previousMillisAntifreeze = 0;
-unsigned long previousMillisBypassSummerCheck = 0;
-unsigned long previousMillisBypassSummerSetFlaps = 0;
+unsigned long previousMillisFan                   = 0;
+unsigned long previousMillisSetFan                = 0;
+unsigned long previousMillisAntifreeze            = 0;
+unsigned long previousMillisBypassSummerCheck     = 0;
+unsigned long previousMillisBypassSummerSetFlaps  = 0;
 
-unsigned long previousMillisMqttHeartbeat = 0;
-unsigned long previousMillisMqttFan = 0;
-unsigned long previousMillisMqttMode = 0;
-unsigned long previousMillisMqttFanOversampling = 0;
-unsigned long previousMillisMqttTemp = 0;
-unsigned long previousMillisMqttTempOversampling = 0;
-unsigned long previousMillisMqttBypassState = 0;
+unsigned long previousMillisMqttHeartbeat         = 0;
+unsigned long previousMillisMqttFan               = 0;
+unsigned long previousMillisMqttMode              = 0;
+unsigned long previousMillisMqttFanOversampling   = 0;
+unsigned long previousMillisMqttTemp              = 0;
+unsigned long previousMillisMqttTempOversampling  = 0;
+unsigned long previousMillisMqttBypassState       = 0;
 
-unsigned long previous100Millis = 0;
-unsigned long previousMillisNtpTime = 0;
-unsigned long previousMillisTemp = 0;
-unsigned long currentMillis = 0;
+unsigned long previous100Millis                   = 0;
+unsigned long previousMillisNtpTime               = 0;
+unsigned long previousMillisTemp                  = 0;
+unsigned long currentMillis                       = 0;
 
 // Start - Variablen für Bypass ///////////////////////////////////////////
 #define bypassMode_Manual 1
@@ -277,14 +286,14 @@ unsigned long currentMillis = 0;
 #define bypassFlapState_Close   1
 #define bypassFlapState_Open    2
 
-int  bypassManualSetpoint        = bypassFlapState_Close;             // Standardstellung Bypass geschlossen
-int  bypassMode                  = bypassMode_Auto;                   // Automatische oder Manuelle Steuerung der Bypass-Klappe
+int  bypassManualSetpoint        = defStandardBypassManualSetpoint;   // Standardstellung Bypass
+int  bypassMode                  = defStandardBypassMode;             // Automatische oder Manuelle Steuerung der Bypass-Klappe
 int  bypassFlapState             = bypassFlapState_Unknown;           // aktuelle Stellung der Bypass-Klappe
 int  bypassFlapStateDriveRunning = bypassFlapState_Unknown;
-int  bypassTempAbluftMin         = 0;
-int  bypassTempAussenluftMin     = 0;
-int  bypassHystereseMinutes      = 60;
-int  bypassFlapSetpoint          = bypassFlapState_Close;
+int  bypassTempAbluftMin         = defStandardBypassTempAbluftMin;
+int  bypassTempAussenluftMin     = defStandardBypassTempAussenluftMin;
+int  bypassHystereseMinutes      = defStandardBypassHystereseMinutes;
+int  bypassFlapSetpoint          = defStandardBypassManualSetpoint;
 unsigned long bypassLastChangeMillis   = 0;                       // Letzte Änderung für Hysterese
 
 long          bypassFlapsDriveTime = 120000; // 120 * 1000;       // Fahrzeit (s) der Klappe zwischen den Stellungen Open und Close
@@ -295,7 +304,6 @@ unsigned long bypassFlapsStartTime = 0;                           // Startzeit f
 // Begin EEPROM
 const int  BUFSIZE = 50;
 char       eeprombuffer[BUFSIZE];
-
 const int  EEPROM_MIN_ADDR = 0;
 const int  EEPROM_MAX_ADDR = 1023;
 // Ende EEPROM
@@ -319,17 +327,16 @@ double TEMP4_Fortluft =   -127.0;    // Temperatur Fortluft
 // Nenndrehzahl Lüfter 3200, Stellwert 0..1000 entspricht 0-10V
 double aggKp  = 0.5,  aggKi = 0.1, aggKd  = 0.001;
 double consKp = 0.1, consKi = 0.1, consKd = 0.001;
-
 double heaterKp = 50, heaterKi = 0.1, heaterKd = 0.025;
 
 //Specify the links and initial tuning parameters
 PID PidFan1(&speedTachoFan1, &techSetpointFan1, &speedSetpointFan1, consKp, consKi, consKd, P_ON_M, DIRECT );
 PID PidFan2(&speedTachoFan2, &techSetpointFan2, &speedSetpointFan2, consKp, consKi, consKd, P_ON_M, DIRECT );
-
 PID PidPreheater(&TEMP4_Fortluft, &techSetpointPreheater, &antifreezeTempUpperLimit, heaterKp, heaterKi, heaterKd, P_ON_M, DIRECT);
 ///////////////////////
 
 // Temperatur Sensoren, Pinbelegung steht oben
+#define TEMPERATURE_PRECISION TEMP_9_BIT     // Genauigkeit der Temperatursensoren 9_BIT, Standard sind 12_BIT
 OneWire Temp1OneWire(TEMP1_ONE_WIRE_BUS); // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
 OneWire Temp2OneWire(TEMP2_ONE_WIRE_BUS);
 OneWire Temp3OneWire(TEMP3_ONE_WIRE_BUS);
@@ -412,7 +419,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
-    if (i <= ModeCnt)  kwlMode = i;
+    if (i <= defStandardModeCnt)  kwlMode = i;
     mqttCmdSendMode = true;
     // KWL Stufe
   }
@@ -535,8 +542,8 @@ void setSpeedToFan() {
   // max. Lüfterdrehzahl bei Pabstlüfter 3200 U/min
   // max. Drehzahl 2300 U/min bei Testaufbau (alten Prozessorlüftern)
 
-  speedSetpointFan1 = StandardSpeedSetpointFan1 * KwlModeFactor[kwlMode];
-  speedSetpointFan2 = StandardSpeedSetpointFan2 * KwlModeFactor[kwlMode];
+  speedSetpointFan1 = StandardSpeedSetpointFan1 * defStandardKwlModeFactor[kwlMode];
+  speedSetpointFan2 = StandardSpeedSetpointFan2 * defStandardKwlModeFactor[kwlMode];
 
   double gap1 = abs(speedSetpointFan1 - speedTachoFan1); //distance away from setpoint
   double gap2 = abs(speedSetpointFan2 - speedTachoFan2); //distance away from setpoint
@@ -569,7 +576,7 @@ void setSpeedToFan() {
   // Sicherheitsüberprüfung, um ein einfrieren des Wärmetauschers zu vermeiden
   if ((TEMP4_Fortluft <= -1)
       && (TEMP4_Fortluft != -127.0)) {
-    techSetpointFan2 = 0; // Frostschutzalarm bei -1.0 wird der Zuluftventilator abgeschaltet
+    techSetpointFan2 = 0; // Frostschutzalarm bei -1°C wird der Zuluftventilator abgeschaltet
     // Eventuell sollte hier ein Fehler per mqtt gesenden werden!!!
   }
 
@@ -594,7 +601,7 @@ void setSpeedToFan() {
     Serial.println ((long)millis());
     Serial.print ("Fan 1: ");
     Serial.print ("\tGap: ");
-    Serial.print (gap1);
+    Serial.print (speedTachoFan1 - speedSetpointFan1);
     Serial.print ("\tspeedTachoFan1: ");
     Serial.print (speedTachoFan1);
     Serial.print ("\ttechSetpointFan1: ");
@@ -604,7 +611,7 @@ void setSpeedToFan() {
 
     Serial.print ("Fan 2: ");
     Serial.print ("\tGap: ");
-    Serial.print (gap2);
+    Serial.print (speedTachoFan2 - speedSetpointFan2);
     Serial.print ("\tspeedTachoFan2: ");
     Serial.print (speedTachoFan2);
     Serial.print ("\ttechSetpointFan2: ");
@@ -1169,10 +1176,10 @@ void initializeVariables()
   // PWM für max 10 Lüftungsstufen und zwei Lüfter und einem Integer
   // max 10 Werte * 2 Lüfter * 2 Byte
   // 20 bis 60
-  if (ModeCnt > 10) {
+  if (defStandardModeCnt > 10) {
     Serial.println("ERROR: ModeCnt zu groß");
   }
-  for (int i = 0; ((i < ModeCnt) && (i < 10)); i++) {
+  for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
     eeprom_read_int (20 + (i * 4), &temp);
     PwmSetpointFan1[i] = temp;
     eeprom_read_int (22 + (i * 4), &temp);
@@ -1198,7 +1205,7 @@ void loopWrite100Millis() {
 void setup()
 {
   Serial.begin(57600); // Serielle Ausgabe starten
-  
+
   // *** TFT AUSGABE ***
   start_tft();
   print_header();
@@ -1211,7 +1218,7 @@ void setup()
   Serial.println("Booting...");
   tft.setCursor(0, 30);
   tft.println("Booting...");
-  mqttClient.setServer(mqttserver, 1883);
+  mqttClient.setServer(mqttbroker, 1883);
   mqttClient.setCallback(mqttReceiveMsg);
 
   Ethernet.begin(mac, ip);
@@ -1253,7 +1260,7 @@ void setup()
   Serial.println("Teste Ventilatoren");
   tft.println("Teste Ventilatoren");
   pinMode(tachoPinFan1, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(tachoPinFan1), countUpFan1, RISING );
+  attachInterrupt(digitalPinToInterrupt(tachoPinFan1), countUpFan1, FALLING );
 
   Serial.print ("Pin und Interrupt: ");
   Serial.print (tachoPinFan1);
@@ -1261,7 +1268,7 @@ void setup()
   Serial.println (digitalPinToInterrupt(tachoPinFan1));
 
   pinMode(tachoPinFan2, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(tachoPinFan2), countUpFan2, RISING );
+  attachInterrupt(digitalPinToInterrupt(tachoPinFan2), countUpFan2, FALLING );
 
   Serial.print ("Pin und Interrupt: ");
   Serial.print (tachoPinFan2);
@@ -1303,6 +1310,7 @@ void setup()
   Serial.println("Setup completed...");
   tft.println("Setup completed...");
   tft.fillRect(0, 30, 480, 200, BLACK);
+
 }
 // *** SETUP ENDE
 

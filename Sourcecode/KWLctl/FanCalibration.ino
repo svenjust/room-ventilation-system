@@ -19,8 +19,8 @@ unsigned long timeoutPwmStufeCalibration      = 180000;   // max 3 Minuten pro S
 
 int actKwlMode = 0;
 
-int  tempPwmSetpointFan1[ModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
-int  tempPwmSetpointFan2[ModeCnt];
+int  tempPwmSetpointFan1[defStandardModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
+int  tempPwmSetpointFan2[defStandardModeCnt];
 
 #define goodPwmsCnt 5
 int  goodPwmsFan1[goodPwmsCnt];
@@ -39,7 +39,7 @@ void SpeedCalibrationStart() {
 
 boolean SpeedCalibrationPwmStufe(int actKwlMode) {
 
-  if (KwlModeFactor[actKwlMode] == 0) {
+  if (defStandardKwlModeFactor[actKwlMode] == 0) {
     // Faktor Null ist einfach
     tempPwmSetpointFan1[actKwlMode] = 0;
     tempPwmSetpointFan2[actKwlMode] = 0;
@@ -47,8 +47,8 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
 
   } else {
     // Faktor ungleich 0
-    speedSetpointFan1 = StandardSpeedSetpointFan1 * KwlModeFactor[actKwlMode];
-    speedSetpointFan2 = StandardSpeedSetpointFan2 * KwlModeFactor[actKwlMode];
+    speedSetpointFan1 = StandardSpeedSetpointFan1 * defStandardKwlModeFactor[actKwlMode];
+    speedSetpointFan2 = StandardSpeedSetpointFan2 * defStandardKwlModeFactor[actKwlMode];
 
     double gap1 = abs(speedSetpointFan1 - speedTachoFan1); //distance away from setpoint
     double gap2 = abs(speedSetpointFan2 - speedTachoFan2); //distance away from setpoint
@@ -107,7 +107,7 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
       Serial.println ((long)millis());
       Serial.print ("Fan 1: ");
       Serial.print ("\tGap: ");
-      Serial.print (gap1);
+      Serial.print (speedTachoFan1 - speedSetpointFan1);
       Serial.print ("\tspeedTachoFan1: ");
       Serial.print (speedTachoFan1);
       Serial.print ("\ttechSetpointFan1: ");
@@ -117,7 +117,7 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
 
       Serial.print ("Fan 2: ");
       Serial.print ("\tGap: ");
-      Serial.print (gap2);
+      Serial.print (speedTachoFan2 - speedSetpointFan2);
       Serial.print ("\tspeedTachoFan2: ");
       Serial.print (speedTachoFan2);
       Serial.print ("\ttechSetpointFan2: ");
@@ -163,10 +163,10 @@ void SpeedCalibrationPwm() {
       // Einzelne Stufen kalibrieren
       if (SpeedCalibrationPwmStufe(actKwlMode)) {
         // true = Kalibrierung der Lüftungsstufe beendet
-        if (actKwlMode == ModeCnt - 1) {
+        if (actKwlMode == defStandardModeCnt - 1) {
           // fertig mit allen Stufen!!!
           // Speichern in EEProm und Variablen
-          for (int i = 0; ((i < ModeCnt) && (i < 10)); i++) {
+          for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
             PwmSetpointFan1[i] = tempPwmSetpointFan1[i];
             PwmSetpointFan2[i] = tempPwmSetpointFan2[i];
             eeprom_write_int(20 + (i * 4), PwmSetpointFan1[i]);

@@ -3,7 +3,7 @@ void mqtt_debug_fan1() {
   out =  "Fan1 - M: ";
   out += millis();
   out += ", Gap1: ";
-  out += abs(speedSetpointFan1 - speedTachoFan1);
+  out += (speedTachoFan1 - speedSetpointFan1);
   out += ", tsf1: ";
   out += techSetpointFan1;
   out += ", ssf1: ";
@@ -18,7 +18,7 @@ void mqtt_debug_fan2() {
   out =  "Fan2 - M: ";
   out += millis();
   out += ", Gap2: ";
-  out += abs(speedSetpointFan2 - speedTachoFan2);
+  out += (speedTachoFan2 - speedSetpointFan2);
   out += ", tsf2: ";
   out += techSetpointFan2;
   out += ", ssf2: ";
