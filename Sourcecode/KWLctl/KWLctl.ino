@@ -113,9 +113,10 @@ int      kwlMode                            = 2;                            // S
 
 
 // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
-int serialDebug = 0;            // 1 = Allgemein Debugausgaben auf der seriellen Schnittstelle aktiviert
-int serialDebugFan = 0;         // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
-int serialDebugAntifreeze = 0;  // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
+int serialDebug = 0;             // 1 = Allgemein Debugausgaben auf der seriellen Schnittstelle aktiviert
+int serialDebugFan = 0;          // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
+int serialDebugAntifreeze = 0;   // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
+int serialDebugSummerbypass = 0; // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
 
@@ -247,11 +248,11 @@ unsigned long PreheaterStartMillis    = 0;        // Beginn der Vorheizung
 unsigned long intervalNtpTime                = 1000;
 unsigned long intervalTachoFan               = 1000;
 unsigned long intervalSetFan                 = 1000;
-unsigned long intervalTempRead               = 5000;           // Abfrage Temperatur, muss größer als 1000 sein
-unsigned long intervalAntifreezeCheck        = 10000;      //  60000 = 60 * 1000         // Frostschutzprüfung je Minute
-unsigned long intervalAntiFreezeAlarmCheck   = 600000;      // 600000 = 10 * 60 * 1000;   // 10 Min Zeitraum zur Überprüfung, ob Vorheizregister die Temperatur erhöhen kann,
-unsigned long intervalBypassSummerCheck      = 60000;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
-unsigned long intervalBypassSummerSetFlaps   = 300000;  // 5 * 60 * 1000 Zeitraum zum Setzen des Bypasses, 5 Minuten
+unsigned long intervalTempRead               = 5000;    // Abfrage Temperatur, muss größer als 1000 sein
+unsigned long intervalAntifreezeCheck        = 10000;   //  60000 = 60 * 1000         // Frostschutzprüfung je Minute
+unsigned long intervalAntiFreezeAlarmCheck   = 600000;  // 600000 = 10 * 60 * 1000;   // 10 Min Zeitraum zur Überprüfung, ob Vorheizregister die Temperatur erhöhen kann,
+unsigned long intervalBypassSummerCheck      = 60000;  // ;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
+unsigned long intervalBypassSummerSetFlaps   = 60000; // 300000;  // 1 * 60 * 1000 Zeitraum zum Fahren des Bypasses, 1 Minuten
 
 unsigned long intervalMqttFan                = 5000;
 unsigned long intervalMqttMode               = 300000; // 5 * 60 * 1000; 5 Minuten
@@ -796,23 +797,28 @@ void loopBypassSummerCheck() {
   // Bedingungen für Sommer Bypass überprüfen und Variable ggfs setzen
   currentMillis = millis();
   if (currentMillis - previousMillisBypassSummerCheck >= intervalBypassSummerCheck) {
+    if (serialDebugSummerbypass == 1){Serial.println("BypassSummerCheck");}
     previousMillisBypassSummerCheck = currentMillis;
     // Auto oder Manual?
     if (bypassMode == bypassMode_Auto) {
+      if (serialDebugSummerbypass == 1){Serial.println("bypassMode_Auto");}
       // Automatic
       // Hysterese überprüfen
       if (currentMillis - bypassLastChangeMillis >= (bypassHystereseMinutes * 60 * 1000)) {
+        if (serialDebugSummerbypass == 1){Serial.println("Time to Check");}
         if ((TEMP1_Aussenluft    < TEMP3_Abluft - 2)
             && (TEMP3_Abluft     > bypassTempAbluftMin)
             && (TEMP1_Aussenluft > bypassTempAussenluftMin)) {
           //ok, dann Klappe öffen
           if (bypassFlapSetpoint != bypassFlapState_Open) {
+            if (serialDebugSummerbypass == 1){Serial.println("Klappe öffen");}
             bypassFlapSetpoint = bypassFlapState_Open;
             bypassLastChangeMillis = millis();
           }
         } else {
           //ok, dann Klappe schliessen
           if (bypassFlapSetpoint != bypassFlapState_Close) {
+            if (serialDebugSummerbypass == 1){Serial.println("Klappe schliessen");}
             bypassFlapSetpoint = bypassFlapState_Close;
             bypassLastChangeMillis = millis();
           }
@@ -831,10 +837,12 @@ void loopBypassSummerSetFlaps() {
   // Klappe gemäß bypassFlapSetpoint setzen
   currentMillis = millis();
   if (currentMillis - previousMillisBypassSummerSetFlaps >= intervalBypassSummerSetFlaps) {
+    if (serialDebugSummerbypass == 1){Serial.println("loopBypassSummerSetFlaps");}
     previousMillisBypassSummerSetFlaps = currentMillis;
     if (bypassFlapSetpoint != bypassFlapState) {    // bypassFlapState wird NACH erfolgter Fahrt gesetzt
       if ((bypassFlapsStartTime == 0)  || (millis() - bypassFlapsStartTime > bypassFlapsDriveTime)) {
         if (!bypassFlapsRunning) {
+          if (serialDebugSummerbypass == 1){Serial.println("Jetzt werden die Relais angesteuert");}
           // Jetzt werden die Relais angesteuert
           if (bypassFlapSetpoint == bypassFlapState_Close) {
 
@@ -856,6 +864,7 @@ void loopBypassSummerSetFlaps() {
             bypassFlapsStartTime = millis();
           }
         } else {
+          if (serialDebugSummerbypass == 1){Serial.println("Klappe wurde gefahren, jetzt abschalten");}
           // Klappe wurde gefahren, jetzt abschalten
           // Realis ausschalten
           // Erst Power, dann Richtung beim Ausschalten
@@ -1329,6 +1338,7 @@ void loop()
   loopSetFan();
   loopAntiFreezeCheck();
   loopBypassSummerCheck();
+  loopBypassSummerSetFlaps();
   loopTemperaturRequest();
   loopTemperaturRead();
 
