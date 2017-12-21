@@ -117,8 +117,10 @@ int serialDebug = 0;             // 1 = Allgemein Debugausgaben auf der serielle
 int serialDebugFan = 0;          // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
 int serialDebugAntifreeze = 0;   // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
 int serialDebugSummerbypass = 0; // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
+int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
+#define strVersion " Version 0.1 ALPHA "
 
 // *** TFT
 // Assign human-readable names to some common 16-bit color values:
@@ -1283,8 +1285,7 @@ void setup()
   Serial.print (tachoPinFan2);
   Serial.print ("\t");
   Serial.println (digitalPinToInterrupt(tachoPinFan2));
-  delay(4000);
-
+  
   // Relais Ansteuerung Lüfter
   pinMode(relPinFan1Power, OUTPUT);
   digitalWrite(relPinFan1Power, RELAY_ON);
@@ -1297,11 +1298,17 @@ void setup()
   pinMode(relPinBypassDirection, OUTPUT);
   digitalWrite(relPinBypassDirection, RELAY_OFF);
 
+  Serial.println("Setup completed...");
+  tft.println("Setup completed...");
+  
   // 4 Sekunden Pause für die TFT Anzeige, damit man sie auch lesen kann
   delay (4000);
+  
+  tft_print_background();   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
 
   //PID
   //turn the PID on
+  // ab hier keine delays mehr verwenden, der Zeitnehmer für die PID-Regler läuft
   PidFan1.SetOutputLimits(0, 1000);
   PidFan1.SetMode(AUTOMATIC);
   PidFan1.SetSampleTime(intervalSetFan);
@@ -1313,12 +1320,8 @@ void setup()
   PidPreheater.SetOutputLimits(0, 1000);
   PidPreheater.SetMode(MANUAL);
   PidPreheater.SetSampleTime(intervalSetFan);  // SetFan ruft Preheater auf, deswegen hier intervalSetFan
-
+  
   previousMillisTemp = millis();
-
-  Serial.println("Setup completed...");
-  tft.println("Setup completed...");
-  tft.fillRect(0, 30, 480, 200, BLACK);
 
 }
 // *** SETUP ENDE
@@ -1327,7 +1330,7 @@ void setup()
 void loop()
 {
 
-  //loopWrite100Millis();
+  loopWrite100Millis();
   loopMqttSendMode();
   loopMqttSendFan();
   loopMqttSendTemp();
