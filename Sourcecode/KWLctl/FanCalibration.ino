@@ -15,14 +15,14 @@ int actFansCalculateSpeed = CalculateSpeed_PROP;
 // Kalibrierung einer Stufe
 boolean       CalibrationPwmStufeStartet      = false;
 unsigned long CalibrationPwmStufeStartMillis  = 0;
-unsigned long timeoutPwmStufeCalibration      = 180000;   // max 3 Minuten pro Stufe
+unsigned long timeoutPwmStufeCalibration      = 300000;   // max 5 Minuten pro Stufe
 
 int actKwlMode = 0;
 
 int  tempPwmSetpointFan1[defStandardModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
 int  tempPwmSetpointFan2[defStandardModeCnt];
 
-#define goodPwmsCnt 5
+#define goodPwmsCnt 30
 int  goodPwmsFan1[goodPwmsCnt];
 int  goodPwmsFan2[goodPwmsCnt];
 int  ActGoodPwmsFan1;
