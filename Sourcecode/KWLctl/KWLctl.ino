@@ -1366,7 +1366,7 @@ void setup()
 void loop()
 {
 
-  loopWrite100Millis();
+  //loopWrite100Millis();
   loopMqttSendMode();
   loopMqttSendFan();
   loopMqttSendTemp();
