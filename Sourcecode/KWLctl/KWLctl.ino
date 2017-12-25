@@ -120,7 +120,7 @@ int serialDebugSummerbypass = 0; // 1 = Debugausgaben für die Summerbypassschal
 int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
-#define strVersion " Version 0.1 ALPHA "
+#define strVersion "v0.01"
 
 // *** TFT
 // Assign human-readable names to some common 16-bit color values:
@@ -941,12 +941,12 @@ void loopTachoFan() {
     interrupts();
 
     if (_tachoFan1TimeSum != 0) {
-      speedTachoFan1 = (float)_cycleFan1Counter * 60 / ((float)(_tachoFan1TimeSum) / 1000.0);  // Umdrehungen pro Minute
+      speedTachoFan1 = (float)_cycleFan1Counter * 60.0 / ((float)(_tachoFan1TimeSum) / 1000.0);  // Umdrehungen pro Minute
     } else {
       speedTachoFan1 = 0;
     }
     if (_tachoFan2TimeSum != 0) {
-      speedTachoFan2 = (float)_cycleFan2Counter * 60 / ((float)(_tachoFan2TimeSum) / 1000.0);
+      speedTachoFan2 = (float)_cycleFan2Counter * 60.0 / ((float)(_tachoFan2TimeSum) / 1000.0);
     } else {
       speedTachoFan2 = 0;
     }
@@ -1263,7 +1263,7 @@ void setup()
 
   Serial.println();
   Serial.println("Booting...");
-  tft.setCursor(0, 30);
+  SetCursor(0, 30);
   tft.println("Booting...");
   mqttClient.setServer(mqttbroker, 1883);
   mqttClient.setCallback(mqttReceiveMsg);
@@ -1366,7 +1366,7 @@ void setup()
 void loop()
 {
 
-  //loopWrite100Millis();
+  loopWrite100Millis();
   loopMqttSendMode();
   loopMqttSendFan();
   loopMqttSendTemp();
