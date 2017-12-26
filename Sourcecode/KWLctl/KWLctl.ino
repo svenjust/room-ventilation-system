@@ -73,7 +73,7 @@ IPAddress    mqttbroker(192, 168, 20, 240);            // IP Adresse des MQTT Br
 // Es können bis zu 10 Lüftungsstufen definiert werden. Im Allgemeinen sollten 4 oder 6 Stufen ausreichen.
 // Die Originalsteuerung stellt 3 Stufen zur Verfügung
 //
-// Ein Definition für 4 Stufen, ähnlich der Originalsteuerung wäre:
+// Eine Definition für 4 Stufen, ähnlich der Originalsteuerung wäre:
 // Stufe 0 = 0%, Stufe 1 = 70%, Stufe 2 = 100%, Stufe 3 = 130%. Stufe 0 ist hier zusätzlich.
 //
 // Ein mögliche Definition für 6 Stufen wäre bspw.:
@@ -81,8 +81,8 @@ IPAddress    mqttbroker(192, 168, 20, 240);            // IP Adresse des MQTT Br
 //
 // defStandardModeCnt definiert die Anzahl der Stufen
 //
-// FACTORY_RESET_EEPROM = true setzt alle Werte der Steuerung auf eine definierte Werte zurück. Dieses entspricht einem zurück-
-// setzen auf den Werkzustand. Ein Factory-Reset kann auch per mqtt Befehl erreicht werden:
+// FACTORY_RESET_EEPROM = true setzt alle Werte der Steuerung auf eine definierte Werte zurück. Dieses entspricht einem
+// Zurücksetzen auf den Werkzustand. Ein Factory-Reset kann auch per mqtt Befehl erreicht werden:
 //     mosquitto_pub -t d15/set/kwl/resetAll_IKNOWWHATIMDOING -m YES
 //
 #define  FACTORY_RESET_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
@@ -98,7 +98,8 @@ int      kwlMode                            = 2;                            // S
 #define  defStandardBypassHystereseMinutes   60                             // Hystereszeit für eine Umstellung des Bypasses im Automatik Betrieb
 #define  defStandardBypassHystereseTemp       3                             // Hysteretemperatur für eine Umstellung des Bypasses im Automatik Betrieb
 #define  defStandardBypassManualSetpoint      1                             // 1 = Close, Stellung der Bypassklappen im manuellen Betrieb
-#define  defStandardBypassMode                0                             // 0 = Auto, Automatik oder manueller Betrieb der Bypassklappe. Im Automatikbetrieb steuert diese Steuerung die Bypass-Klappe, im manuellen Betrieb wird die Bypass-Klappe durch mqtt-Kommandos gesteuert.
+#define  defStandardBypassMode                0                             // 0 = Auto, Automatik oder manueller Betrieb der Bypassklappe. 
+// Im Automatikbetrieb steuert diese Steuerung die Bypass-Klappe, im manuellen Betrieb wird die Bypass-Klappe durch mqtt-Kommandos gesteuert.
 // **************************************E N D E *** W E R K S E I N S T E L L U N G E N **********************************************************************
 
 
@@ -186,7 +187,7 @@ const char *TOPICKwlDebugsetTemperaturFortluft   = "d15/debugset/kwl/fortluft/te
 // Ende Topics
 
 
-// Sind die folgenden Variablen auf true, wenn beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
+// Sind die folgenden Variablen auf true, werden beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
 // anschliessend wird die Variable wieder auf false gesetzt
 boolean mqttCmdSendTemp                        = false;
 boolean mqttCmdSendFans                        = false;
@@ -203,8 +204,7 @@ boolean EffiencyCalcNow = false;
 char   TEMPChar[10];            // Hilfsvariable zu Konvertierung
 char   buffer[7];               // the ASCII of the integer will be stored in this char array
 String TEMPAsString;            // Ausgelesene Wert als String
-String   ErrorText;          // Textvariable für Fehlermeldung
-unsigned long ErrorMillis = 0;  // Zeit letzter Fehler
+String ErrorText;               // Textvariable für Fehlermeldung
 
 // Variablen für Lüfter Tacho
 #define CalculateSpeed_PID             1
@@ -555,7 +555,7 @@ void setSpeedToFan() {
   // Ausgabewert für Lüftersteuerung darf zwischen 0-10V liegen, dies entspricht 0..1023, vereinfacht 0..1000
   // 0..1000 muss umgerechnet werden auf 0..255 also durch 4 geteilt werden
   // max. Lüfterdrehzahl bei Pabstlüfter 3200 U/min
-  // max. Drehzahl 2300 U/min bei Testaufbau (alten Prozessorlüftern)
+  // max. Drehzahl 2300 U/min bei Testaufbau (alte Prozessorlüfter)
 
   speedSetpointFan1 = StandardSpeedSetpointFan1 * defStandardKwlModeFactor[kwlMode];
   speedSetpointFan2 = StandardSpeedSetpointFan2 * defStandardKwlModeFactor[kwlMode];
@@ -989,15 +989,16 @@ void loopCheckForErrors() {
   if (currentMillis - previousMillisCheckForErrors > intervalCheckForErrors) {
     previousMillisCheckForErrors = currentMillis;
 
-    if (speedTachoFan1 < 10 && !antifreezeState && speedTachoFan2 < 10 ) {
+
+    if (defStandardKwlModeFactor[kwlMode] != 0 && speedTachoFan1 < 10 && !antifreezeState && speedTachoFan2 < 10 ) {
       ErrorText = "Beide Luefter ausgefallen";
       return;
     }
-    else if (speedTachoFan1 < 10 && !antifreezeState ) {
+    else if (defStandardKwlModeFactor[kwlMode] != 0 && speedTachoFan1 < 10 && !antifreezeState ) {
       ErrorText = "Zuluftluefter ausgefallen";
       return;
     }
-    else if (speedTachoFan2 < 10 ) {
+    else if (defStandardKwlModeFactor[kwlMode] != 0 && speedTachoFan2 < 10 ) {
       ErrorText = "Abluftluefter ausgefallen";
       return;
     }
