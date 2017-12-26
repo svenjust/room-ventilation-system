@@ -200,9 +200,11 @@ boolean mqttCmdSendAlwaysDebugPreheater        = true;
 
 boolean EffiencyCalcNow = false;
 
-char   TEMPChar[10]; // Hilfsvariable zu Konvertierung
-char   buffer[7];    // the ASCII of the integer will be stored in this char array
-String TEMPAsString; // Ausgelesene Wert als String
+char   TEMPChar[10];            // Hilfsvariable zu Konvertierung
+char   buffer[7];               // the ASCII of the integer will be stored in this char array
+String TEMPAsString;            // Ausgelesene Wert als String
+String   ErrorText;          // Textvariable für Fehlermeldung
+unsigned long ErrorMillis = 0;  // Zeit letzter Fehler
 
 // Variablen für Lüfter Tacho
 #define CalculateSpeed_PID             1
@@ -257,6 +259,7 @@ unsigned long intervalAntifreezeCheck        = 10000;   //  60000 = 60 * 1000   
 unsigned long intervalAntiFreezeAlarmCheck   = 600000;  // 600000 = 10 * 60 * 1000;   // 10 Min Zeitraum zur Überprüfung, ob Vorheizregister die Temperatur erhöhen kann,
 unsigned long intervalBypassSummerCheck      = 60000;  // ;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
 unsigned long intervalBypassSummerSetFlaps   = 60000; // 300000;  // 1 * 60 * 1000 Zeitraum zum Fahren des Bypasses, 1 Minuten
+unsigned long intervalCheckForErrors         = 1000;
 
 unsigned long intervalMqttFan                = 5000;
 unsigned long intervalMqttMode               = 300000; // 5 * 60 * 1000; 5 Minuten
@@ -271,6 +274,7 @@ unsigned long previousMillisEffiencyCalc          = 0;
 unsigned long previousMillisAntifreeze            = 0;
 unsigned long previousMillisBypassSummerCheck     = 0;
 unsigned long previousMillisBypassSummerSetFlaps  = 0;
+unsigned long previousMillisCheckForErrors        = 0;
 
 unsigned long previousMillisMqttHeartbeat         = 0;
 unsigned long previousMillisMqttFan               = 0;
@@ -978,7 +982,38 @@ void loopEffiencyCalc() {
   }
 }
 
+void loopCheckForErrors() {
+  // In dieser Funktion wird auf verschiedene Fehler getestet und der gravierenste Fehler wird in die Variable ErrorText geschrieben
+  // ErrorText wird auf das Display geschrieben.
+  currentMillis = millis();
+  if (currentMillis - previousMillisCheckForErrors > intervalCheckForErrors) {
+    previousMillisCheckForErrors = currentMillis;
 
+    if (speedTachoFan1 < 10 && !antifreezeState && speedTachoFan2 < 10 ) {
+      ErrorText = "Beide Luefter ausgefallen";
+      return;
+    }
+    else if (speedTachoFan1 < 10 && !antifreezeState ) {
+      ErrorText = "Zuluftluefter ausgefallen";
+      return;
+    }
+    else if (speedTachoFan2 < 10 ) {
+      ErrorText = "Abluftluefter ausgefallen";
+      return;
+    }
+    else if (TEMP1_Aussenluft == -127.0 || TEMP2_Zuluft == -127.0 || TEMP3_Abluft == -127.0 || TEMP4_Fortluft == -127.0) {
+      ErrorText = "Temperatursensor ausgefallen: ";
+      if (TEMP1_Aussenluft == -127.0) ErrorText += "T1 ";
+      if (TEMP2_Zuluft == -127.0) ErrorText += "T2 ";
+      if (TEMP3_Abluft == -127.0) ErrorText += "T3 ";
+      if (TEMP4_Fortluft == -127.0) ErrorText += "T4 ";
+    }
+    else
+    {
+      ErrorText = "";
+    }
+  }
+}
 
 // loopMqtt... senden Werte an den mqtt-Server.
 
@@ -1381,7 +1416,7 @@ void loop()
   loopTemperaturRequest();
   loopTemperaturRead();
   loopEffiencyCalc();
-
+  loopCheckForErrors();
   loopDisplayUpdate();
 
   loopMqttHeartbeat();
