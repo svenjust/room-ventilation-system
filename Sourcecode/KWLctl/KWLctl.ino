@@ -273,8 +273,7 @@ double        techSetpointPreheater   = 0.0;     // Analogsignal 0..1000 für Vo
 unsigned long PreheaterStartMillis    = 0;        // Beginn der Vorheizung
 
 // Definitionen für das Scheduling
-unsigned long intervalNtpTime                = 1000;
-unsigned long intervalTachoFan               = 1000;
+unsigned long intervalTachoFan               = 950;
 unsigned long intervalSetFan                 = 1000;
 unsigned long intervalTempRead               = 5000;    // Abfrage Temperatur, muss größer als 1000 sein
 
@@ -1072,12 +1071,14 @@ void loopTachoFan() {
     Serial.println (_tachoFan1TimeSum);
     Serial.println (_cycleFan1Counter);
     if (_tachoFan1TimeSum != 0) {
-      speedTachoFan1 = (float)_cycleFan1Counter * 60.0 / ((float)(_tachoFan1TimeSum) / 1000.0);  // Umdrehungen pro Minute
+      speedTachoFan1 = _cycleFan1Counter * 60000 / _tachoFan1TimeSum;  // Umdrehungen pro Minute
+      //speedTachoFan1 = (float)_cycleFan1Counter * 60.0 / ((float)(_tachoFan1TimeSum) / 1000.0);
     } else {
       speedTachoFan1 = 0;
     }
     if (_tachoFan2TimeSum != 0) {
-      speedTachoFan2 = (float)_cycleFan2Counter * 60.0 / ((float)(_tachoFan2TimeSum) / 1000.0);
+      speedTachoFan2 = _cycleFan2Counter * 60000 / _tachoFan2TimeSum;  // Umdrehungen pro Minute
+      //speedTachoFan2 = (float)_cycleFan2Counter * 60.0 / ((float)(_tachoFan2TimeSum) / 1000.0);
     } else {
       speedTachoFan2 = 0;
     }
@@ -1140,7 +1141,7 @@ void loopCheckForErrors() {
     {
       ErrorText = "";
     }
-    
+
     // InfoText
     if (FanMode == FanMode_Calibration) {
       InfoText = "Luefter werden kalibriert";
@@ -1494,16 +1495,15 @@ void setup()
   Ethernet.begin(mac, ip, DnsServer);
   delay(1500);    // Delay in Setup erlaubt
   lastReconnectAttempt = 0;
-  Serial.print("Server Adresse: ");
+  Serial.print("...Server Adresse: ");
   Serial.println(Ethernet.localIP());
-  tft.print("Server Adresse: ");
+  tft.print("...Server Adresse: ");
   tft.println(Ethernet.localIP());
 
   Serial.println("Initialisierung Mqtt");
   tft.println("Initialisierung Mqtt");
   mqttClient.setServer(mqttbroker, 1883);
   mqttClient.setCallback(mqttReceiveMsg);
-
 
   Serial.println("Initialisierung Temperatursensoren");
   tft.println("Initialisierung Temperatursensoren");
