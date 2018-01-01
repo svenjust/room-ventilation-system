@@ -93,7 +93,7 @@ void loopDisplayUpdate() {
     // Speed Fan1
     if (abs(LastDisplaySpeedTachoFan1 - speedTachoFan1) > 10) {
       LastDisplaySpeedTachoFan1 = speedTachoFan1;
-      tft.fillRect(280, 192, 60, numberfieldheight, colBackColor);
+      tft.fillRect(280, 192, 80, numberfieldheight, colBackColor);
       sprintf(strPrint, "%5i", (int)speedTachoFan1);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(340 - w, 192 + baselineMiddle);
@@ -105,7 +105,7 @@ void loopDisplayUpdate() {
       sprintf(strPrint, "%5i", (int)speedTachoFan2);
       // Debug einkommentieren
       // tft.fillRect(280, 218, 60, numberfieldheight, colWindowTitle);
-      tft.fillRect(280, 218, 60, numberfieldheight, colBackColor);
+      tft.fillRect(280, 218, 80, numberfieldheight, colBackColor);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(340 - w, 218 + baselineMiddle);
       tft.print(strPrint);
