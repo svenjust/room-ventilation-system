@@ -1,3 +1,4 @@
+
 /*
   # Steuerung einer Lüftungsanlage für Wohnhäuser
 
@@ -35,7 +36,13 @@
 #include <PID_v1.h>             // PID-Regler für die Drehzahlregelung
 #include <OneWire.h>            // OneWire Temperatursensoren
 #include <DallasTemperature.h>
-#include <NTPClient.h>          // NTPClient, der Client ist nonblocking, auch im Fehlerfall.
+#include <Wire.h>
+#include <DHT.h>
+#include <DHT_U.h>
+
+// ***************************************************  A N S T E U E R U N G   P W M oder D A C   ***************************************************
+#define  ControlFansDAC         1 // 1 = Ansteuerung durch DAC über SDA und SLC (und PWM)
+// ****************************************** E N D E   A N S T E U E R U N G   P W M oder D A C   ***************************************************
 
 
 // ***************************************************  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
@@ -46,17 +53,25 @@
 #define pwmPinFan1              44  // Lüfter Zuluft
 #define pwmPinFan2              46  // Lüfter Abluft
 #define pwmPinPreheater         45  // Vorheizer
-#define tachoPinFan1            20  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
-#define tachoPinFan2            21  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
+#define tachoPinFan1            18  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
+#define tachoPinFan2            19  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
 #define relPinBypassPower       40  // Bypass Strom an/aus. Das BypassPower steuert, ob Strom am Bypass geschaltet ist, BypassDirection bestimmt Öffnen oder Schliessen
 #define relPinBypassDirection   41  // Bypass Richtung, Stromlos = Schliessen (Winterstellung), Strom = Öffnen (Sommerstellung)
 #define relPinFan1Power         42  // Stromversorgung Lüfter 1
 #define relPinFan2Power         43  // Stromversorgung Lüfter 2
 
+#define pinDHT1                 28  // Pin vom 1. DHT
+#define pinDHT2                 29  // Pin vom 2. DHT
+
 #define TEMP1_ONE_WIRE_BUS      30  // Für jeder Temperatursensor gibt es einen Anschluss auf dem Board, Vorteil: Temperatursensoren können per Kabel definiert werden, nicht Software
 #define TEMP2_ONE_WIRE_BUS      31
 #define TEMP3_ONE_WIRE_BUS      32
 #define TEMP4_ONE_WIRE_BUS      33
+
+#define DAC_I2C_OUT_ADDR  176 >> 1 // I2C-OUTPUT-Addresse für Horter DAC als 7 Bit, wird verwendet als Alternative zur PWM Ansteuerung der Lüfter und für Vorheizregister
+#define DAC_CHANNEL_FAN1         0 // Kanal 1 des DAC für Zuluft
+#define DAC_CHANNEL_FAN2         1 // Kanal 2 des DAC für Abluft
+#define DAC_CHANNEL_PREHEATER    2 // Kanal 3 des DAC für Vorheizregister
 // *******************************************E N D E ***  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
 
 
@@ -64,6 +79,7 @@
 // Hier die IP Adresse für diese Steuerung und den MQTT Broker definieren.
 byte mac[] = {  0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };  // MAC Adresse des Ethernet Shields
 IPAddress    ip(192, 168, 20, 201);                    // IP Adresse für diese Gerät im eigenen Netz
+IPAddress    DnsServer(8, 8, 8, 8);                    // DNS Server, hier Google
 IPAddress    mqttbroker(192, 168, 20, 240);            // IP Adresse des MQTT Brokers
 // *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N *****************************************************
 
@@ -168,6 +184,11 @@ const char *TOPICKwlAntifreeze              = "d15/state/kwl/antifreeze";
 const char *TOPICKwlBypassState             = "d15/state/kwl/summerbypass/flap";
 const char *TOPICKwlBypassMode              = "d15/state/kwl/summerbypass/mode";
 
+const char *TOPICKwlDHT1Temperatur          = "d15/state/kwl/dht1/temperatur";
+const char *TOPICKwlDHT2Temperatur          = "d15/state/kwl/dht2/temperatur";
+const char *TOPICKwlDHT1Humidity            = "d15/state/kwl/dht1/humidity";
+const char *TOPICKwlDHT2Humidity            = "d15/state/kwl/dht2/humidity";
+
 const char *TOPICKwlBypassTempAbluftMin     = "d15/state/kwl/summerbypass/TempAbluftMin";
 const char *TOPICKwlBypassTempAussenluftMin = "d15/state/kwl/summerbypass/TempAussenluftMin";
 const char *TOPICKwlBypassHystereseMinutes  = "d15/state/kwl/summerbypass/HystereseMinutes";
@@ -190,6 +211,7 @@ const char *TOPICKwlDebugsetTemperaturFortluft   = "d15/debugset/kwl/fortluft/te
 // Sind die folgenden Variablen auf true, werden beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
 // anschliessend wird die Variable wieder auf false gesetzt
 boolean mqttCmdSendTemp                        = false;
+boolean mqttCmdSendDht                         = false;
 boolean mqttCmdSendFans                        = false;
 boolean mqttCmdSendBypassState                 = false;
 boolean mqttCmdSendBypassAllValues             = false;
@@ -254,13 +276,14 @@ unsigned long intervalNtpTime                = 1000;
 unsigned long intervalTachoFan               = 1000;
 unsigned long intervalSetFan                 = 1000;
 unsigned long intervalTempRead               = 5000;    // Abfrage Temperatur, muss größer als 1000 sein
+
 unsigned long intervalEffiencyCalc           = 5000;
 unsigned long intervalAntifreezeCheck        = 10000;   //  60000 = 60 * 1000         // Frostschutzprüfung je Minute
 unsigned long intervalAntiFreezeAlarmCheck   = 600000;  // 600000 = 10 * 60 * 1000;   // 10 Min Zeitraum zur Überprüfung, ob Vorheizregister die Temperatur erhöhen kann,
 unsigned long intervalBypassSummerCheck      = 60000;  // ;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
 unsigned long intervalBypassSummerSetFlaps   = 60000; // 300000;  // 1 * 60 * 1000 Zeitraum zum Fahren des Bypasses, 1 Minuten
 unsigned long intervalCheckForErrors         = 1000;
-
+unsigned long intervalDHTRead                = 10000;
 unsigned long intervalMqttFan                = 5000;
 unsigned long intervalMqttMode               = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttTemp               = 5000;
@@ -275,6 +298,7 @@ unsigned long previousMillisAntifreeze            = 0;
 unsigned long previousMillisBypassSummerCheck     = 0;
 unsigned long previousMillisBypassSummerSetFlaps  = 0;
 unsigned long previousMillisCheckForErrors        = 0;
+unsigned long previousMillisDHTRead               = 0;
 
 unsigned long previousMillisMqttHeartbeat         = 0;
 unsigned long previousMillisMqttFan               = 0;
@@ -282,6 +306,8 @@ unsigned long previousMillisMqttMode              = 0;
 unsigned long previousMillisMqttFanOversampling   = 0;
 unsigned long previousMillisMqttTemp              = 0;
 unsigned long previousMillisMqttTempOversampling  = 0;
+unsigned long previousMillisMqttDht               = 0;
+unsigned long previousMillisMqttDhtOversampling   = 0;
 unsigned long previousMillisMqttBypassState       = 0;
 
 unsigned long previous100Millis                   = 0;
@@ -318,9 +344,6 @@ const int  EEPROM_MIN_ADDR = 0;
 const int  EEPROM_MAX_ADDR = 1023;
 // Ende EEPROM
 
-// Ntp Zeit
-EthernetUDP ntpUDP;
-NTPClient timeClient(ntpUDP);
 
 EthernetClient ethClient;
 PubSubClient mqttClient(ethClient);
@@ -363,6 +386,21 @@ float SendMqttTEMP2 = 0;    // Temperatur Zuluft
 float SendMqttTEMP3 = 0;    // Temperatur Abluft
 float SendMqttTEMP4 = 0;    // Temperatur Fortluft
 
+float SendMqttDHT1Temp = 0;    // Temperatur Außenluft, gesendet per Mqtt
+float SendMqttDHT1Hum  = 0;    // Temperatur Zuluft
+float SendMqttDHT2Temp = 0;    // Temperatur Abluft
+float SendMqttDHT2Hum  = 0;    // Temperatur Fortluft
+
+
+// DHT Sensoren
+DHT_Unified dht1(pinDHT1, DHT22);
+DHT_Unified dht2(pinDHT2, DHT22);
+boolean DHT1IsAvailable = false;
+boolean DHT2IsAvailable = false;
+float DHT1Temp = 0;
+float DHT2Temp = 0;
+float DHT1Hum  = 0;
+float DHT2Hum  = 0;
 
 // Ende Definition
 ///////////////////////////////////////
@@ -634,9 +672,34 @@ void setSpeedToFan() {
     Serial.print ("\tspeedSetpointFan2: ");
     Serial.println(speedSetpointFan2);
   }
-
+  // Setzen per PWM
   analogWrite(pwmPinFan1, techSetpointFan1 / 4);
   analogWrite(pwmPinFan2, techSetpointFan2 / 4);
+
+  // Setzen der Werte per DAC
+  if (ControlFansDAC == 1) {
+    byte HBy;
+    byte LBy;
+
+    // FAN 1
+    HBy = techSetpointFan1 / 256;        //HIGH-Byte berechnen
+    LBy = techSetpointFan1 - HBy * 256;  //LOW-Byte berechnen
+    Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
+    Wire.write(DAC_CHANNEL_FAN1);             // FAN 1 schreiben
+    Wire.write(LBy);                          // LOW-Byte schreiben
+    Wire.write(HBy);                          // HIGH-Byte schreiben
+    Wire.endTransmission();                   // Ende
+
+    // FAN 2
+    HBy = techSetpointFan2 / 256;        //HIGH-Byte berechnen
+    LBy = techSetpointFan2 - HBy * 256;  //LOW-Byte berechnen
+    Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
+    Wire.write(DAC_CHANNEL_FAN2);             // FAN 2 schreiben
+    Wire.write(LBy);                          // LOW-Byte schreiben
+    Wire.write(HBy);                          // HIGH-Byte schreiben
+    Wire.endTransmission();                   // Ende
+  }
+
 }
 
 void SetPreheating() {
@@ -692,7 +755,21 @@ void SetPreheating() {
   if (mqttCmdSendAlwaysDebugPreheater) {
     mqtt_debug_Preheater();
   }
+  // Setzen per PWM
   analogWrite(pwmPinPreheater, techSetpointPreheater / 4);
+
+  // Setzen der Werte per DAC
+  byte HBy;
+  byte LBy;
+
+  // FAN 1
+  HBy = techSetpointFan1 / 256;        //HIGH-Byte berechnen
+  LBy = techSetpointFan1 - HBy * 256;  //LOW-Byte berechnen
+  Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
+  Wire.write(DAC_CHANNEL_PREHEATER);        // PREHEATER schreiben
+  Wire.write(LBy);                          // LOW-Byte schreiben
+  Wire.write(HBy);                          // HIGH-Byte schreiben
+  Wire.endTransmission();                   // Ende
 }
 
 
@@ -737,6 +814,62 @@ void loopTemperaturRead() {
     }
     t = Temp4Sensor.getTempCByIndex(0); if (t > -127.0) {
       TEMP4_Fortluft = t;
+    }
+  }
+}
+
+
+void loopDHTRead() {
+  currentMillis = millis();
+  if (currentMillis - previousMillisDHTRead >= intervalDHTRead) {
+    previousMillisDHTRead = currentMillis;
+    sensors_event_t event;
+
+    if (DHT1IsAvailable) {
+      dht1.temperature().getEvent(&event);
+      if (isnan(event.temperature)) {
+        Serial.println(F("Failed reading temperature from DHT1"));
+      }
+      else if (event.temperature != DHT1Temp) {
+        DHT1Temp = event.temperature;
+        mqttCmdSendDht = true;
+        Serial.print("DHT1 T: ");
+        Serial.println(event.temperature);
+      }
+
+      dht1.humidity().getEvent(&event);
+      if (isnan(event.relative_humidity)) {
+        Serial.println(F("Failed reading humidity from DHT1"));
+      }
+      else if (event.relative_humidity != DHT1Hum) {
+        DHT1Hum = event.relative_humidity;
+        mqttCmdSendDht = true;
+        Serial.print(F("DHT1 H: "));
+        Serial.println(event.relative_humidity);
+      }
+    }
+    if (DHT2IsAvailable) {
+      dht2.temperature().getEvent(&event);
+      if (isnan(event.temperature)) {
+        Serial.println(F("Failed reading temperature from DHT2"));
+      }
+      else if (event.temperature != DHT2Temp) {
+        DHT2Temp = event.temperature;
+        mqttCmdSendDht = true;
+        Serial.print("DHT2 T: ");
+        Serial.println(event.temperature);
+      }
+
+      dht2.humidity().getEvent(&event);
+      if (isnan(event.relative_humidity)) {
+        Serial.println(F("Failed reading humidity from DHT2"));
+      }
+      else if (event.relative_humidity != DHT2Hum) {
+        DHT2Hum = event.relative_humidity;
+        mqttCmdSendDht = true;
+        Serial.print(F("DHT2 H: "));
+        Serial.println(event.relative_humidity);
+      }
     }
   }
 }
@@ -912,15 +1045,6 @@ void loopBypassSummerSetFlaps() {
   }
 }
 
-void loopNtpTime() {
-  currentMillis = millis();
-  if (currentMillis - previousMillisNtpTime >= intervalNtpTime) {
-    previousMillisNtpTime = currentMillis;
-    timeClient.update();
-    Serial.println(timeClient.getFormattedTime());
-  }
-}
-
 void loopTachoFan() {
   // Die Geschindigkeit der beiden Lüfter wird bestimmt. Die eigentliche Zählung der Tachoimpulse
   // geschieht per Interrupt in countUpFan1 und countUpFan2
@@ -944,6 +1068,8 @@ void loopTachoFan() {
     tachoFan2TimeSum = 0;
     interrupts();
 
+    Serial.println (_tachoFan1TimeSum);
+    Serial.println (_cycleFan1Counter);
     if (_tachoFan1TimeSum != 0) {
       speedTachoFan1 = (float)_cycleFan1Counter * 60.0 / ((float)(_tachoFan1TimeSum) / 1000.0);  // Umdrehungen pro Minute
     } else {
@@ -1003,7 +1129,7 @@ void loopCheckForErrors() {
       return;
     }
     else if (TEMP1_Aussenluft == -127.0 || TEMP2_Zuluft == -127.0 || TEMP3_Abluft == -127.0 || TEMP4_Fortluft == -127.0) {
-      ErrorText = "Temperatursensor ausgefallen: ";
+      ErrorText = "Temperatursensor(en) ausgefallen: ";
       if (TEMP1_Aussenluft == -127.0) ErrorText += "T1 ";
       if (TEMP2_Zuluft == -127.0) ErrorText += "T2 ";
       if (TEMP3_Abluft == -127.0) ErrorText += "T3 ";
@@ -1129,6 +1255,57 @@ void MqttSendBypassAllValues() {
   }
 }
 
+void loopMqttSendDHT() {
+  // Senden der DHT Temperaturen und Humidity per Mqtt
+  // Bedingung: a) alle x Sekunden, wenn Differenz Temperatur > 0.5
+  //            b) alle intervalMqttTempOversampling/1000 Sekunden (Standard 5 Minuten)
+  //            c) mqttCmdSendDht == true
+  currentMillis = millis();
+  if ((currentMillis - previousMillisMqttDht > intervalMqttTemp) || mqttCmdSendDht) {
+    previousMillisMqttDht = currentMillis;
+    if ((abs(DHT1Temp - SendMqttDHT1Temp) > 0.5)
+        || (abs(DHT2Temp - SendMqttDHT2Temp) > 0.5)
+        || (abs(DHT1Hum - SendMqttDHT1Hum) > 0.5)
+        || (abs(DHT2Hum - SendMqttDHT2Hum) > 0.5)
+        || (currentMillis - previousMillisMqttDhtOversampling > intervalMqttTempOversampling)
+        || mqttCmdSendDht)  {
+
+      mqttCmdSendDht = false;
+      SendMqttDHT1Temp = DHT1Temp;
+      SendMqttDHT2Temp = DHT2Temp;
+      SendMqttDHT1Hum = DHT1Hum;
+      SendMqttDHT2Hum = DHT2Hum;
+      previousMillisMqttDhtOversampling = currentMillis;
+
+      if (DHT1IsAvailable) {
+        dtostrf(DHT1Temp, 6, 2, buffer);
+        mqttClient.publish(TOPICKwlDHT1Temperatur, buffer);
+        if (serialDebug == 1) {
+          Serial.println("TOPICKwlDHT1Temperatur: " + String(DHT1Temp));
+        }
+        dtostrf(DHT1Hum, 6, 2, buffer);
+        mqttClient.publish(TOPICKwlDHT1Humidity, buffer);
+        if (serialDebug == 1) {
+          Serial.println("TOPICKwlDHT1Humidity: " + String(DHT1Hum));
+        }
+      }
+      if (DHT2IsAvailable) {
+        dtostrf(DHT2Temp, 6, 2, buffer);
+        mqttClient.publish(TOPICKwlDHT2Temperatur, buffer);
+        if (serialDebug == 1) {
+          Serial.println("TOPICKwlDHT2Temperatur: " + String(DHT2Temp));
+        }
+
+        dtostrf(DHT2Hum, 6, 2, buffer);
+        mqttClient.publish(TOPICKwlDHT2Humidity, buffer);
+        if (serialDebug == 1) {
+          Serial.println("TOPICKwlDHT2Humidity: " + String(DHT2Hum));
+        }
+      }
+    }
+  }
+}
+
 
 void loopMqttSendTemp() {
   // Senden der Temperaturen per Mqtt
@@ -1165,12 +1342,12 @@ void loopMqttSendTemp() {
       dtostrf(TEMP3_Abluft, 6, 2, buffer);
       mqttClient.publish(TOPICKwlTemperaturAbluft, buffer);
       if (serialDebug == 1) {
-        Serial.println("TOPICKwlTemperaturAbluft: " + String(TEMP1_Aussenluft));
+        Serial.println("TOPICKwlTemperaturAbluft: " + String(TEMP3_Abluft));
       }
       dtostrf(TEMP4_Fortluft, 6, 2, buffer);
       mqttClient.publish(TOPICKwlTemperaturFortluft, buffer);
       if (serialDebug == 1) {
-        Serial.println("TOPICKwlTemperaturFortluft: " + String(TEMP2_Zuluft));
+        Serial.println("TOPICKwlTemperaturFortluft: " + String(TEMP4_Fortluft));
       }
       if (antifreezeState) {
         mqttClient.publish(TOPICKwlAntifreeze, "on");
@@ -1301,24 +1478,25 @@ void setup()
   Serial.println("Booting...");
   SetCursor(0, 30);
   tft.println("Booting...");
-  mqttClient.setServer(mqttbroker, 1883);
-  mqttClient.setCallback(mqttReceiveMsg);
 
-  Ethernet.begin(mac, ip);
+  Serial.println("Initialisierung Ethernet");
+  tft.println("Initialisierung Ethernet");
+  Ethernet.begin(mac, ip, DnsServer);
   delay(1500);    // Delay in Setup erlaubt
   lastReconnectAttempt = 0;
-
-  Serial.println("Warte auf Zeitsynchronisation");
-  tft.println("Warte auf Zeitsynchronisation");
-
-  // NTP Client starten
-  timeClient.begin(); // NTP Provider starten / erstmalig abfragen
-
   Serial.print("Server Adresse: ");
   Serial.println(Ethernet.localIP());
   tft.print("Server Adresse: ");
   tft.println(Ethernet.localIP());
 
+  Serial.println("Initialisierung Mqtt");
+  tft.println("Initialisierung Mqtt");
+  mqttClient.setServer(mqttbroker, 1883);
+  mqttClient.setCallback(mqttReceiveMsg);
+
+
+  Serial.println("Initialisierung Temperatursensoren");
+  tft.println("Initialisierung Temperatursensoren");
   // Temperatursensoren
   Temp1Sensor.begin();
   Temp1Sensor.setResolution(TEMPERATURE_PRECISION);
@@ -1333,6 +1511,8 @@ void setup()
   Temp4Sensor.setResolution(TEMPERATURE_PRECISION);
   Temp4Sensor.setWaitForConversion(false);
 
+  Serial.println("Initialisierung Ventilatoren");
+  tft.println("Initialisierung Ventilatoren");
   // Lüfter Speed
   pinMode(pwmPinFan1, OUTPUT);
   digitalWrite(pwmPinFan1, LOW);
@@ -1340,8 +1520,6 @@ void setup()
   digitalWrite(pwmPinFan2, LOW);
 
   // Lüfter Tacho Interrupt
-  Serial.println("Teste Ventilatoren");
-  tft.println("Teste Ventilatoren");
   pinMode(tachoPinFan1, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(tachoPinFan1), countUpFan1, FALLING );
 
@@ -1370,6 +1548,39 @@ void setup()
   pinMode(relPinBypassDirection, OUTPUT);
   digitalWrite(relPinBypassDirection, RELAY_OFF);
 
+  if (ControlFansDAC == 1) {
+    Wire.begin();               // I2C-Pins definieren
+    Serial.println("Initialisierung DAC");
+    tft.println("Initialisierung DAC");
+  }
+
+  // DHT Sensoren
+  dht1.begin();
+  dht2.begin();
+  delay(1500);
+  Serial.println("Initialisierung DHT Sensoren");
+  tft.println("Initialisierung DHT Sensoren");
+  sensors_event_t event;
+  dht1.temperature().getEvent(&event);
+  if (!isnan(event.temperature)) {
+    DHT1IsAvailable = true;
+    Serial.println("...DHT1 gefunden");
+    tft.println("...DHT1 gefunden");
+  } else {
+    Serial.println("...DHT1 NICHT gefunden");
+    tft.println("...DHT1 NICHT gefunden");
+  }
+  dht2.temperature().getEvent(&event);
+  if (!isnan(event.temperature)) {
+    DHT2IsAvailable = true;
+    Serial.println("...DHT2 gefunden");
+    tft.println("...DHT2 gefunden");
+  } else {
+    Serial.println("...DHT2 NICHT gefunden");
+    tft.println("...DHT2 NICHT gefunden");
+  }
+
+  // Setup fertig
   Serial.println("Setup completed...");
   tft.println("Setup completed...");
 
@@ -1406,9 +1617,9 @@ void loop()
   loopMqttSendMode();
   loopMqttSendFan();
   loopMqttSendTemp();
+  loopMqttSendDHT();
   loopMqttSendBypass();
 
-  //loopNtpTime();
   loopTachoFan();
   loopSetFan();
   loopAntiFreezeCheck();
@@ -1416,6 +1627,7 @@ void loop()
   loopBypassSummerSetFlaps();
   loopTemperaturRequest();
   loopTemperaturRead();
+  loopDHTRead();
   loopEffiencyCalc();
   loopCheckForErrors();
   loopDisplayUpdate();

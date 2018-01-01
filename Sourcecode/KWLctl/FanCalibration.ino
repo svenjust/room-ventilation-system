@@ -128,6 +128,31 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
     // Lüfter ansteuern
     analogWrite(pwmPinFan1, techSetpointFan1 / 4);
     analogWrite(pwmPinFan2, techSetpointFan2 / 4);
+    
+ // if (ControlFansDAC == 1) {
+    // Setzen der Werte per DAC
+    byte HBy;
+    byte LBy;
+
+    // FAN 1
+    HBy = techSetpointFan1 / 256;        //HIGH-Byte berechnen
+    LBy = techSetpointFan1 - HBy * 256;  //LOW-Byte berechnen
+    Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
+    Wire.write(DAC_CHANNEL_FAN1);             // FAN 1 schreiben
+    Wire.write(LBy);                          // LOW-Byte schreiben
+    Wire.write(HBy);                          // HIGH-Byte schreiben
+    Wire.endTransmission();                   // Ende
+
+    // FAN 2
+    HBy = techSetpointFan2 / 256;        //HIGH-Byte berechnen
+    LBy = techSetpointFan2 - HBy * 256;  //LOW-Byte berechnen
+    Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
+    Wire.write(DAC_CHANNEL_FAN2);             // FAN 2 schreiben
+    Wire.write(LBy);                          // LOW-Byte schreiben
+    Wire.write(HBy);                          // HIGH-Byte schreiben
+    Wire.endTransmission();                   // Ende    
+//  }
+    
     return false;
   }
 }

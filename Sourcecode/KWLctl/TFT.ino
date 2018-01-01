@@ -17,14 +17,15 @@
   //#define colFontColor                0xFFFFFF // 255 255 255
 */
 
-
+// RGB in 565 Kodierung
+// Colorpicker http://www.barth-dev.de/online/rgb565-color-picker/
 // Weiss auf Schwarz
-#define colBackColor                0x000000 //  45 127 151
-#define colWindowTitleBackColor     0xFFFFFF //  66 182 218
-#define colWindowTitleFontColor     0x000000 //  66 182 218
-#define colFontColor                0xFFFFFF // 255 255 255
+#define colBackColor                0x0000 //  45 127 151
+#define colWindowTitleBackColor     0xFFFF //  66 182 218
+#define colWindowTitleFontColor     0x0000 //  66 182 218
+#define colFontColor                0xFFFF // 255 255 255
 #define colErrorBackColor           0xF800 //
-#define colErrorFontColor           0xFFFFFF //
+#define colErrorFontColor           0xFFFF //
 
 /*
   // Schwarz auf weiss
@@ -176,7 +177,7 @@ void tft_print_background() {
   if (serialDebugDisplay == 1) {
     Serial.println("tft_print_background");
   }
-  tft.fillRect(0, 30, 480, 200, colBackColor);
+  tft.fillRect(0, 30, 480, 290, colBackColor);
 
   tft.fillRect(0, 30, 480, 20, colWindowTitleBackColor );
 
