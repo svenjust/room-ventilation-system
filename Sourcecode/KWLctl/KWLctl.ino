@@ -227,6 +227,7 @@ char   TEMPChar[10];            // Hilfsvariable zu Konvertierung
 char   buffer[7];               // the ASCII of the integer will be stored in this char array
 String TEMPAsString;            // Ausgelesene Wert als String
 String ErrorText;               // Textvariable für Fehlermeldung
+String InfoText;                // Textvariable für Infomeldung
 
 // Variablen für Lüfter Tacho
 #define CalculateSpeed_PID             1
@@ -1138,6 +1139,15 @@ void loopCheckForErrors() {
     else
     {
       ErrorText = "";
+    }
+    
+    // InfoText
+    if (FanMode == FanMode_Calibration) {
+      InfoText = "Luefter werden kalibriert";
+    }
+    else
+    {
+      InfoText = "";
     }
   }
 }

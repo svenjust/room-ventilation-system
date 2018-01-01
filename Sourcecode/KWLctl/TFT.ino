@@ -24,8 +24,10 @@
 #define colWindowTitleBackColor     0xFFFF //  66 182 218
 #define colWindowTitleFontColor     0x0000 //  66 182 218
 #define colFontColor                0xFFFF // 255 255 255
-#define colErrorBackColor           0xF800 //
-#define colErrorFontColor           0xFFFF //
+#define colErrorBackColor           0xF800 // rot
+#define colInfoBackColor            0xFFE0 // gelb
+#define colErrorFontColor           0xFFFF // weiss
+#define colInfoFontColor            0x0000 // schwarz
 
 /*
   // Schwarz auf weiss
@@ -50,6 +52,7 @@ int           LastDisplaySpeedTachoFan2   = 0;
 int           LastDisplaykwlMode          = 0;
 int           LastEffiencyKwl             = 0;
 String        LastErrorText               = "";
+String        LastInfoText                = "";
 double LastDisplayT1 = 0, LastDisplayT2 = 0, LastDisplayT3 = 0, LastDisplayT4 = 0;
 
 void loopDisplayUpdate() {
@@ -164,10 +167,22 @@ void loopDisplayUpdate() {
         LastErrorText = ErrorText;
         tft.setFont(&FreeSans12pt7b);  // Mittlerer Font
       }
+    }else if (InfoText.length() > 0 ) {
+      if (InfoText != LastInfoText) {
+        // Neuer Fehler
+        tft.fillRect(0, 300, 479, 21, colInfoBackColor );
+        tft.setTextColor(colInfoFontColor );
+        tft.setFont(&FreeSans9pt7b);  // Kleiner Font
+        tft.setCursor(18, 301 + baselineSmall);
+        tft.print(InfoText);
+        LastInfoText = InfoText;
+        tft.setFont(&FreeSans12pt7b);  // Mittlerer Font
+      }
     }
-    else if (ErrorText != LastErrorText) {
+    else if (ErrorText.length() == 0 && InfoText.length() == 0) {
       tft.fillRect(0, 300, 480, 20, colBackColor );
-      LastErrorText = ErrorText;
+      LastErrorText = "";
+      LastInfoText = "";
     }
   }
 }
