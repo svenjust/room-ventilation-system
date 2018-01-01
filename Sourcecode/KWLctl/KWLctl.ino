@@ -1144,7 +1144,7 @@ void loopCheckForErrors() {
 
     // InfoText
     if (FanMode == FanMode_Calibration) {
-      InfoText = "Luefter werden kalibriert";
+      InfoText = "Luefter werden kalibriert.";
     }
     else
     {
