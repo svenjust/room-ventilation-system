@@ -20,6 +20,3 @@ Die Steuerung ist per LAN (W5100) erreichbar. Als Protokoll wird mqtt verwendet.
 Codeteile stammen von:
 - Tachosignal auslesen wie
   https://forum.arduino.cc/index.php?topic=145226.msg1102102#msg1102102
-- ntpClient, nonblocking, auch im Fehlerfall
-  Der Standard Arduino ntpClient blockiert im Fehlerfall für mindestens eine Sekunde
-  https://github.com/blackketter/NTPClient
