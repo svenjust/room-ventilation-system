@@ -1621,7 +1621,7 @@ void setup()
   PidFan2.SetMode(AUTOMATIC);
   PidFan2.SetSampleTime(intervalSetFan);
 
-  PidPreheater.SetOutputLimits(0, 1000);
+  PidPreheater.SetOutputLimits(100, 1000);
   PidPreheater.SetMode(MANUAL);
   PidPreheater.SetSampleTime(intervalSetFan);  // SetFan ruft Preheater auf, deswegen hier intervalSetFan
 
