@@ -1,4 +1,3 @@
-
 /*
   # Steuerung einer Lüftungsanlage für Wohnhäuser
 
@@ -708,7 +707,7 @@ void SetPreheating() {
   // Das Vorheizregister wird durch ein PID geregelt
   // Die Stellgröße darf zwischen 0..10V liegen
   // Wenn der Zuluftventilator unter einer Schwelle des Tachosignals liegt, wird das Vorheizregister IMMER ausgeschaltet (SICHERHEIT)
-  // Schwelle: 1200 U/min
+  // Schwelle: 1000 U/min
 
   if (serialDebugAntifreeze == 1) {
     Serial.println ("SetPreheating start");
@@ -750,8 +749,8 @@ void SetPreheating() {
   }
 
   // Sicherheitsabfrage
-  if (speedTachoFan2 < 1200 || (techSetpointFan2 == 0) )
-  { // Sicherheitsabschaltung Vorheizer unter 1200 Umdrehungen Zuluftventilator
+  if (speedTachoFan2 < 1000 || (techSetpointFan2 == 0) )
+  { // Sicherheitsabschaltung Vorheizer unter 1000 Umdrehungen Zuluftventilator
     techSetpointPreheater = 0;
   }
   if (mqttCmdSendAlwaysDebugPreheater) {
@@ -765,8 +764,8 @@ void SetPreheating() {
   byte LBy;
 
   // FAN 1
-  HBy = techSetpointFan1 / 256;        //HIGH-Byte berechnen
-  LBy = techSetpointFan1 - HBy * 256;  //LOW-Byte berechnen
+  HBy = techSetpointPreheater / 256;        //HIGH-Byte berechnen
+  LBy = techSetpointPreheater - HBy * 256;  //LOW-Byte berechnen
   Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
   Wire.write(DAC_CHANNEL_PREHEATER);        // PREHEATER schreiben
   Wire.write(LBy);                          // LOW-Byte schreiben
@@ -834,7 +833,6 @@ void loopDHTRead() {
       }
       else if (event.temperature != DHT1Temp) {
         DHT1Temp = event.temperature;
-        mqttCmdSendDht = true;
         Serial.print("DHT1 T: ");
         Serial.println(event.temperature);
       }
@@ -845,7 +843,6 @@ void loopDHTRead() {
       }
       else if (event.relative_humidity != DHT1Hum) {
         DHT1Hum = event.relative_humidity;
-        mqttCmdSendDht = true;
         Serial.print(F("DHT1 H: "));
         Serial.println(event.relative_humidity);
       }
@@ -857,7 +854,6 @@ void loopDHTRead() {
       }
       else if (event.temperature != DHT2Temp) {
         DHT2Temp = event.temperature;
-        mqttCmdSendDht = true;
         Serial.print("DHT2 T: ");
         Serial.println(event.temperature);
       }
@@ -868,7 +864,6 @@ void loopDHTRead() {
       }
       else if (event.relative_humidity != DHT2Hum) {
         DHT2Hum = event.relative_humidity;
-        mqttCmdSendDht = true;
         Serial.print(F("DHT2 H: "));
         Serial.println(event.relative_humidity);
       }
@@ -1119,7 +1114,6 @@ void loopCheckForErrors() {
   if (currentMillis - previousMillisCheckForErrors > intervalCheckForErrors) {
     previousMillisCheckForErrors = currentMillis;
 
-
     if (defStandardKwlModeFactor[kwlMode] != 0 && speedTachoFan1 < 10 && !antifreezeState && speedTachoFan2 < 10 ) {
       ErrorText = "Beide Luefter ausgefallen";
       return;
@@ -1148,10 +1142,13 @@ void loopCheckForErrors() {
     if (FanMode == FanMode_Calibration) {
       InfoText = "Luefter werden kalibriert.";
     }
-    else if (techSetpointPreheater > 0) {
-      InfoText = "Vorheizregister ist eingeschaltet: ";
+    else if (antifreezeState && !antifreezeAlarm) {
+      InfoText = "Defroster: Vorheizregister eingeschaltet ";
       InfoText += int(techSetpointPreheater / 10);
       InfoText += "%";
+    }
+    else if (antifreezeState && antifreezeAlarm) {
+      InfoText = "Defroster: Zuluftventilator ausgeschaltet!";
     }
     else if (bypassFlapsRunning == true) {
       if (bypassFlapStateDriveRunning == bypassFlapState_Close) {
@@ -1290,8 +1287,8 @@ void loopMqttSendDHT() {
     previousMillisMqttDht = currentMillis;
     if ((abs(DHT1Temp - SendMqttDHT1Temp) > 0.5)
         || (abs(DHT2Temp - SendMqttDHT2Temp) > 0.5)
-        || (abs(DHT1Hum - SendMqttDHT1Hum) > 0.5)
-        || (abs(DHT2Hum - SendMqttDHT2Hum) > 0.5)
+        || (abs(DHT1Hum - SendMqttDHT1Hum) > 1)
+        || (abs(DHT2Hum - SendMqttDHT2Hum) > 1)
         || (currentMillis - previousMillisMqttDhtOversampling > intervalMqttTempOversampling)
         || mqttCmdSendDht)  {
 
