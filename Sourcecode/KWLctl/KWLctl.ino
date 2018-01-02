@@ -78,9 +78,11 @@
 // ***************************************************  N E T Z W E R K E I N S T E L L U N G E N ********************************************************
 // Hier die IP Adresse für diese Steuerung und den MQTT Broker definieren.
 byte mac[] = {  0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };  // MAC Adresse des Ethernet Shields
-IPAddress    ip(192, 168, 20, 201);                    // IP Adresse für diese Gerät im eigenen Netz
-IPAddress    DnsServer(8, 8, 8, 8);                    // DNS Server, hier Google
-IPAddress    mqttbroker(192, 168, 20, 240);            // IP Adresse des MQTT Brokers
+IPAddress    ip         (192, 168,  20, 201);          // IP Adresse für diese Gerät im eigenen Netz
+IPAddress    subnet     (255, 255, 255,   0);          // Subnet
+IPAddress    gateway    (192, 168,  20, 250);          // Gateway
+IPAddress    DnServer   (  8,   8,   8,   8);          // DNS Server, hier Google
+IPAddress    mqttbroker (192, 168,  20, 240);          // IP Adresse des MQTT Brokers
 // *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N *****************************************************
 
 
@@ -1146,6 +1148,18 @@ void loopCheckForErrors() {
     if (FanMode == FanMode_Calibration) {
       InfoText = "Luefter werden kalibriert.";
     }
+    else if (techSetpointPreheater > 0) {
+      InfoText = "Vorheizregister ist eingeschaltet: ";
+      InfoText += int(techSetpointPreheater / 10);
+      InfoText += "%";
+    }
+    else if (bypassFlapsRunning == true) {
+      if (bypassFlapStateDriveRunning == bypassFlapState_Close) {
+        InfoText = "Sommer-Bypassklappe wird geschlossen.";
+      } else if (bypassFlapStateDriveRunning == bypassFlapState_Open) {
+        InfoText = "Sommer-Bypassklappe wird geoeffnet.";
+      }
+    }
     else
     {
       InfoText = "";
@@ -1492,7 +1506,7 @@ void setup()
 
   Serial.println("Initialisierung Ethernet");
   tft.println("Initialisierung Ethernet");
-  Ethernet.begin(mac, ip, DnsServer);
+  Ethernet.begin(mac, ip, DnServer, gateway, subnet);
   delay(1500);    // Delay in Setup erlaubt
   lastReconnectAttempt = 0;
   Serial.print("...Server Adresse: ");
