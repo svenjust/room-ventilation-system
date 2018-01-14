@@ -166,16 +166,16 @@ void initializeEEPROM(boolean EraseMemory)
     // bypassTempAussenluftMin
     eeprom_write_int(8, defStandardBypassTempAussenluftMin);
 
-    // bypassHystereseMinutes Close
-    eeprom_write_int(10, 0);
+    // bypassHystereseMinutes
+    eeprom_write_int(10, defStandardBypassHystereseMinutes);
 
     // antifreezeHyst 3
     eeprom_write_int(12, defStandardBypassHystereseTemp);
 
-    // bypassManualSetpoint Close
+    // bypassManualSetpoint
     eeprom_write_int(14, defStandardBypassManualSetpoint);
 
-    // bypassMode Auto
+    // bypassMode
     eeprom_write_int(16, defStandardBypassMode);
 
     // PWM für max 10 Lüftungsstufen und zwei Lüfter und einem Integer

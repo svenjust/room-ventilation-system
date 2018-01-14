@@ -28,6 +28,9 @@
 #define colInfoBackColor            0xFFE0 // gelb
 #define colErrorFontColor           0xFFFF // weiss
 #define colInfoFontColor            0x0000 // schwarz
+#define colMenuBtnFrame             0x0000
+#define colMenuBackColor            0xFFFF 
+#define colMenuFontColor            0x0000
 
 /*
   // Schwarz auf weiss
@@ -36,6 +39,9 @@
   #define colWindowTitleFontColor     0xFFFFFF //  66 182 218
   #define colFontColor                0x000000 // 255 255 255
 */
+
+uint16_t identifier;
+uint8_t Orientation = 3;    //PORTRAIT
 
 #define fontFactorSmall     1
 #define fontFactorBigNumber 3
@@ -54,6 +60,47 @@ int           LastEffiencyKwl             = 0;
 String        LastErrorText               = "";
 String        LastInfoText                = "";
 double LastDisplayT1 = 0, LastDisplayT2 = 0, LastDisplayT3 = 0, LastDisplayT4 = 0;
+byte       LastLanOk                   = true;
+byte       LastMqttOk                  = true;
+
+byte touchBtnWidth  = 60;
+byte touchBtnHeight = 45;
+byte touchBtnYOffset = 30;
+
+
+int16_t  x1, y1;
+uint16_t w, h;
+
+void start_touch(void)
+{
+  uint16_t tmp;
+  identifier = tft.readID();
+  switch (Orientation) {      // adjust for different aspects
+    case 0:   break;        //no change,  calibrated for PORTRAIT
+    case 1:   tmp = TS_LEFT, TS_LEFT = TS_BOT, TS_BOT = TS_RT, TS_RT = TS_TOP, TS_TOP = tmp;  break;
+    case 2:   SWAP(TS_LEFT, TS_RT);  SWAP(TS_TOP, TS_BOT); break;
+    case 3:   tmp = TS_LEFT, TS_LEFT = TS_TOP, TS_TOP = TS_RT, TS_RT = TS_BOT, TS_BOT = tmp;  break;
+  }
+  ts = TouchScreen(XP, YP, XM, YM, 300);     //call the constructor AGAIN with new values.
+  show_Touch_Serial();
+}
+
+void show_Touch_Serial(void)
+{
+  Serial.print(F("Found "));
+  Serial.print(name);
+  Serial.println(F(" LCD driver"));
+  Serial.print(F("ID=0x"));
+  Serial.println(identifier, HEX);
+  Serial.println("Screen is " + String(tft.width()) + "x" + String(tft.height()));
+  Serial.println("Calibration is: ");
+  Serial.println("LEFT = " + String(TS_LEFT) + " RT  = " + String(TS_RT));
+  Serial.println("TOP  = " + String(TS_TOP)  + " BOT = " + String(TS_BOT));
+  Serial.print("Wiring is: ");
+  Serial.println(SwapXY ? "SWAPXY" : "PORTRAIT");
+  Serial.println("YP=" + String(YP)  + " XM=" + String(XM));
+  Serial.println("YM=" + String(YM)  + " XP=" + String(XP));
+}
 
 void loopDisplayUpdate() {
   // Das Update wird alle 1000mS durchlaufen
@@ -72,15 +119,39 @@ void loopDisplayUpdate() {
     char strPrint[10];
     updateDisplayNow = false;
     previousMillisDisplayUpdate = currentMillis;
-    int16_t  x1, y1;
-    uint16_t w, h;
+
+    // Netzwerkverbindung anzeigen
+    if (!bLanOk) {
+      if (LastLanOk != bLanOk) {
+        LastLanOk = bLanOk;
+        tft.fillRect(10, 0, 120, 20, colErrorBackColor);
+        tft.setTextColor(colErrorFontColor );
+        tft.setCursor(20, 0 + baselineMiddle);
+        tft.setFont(&FreeSans9pt7b);  // Kleiner Font
+        tft.print("ERR LAN");
+      }
+    } else if (!bMqttOk) {
+      if (LastMqttOk != bMqttOk ) {
+        LastMqttOk = bMqttOk;
+        tft.fillRect(10, 0, 120, 20, colErrorBackColor);
+        tft.setTextColor(colErrorFontColor );
+        tft.setCursor(20, 0 + baselineMiddle);
+        tft.setFont(&FreeSans9pt7b);  // Kleiner Font
+        tft.print("ERR MQTT");
+      }
+    } else {
+      LastMqttOk = true;
+      LastLanOk = true;
+      tft.fillRect(10, 0, 120, 20, colBackColor);
+    }
 
     if (LastDisplaykwlMode != kwlMode) {
       // KWL Mode
       tft.setFont(&FreeSansBold24pt7b);
-      tft.setCursor(200, 55 + 2 * baselineBigNumber);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setTextSize(2);
+
+      tft.setCursor(200, 55 + 2 * baselineBigNumber);
       sprintf(strPrint, "%-1i", (int)kwlMode);
       tft.fillRect(200, 55, 60, 80, colBackColor);
       tft.print(strPrint);
@@ -167,7 +238,7 @@ void loopDisplayUpdate() {
         LastErrorText = ErrorText;
         tft.setFont(&FreeSans12pt7b);  // Mittlerer Font
       }
-    }else if (InfoText.length() > 0 ) {
+    } else if (InfoText.length() > 0 ) {
       if (InfoText != LastInfoText) {
         // Neuer Fehler
         tft.fillRect(0, 300, 479, 21, colInfoBackColor );
@@ -223,11 +294,155 @@ void tft_print_background() {
 
   tft.setCursor(18, 270 + baselineMiddle);
   tft.print("Wirkungsgrad");
+
+  tft_print_menu();
 }
+
 
 void SetCursor(int x, int y) {
   tft.setCursor(x, y + baselineSmall);
 }
+
+
+byte          menupage                 = 0;
+byte          menuBtnPressed           = -1;
+unsigned long millisLastMenuBtnPress   = 0;
+unsigned long intervalMenuBtn          = 500;
+
+void tft_print_menu() {
+  
+  // Menu Hintergrund
+  tft.fillRect(480 - touchBtnWidth , touchBtnYOffset, touchBtnWidth , 280, colMenuBackColor );
+
+  
+  tft.setFont(&FreeSans12pt7b);
+  tft.setTextColor(colMenuFontColor, colMenuBackColor);
+
+  if (menupage == 0) {
+    //
+    //6 Tasten auf 320 - 40 = 280 Aussenhöhe, 1 Pixel leer
+    // Breite 45 außen
+    //tft_print_menu_btn (1, "1");
+    //tft_print_menu_btn (2, "2");
+    tft_print_menu_btn (3, "+");
+    tft_print_menu_btn (4, "-");
+    //tft_print_menu_btn (5, "ESC");
+    //tft_print_menu_btn (6, "OK");
+  }
+}
+
+void tft_print_menu_btn (byte mnuBtn, String mnuTxt) {
+  int x, y;
+  char strPrint[10];
+  x = 480 - touchBtnWidth + 1;
+  y = touchBtnYOffset + 1 + touchBtnHeight * (mnuBtn - 1);
+
+  tft.drawRoundRect(x, y, touchBtnWidth - 2, touchBtnHeight - 2, 5, colMenuBtnFrame);
+  mnuTxt.toCharArray(strPrint, 10) ;
+  tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
+  tft.setCursor(480 - touchBtnWidth/2 - w/2 , y + 15 + baselineSmall);
+  tft.print(strPrint);
+}
+
+void loopTouch()
+{
+  if (millis() - millisLastMenuBtnPress > intervalMenuBtn) {
+
+    uint16_t xpos, ypos;  //screen coordinates
+    tp = ts.getPoint();   //tp.x, tp.y are ADC values
+
+    // if sharing pins, you'll need to fix the directions of the touchscreen pins
+    pinMode(XM, OUTPUT);
+    pinMode(YP, OUTPUT);
+    pinMode(XP, OUTPUT);
+    pinMode(YM, OUTPUT);
+    //    digitalWrite(XM, HIGH);
+    //    digitalWrite(YP, HIGH);
+    // we have some minimum pressure we consider 'valid'
+    // pressure of 0 means no pressing!
+
+    if (tp.z > MINPRESSURE && tp.z < MAXPRESSURE) {
+      // is controller wired for Landscape ? or are we oriented in Landscape?
+      if (SwapXY != (Orientation & 1)) SWAP(tp.x, tp.y);
+      // scale from 0->1023 to tft.width  i.e. left = 0, rt = width
+      // most mcufriend have touch (with icons) that extends below the TFT
+      // screens without icons need to reserve a space for "erase"
+      // scale the ADC values from ts.getPoint() to screen values e.g. 0-239
+      xpos = map(tp.x, TS_LEFT, TS_RT, 0, tft.width());
+      ypos = map(tp.y, TS_TOP, TS_BOT, 0, tft.height());
+
+      Serial.print("Touch (xpos / ypos): ");
+      Serial.print(xpos);
+      Serial.print(" / ");
+      Serial.println(ypos);
+
+      // are we in top color box area ?
+      if (xpos > 480 - touchBtnWidth) {               //draw white border on selected color box
+
+        if (ypos < touchBtnYOffset + touchBtnHeight * 0) {
+          // Headline, Nothing to do
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 1) {
+          menuBtnPressed = 1;
+          millisLastMenuBtnPress = millis();
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 2) {
+          menuBtnPressed = 2;
+          millisLastMenuBtnPress = millis();
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 3) {
+          menuBtnPressed = 3;
+          millisLastMenuBtnPress = millis();
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 4) {
+          menuBtnPressed = 4;
+          millisLastMenuBtnPress = millis();
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 5) {
+          menuBtnPressed = 5;
+          millisLastMenuBtnPress = millis();
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 6) {
+          menuBtnPressed = 6;
+          millisLastMenuBtnPress = millis();
+        }
+        DoMenuAction();
+      }
+    }
+  }
+}
+
+void DoMenuAction() {
+
+  if (menupage == 0) {
+    // Standardseite
+    switch (menuBtnPressed) {
+      case 1:
+        previousMillisDisplayUpdate = 0;
+        Serial.println ("MP 0, MB 1");
+        break;
+      case 2:
+        previousMillisDisplayUpdate = 0;
+        Serial.println ("MP 0, MB 2");
+        break;
+      case 3:
+        if (kwlMode < defStandardModeCnt - 1)  kwlMode = kwlMode + 1;
+        previousMillisDisplayUpdate = 0;
+        Serial.println ("MP 0, MB 3");
+        break;
+      case 4:
+        if (kwlMode > 0)  kwlMode = kwlMode - 1;
+        previousMillisDisplayUpdate = 0;
+        Serial.println ("MP 0, MB 4");
+        break;
+      case 5:
+        previousMillisDisplayUpdate = 0;
+        Serial.println ("MP 0, MB 5");
+        break;
+      case 6:
+        previousMillisDisplayUpdate = 0;
+        Serial.println ("MP 0, MB 6");
+        break;
+    }
+  }
+  menuBtnPressed = -1;
+}
+
+
 
 // *** TFT starten
 void start_tft() {

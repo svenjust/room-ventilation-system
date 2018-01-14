@@ -21,13 +21,11 @@
   Codeteile stammen von:
   - Tachosignal auslesen wie
   https://forum.arduino.cc/index.php?topic=145226.msg1102102#msg1102102
-  - ntpClient, nonblocking, auch im Fehlerfall
-  Der Standard Arduino ntpClient blockiert im Fehlerfall für mindestens eine Sekunde
-  https://github.com/blackketter/NTPClient
 */
 
 #include <Adafruit_GFX.h>       // TFT
 #include <MCUFRIEND_kbv.h>      // TFT
+#include <TouchScreen.h>        // Touch
 #include <EEPROM.h>             // Speicherung von Einstellungen
 #include <SPI.h>
 #include <Ethernet.h>
@@ -40,14 +38,12 @@
 #include <DHT_U.h>
 
 // ***************************************************  A N S T E U E R U N G   P W M oder D A C   ***************************************************
-#define  ControlFansDAC         1 // 1 = Ansteuerung durch DAC über SDA und SLC (und PWM)
+#define  ControlFansDAC         1 // 1 = zusätzliche Ansteuerung durch DAC über SDA und SLC (und PWM)
 // ****************************************** E N D E   A N S T E U E R U N G   P W M oder D A C   ***************************************************
 
 
 // ***************************************************  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
-// Das LAN Modul nutzt standardmäßig PIN10, dieser wird aber vom Display genutzt.
-// Die Library muss direkt geändert werden, siehe http://forum.arduino.cc/index.php?topic=217423.msg1590334#msg1590334
-// bei mir /usr/local/bin/arduino-1.6.12/libraries/Ethernet/src/utility/w5100.h
+// Die Anschlüsse können dem Schaltplan entnommen werden: https://github.com/svenjust/room-ventilation-system/blob/master/Docs/circuit%20diagram/KWL-Steuerung%20f%C3%BCr%20P300.pdf
 
 #define pwmPinFan1              44  // Lüfter Zuluft
 #define pwmPinFan2              46  // Lüfter Abluft
@@ -140,6 +136,7 @@ int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
 
 #define strVersion "v0.01"
 
+// ***************************************************  T T F   U N D   T O U C H  ********************************************************
 // *** TFT
 // Assign human-readable names to some common 16-bit color values:
 #define BLACK   0x0000
@@ -153,6 +150,32 @@ int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
 #define GREY    0x7BEF
 uint16_t ID;
 MCUFRIEND_kbv tft;
+// Definition for Touch
+// most mcufriend shields use these pins and Portrait mode:
+uint8_t YP = A1;  // must be an analog pin, use "An" notation!
+uint8_t XM = A2;  // must be an analog pin, use "An" notation!
+uint8_t YM = 7;   // can be a digital pin
+uint8_t XP = 6;   // can be a digital pin
+uint8_t SwapXY = 0;
+
+uint16_t TS_LEFT = 949;
+uint16_t TS_RT  = 201;
+uint16_t TS_TOP = 943;
+uint16_t TS_BOT = 205;
+char *name = "Unknown controller";
+
+// For better pressure precision, we need to know the resistance
+// between X+ and X- Use any multimeter to read it
+// For the one we're using, its 300 ohms across the X plate
+TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
+TSPoint tp;
+
+#define MINPRESSURE 20
+#define MAXPRESSURE 1000
+
+#define SWAP(a, b) {uint16_t tmp = a; a = b; b = tmp;}
+// ***************************************************  E N D E   T T F   U N D   T O U C H  ********************************************************
+
 
 // MQTT Topics für die Kommunikation zwischen dieser Steuerung und einem mqtt Broker
 // Die Topics sind in https://github.com/svenjust/room-ventilation-system/blob/master/Docs/mqtt%20topics/mqtt_topics.ods erläutert.
@@ -166,11 +189,13 @@ const char *TOPICCmdFan1Speed               = "d15/set/kwl/fan1/standardspeed";
 const char *TOPICCmdFan2Speed               = "d15/set/kwl/fan2/standardspeed";
 const char *TOPICCmdGetSpeed                = "d15/set/kwl/fans/getspeed";
 const char *TOPICCmdGetTemp                 = "d15/set/kwl/temperatur/gettemp";
+const char *TOPICCmdGetvalues               = "d15/set/kwl/getvalues";
 const char *TOPICCmdMode                    = "d15/set/kwl/lueftungsstufe";
 const char *TOPICCmdAntiFreezeHyst          = "d15/set/kwl/antifreeze/hysterese";
 const char *TOPICCmdBypassGetValues         = "d15/set/kwl/summerbypass/getvalues";
 const char *TOPICCmdBypassManualFlap        = "d15/set/kwl/summerbypass/flap";
 const char *TOPICCmdBypassMode              = "d15/set/kwl/summerbypass/mode";
+const char *TOPICCmdBypassHystereseMinutes  = "d15/set/kwl/summerbypass/HystereseMinutes";
 
 const char *TOPICHeartbeat                  = "d15/state/kwl/heartbeat";
 const char *TOPICFan1Speed                  = "d15/state/kwl/fan1/speed";
@@ -184,15 +209,14 @@ const char *TOPICKwlTemperaturFortluft      = "d15/state/kwl/fortluft/temperatur
 const char *TOPICKwlAntifreeze              = "d15/state/kwl/antifreeze";
 const char *TOPICKwlBypassState             = "d15/state/kwl/summerbypass/flap";
 const char *TOPICKwlBypassMode              = "d15/state/kwl/summerbypass/mode";
+const char *TOPICKwlBypassTempAbluftMin     = "d15/state/kwl/summerbypass/TempAbluftMin";
+const char *TOPICKwlBypassTempAussenluftMin = "d15/state/kwl/summerbypass/TempAussenluftMin";
+const char *TOPICKwlBypassHystereseMinutes  = "d15/state/kwl/summerbypass/HystereseMinutes";
 
 const char *TOPICKwlDHT1Temperatur          = "d15/state/kwl/dht1/temperatur";
 const char *TOPICKwlDHT2Temperatur          = "d15/state/kwl/dht2/temperatur";
 const char *TOPICKwlDHT1Humidity            = "d15/state/kwl/dht1/humidity";
 const char *TOPICKwlDHT2Humidity            = "d15/state/kwl/dht2/humidity";
-
-const char *TOPICKwlBypassTempAbluftMin     = "d15/state/kwl/summerbypass/TempAbluftMin";
-const char *TOPICKwlBypassTempAussenluftMin = "d15/state/kwl/summerbypass/TempAussenluftMin";
-const char *TOPICKwlBypassHystereseMinutes  = "d15/state/kwl/summerbypass/HystereseMinutes";
 
 // Die folgenden Topics sind nur für die SW-Entwicklung, und schalten Debugausgaben per mqtt ein und aus
 const char *TOPICKwlDebugsetFan1Getvalues   = "d15/debugset/kwl/fan1/getvalues";
@@ -217,6 +241,7 @@ boolean mqttCmdSendFans                        = false;
 boolean mqttCmdSendBypassState                 = false;
 boolean mqttCmdSendBypassAllValues             = false;
 boolean mqttCmdSendMode                        = false;
+boolean mqttCmdSendConfig                      = false;
 // mqttDebug Messages
 boolean mqttCmdSendAlwaysDebugFan1             = true;
 boolean mqttCmdSendAlwaysDebugFan2             = true;
@@ -256,14 +281,14 @@ double techSetpointFan1               = 0;                                 // PW
 double techSetpointFan2               = 0;                                 // PWM oder Analogsignal 0..1000 für Abluft
 // Ende Variablen für Lüfter
 
-int  PwmSetpointFan1[defStandardModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
+int  PwmSetpointFan1[defStandardModeCnt];                                  // Speichert die pwm-Werte für die verschiedenen Drehzahlen
 int  PwmSetpointFan2[defStandardModeCnt];
 
 #define FanMode_Normal                 0
 #define FanMode_Calibration            1
 int FanMode                           = FanMode_Normal;                   // Umschaltung zum Kalibrieren der PWM Signale zur Erreichung der Lüfterdrehzahlen für jede Stufe
 
-
+// Start Definition für AntiFreeze (Frostschutz) //////////////////////////////////////////
 boolean antifreezeState               = false;
 float   antifreezeTemp                = 2.0;
 int     antifreezeHyst                = 3;
@@ -272,13 +297,37 @@ boolean antifreezeAlarm               = false;
 
 double        techSetpointPreheater   = 0.0;     // Analogsignal 0..1000 für Vorheizer
 unsigned long PreheaterStartMillis    = 0;        // Beginn der Vorheizung
+// Ende Definition für AntiFreeze (Frostschutz) //////////////////////////////////////////
+
+// Start - Variablen für Bypass ///////////////////////////////////////////
+#define bypassMode_Manual 1
+#define bypassMode_Auto   0
+#define bypassFlapState_Unknown 0
+#define bypassFlapState_Close   1
+#define bypassFlapState_Open    2
+
+int  bypassManualSetpoint        = defStandardBypassManualSetpoint;   // Standardstellung Bypass
+int  bypassMode                  = defStandardBypassMode;             // Automatische oder Manuelle Steuerung der Bypass-Klappe
+int  bypassFlapState             = bypassFlapState_Unknown;           // aktuelle Stellung der Bypass-Klappe
+int  bypassFlapStateDriveRunning = bypassFlapState_Unknown;
+int  bypassTempAbluftMin         = defStandardBypassTempAbluftMin;
+int  bypassTempAussenluftMin     = defStandardBypassTempAussenluftMin;
+int  bypassHystereseMinutes      = defStandardBypassHystereseMinutes;
+int  bypassFlapSetpoint          = defStandardBypassManualSetpoint;
+unsigned long bypassLastChangeMillis   = 0;                       // Letzte Änderung für Hysterese
+
+long          bypassFlapsDriveTime = 120000; // 120 * 1000;       // Fahrzeit (ms) der Klappe zwischen den Stellungen Open und Close
+boolean       bypassFlapsRunning = false;                         // True, wenn Klappe fährt
+unsigned long bypassFlapsStartTime = 0;                           // Startzeit für den Beginn Klappenwechsels
+// Ende  - Variablen für Bypass ///////////////////////////////////////////
+
 
 // Definitionen für das Scheduling
 unsigned long intervalTachoFan               = 950;
 unsigned long intervalSetFan                 = 1000;
 unsigned long intervalTempRead               = 5000;    // Abfrage Temperatur, muss größer als 1000 sein
 
-unsigned long intervalEffiencyCalc           = 5000;
+unsigned long intervalEffiencyCalc           = 5000;    // Berechnung Wirkungsgrad
 unsigned long intervalAntifreezeCheck        = 10000;   //  60000 = 60 * 1000         // Frostschutzprüfung je Minute
 unsigned long intervalAntiFreezeAlarmCheck   = 600000;  // 600000 = 10 * 60 * 1000;   // 10 Min Zeitraum zur Überprüfung, ob Vorheizregister die Temperatur erhöhen kann,
 unsigned long intervalBypassSummerCheck      = 60000;  // ;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
@@ -316,27 +365,6 @@ unsigned long previousMillisNtpTime               = 0;
 unsigned long previousMillisTemp                  = 0;
 unsigned long currentMillis                       = 0;
 
-// Start - Variablen für Bypass ///////////////////////////////////////////
-#define bypassMode_Manual 1
-#define bypassMode_Auto   0
-#define bypassFlapState_Unknown 0
-#define bypassFlapState_Close   1
-#define bypassFlapState_Open    2
-
-int  bypassManualSetpoint        = defStandardBypassManualSetpoint;   // Standardstellung Bypass
-int  bypassMode                  = defStandardBypassMode;             // Automatische oder Manuelle Steuerung der Bypass-Klappe
-int  bypassFlapState             = bypassFlapState_Unknown;           // aktuelle Stellung der Bypass-Klappe
-int  bypassFlapStateDriveRunning = bypassFlapState_Unknown;
-int  bypassTempAbluftMin         = defStandardBypassTempAbluftMin;
-int  bypassTempAussenluftMin     = defStandardBypassTempAussenluftMin;
-int  bypassHystereseMinutes      = defStandardBypassHystereseMinutes;
-int  bypassFlapSetpoint          = defStandardBypassManualSetpoint;
-unsigned long bypassLastChangeMillis   = 0;                       // Letzte Änderung für Hysterese
-
-long          bypassFlapsDriveTime = 120000; // 120 * 1000;       // Fahrzeit (s) der Klappe zwischen den Stellungen Open und Close
-boolean       bypassFlapsRunning = false;                         // True, wenn Klappe fährt
-unsigned long bypassFlapsStartTime = 0;                           // Startzeit für den Beginn Klappenwechsels
-// Ende  - Variablen für Bypass ///////////////////////////////////////////
 
 // Begin EEPROM
 const int  BUFSIZE = 50;
@@ -348,14 +376,17 @@ const int  EEPROM_MAX_ADDR = 1023;
 
 EthernetClient ethClient;
 PubSubClient mqttClient(ethClient);
+boolean bLanOk     = false;
+boolean bMqttOk    = false;
 
-long lastReconnectAttempt = 0;
+unsigned long lastMqttReconnectAttempt    = 0;
+unsigned long lastLanReconnectAttempt = 0;
 
 double TEMP1_Aussenluft = -127.0;    // Temperatur Außenluft
-double TEMP2_Zuluft =     -127.0;    // Temperatur Zuluft
-double TEMP3_Abluft =     -127.0;    // Temperatur Abluft
-double TEMP4_Fortluft =   -127.0;    // Temperatur Fortluft
-int    EffiencyKwl       = 100 ;     // Wirkungsgrad auf Differenzberechnung der Temps
+double TEMP2_Zuluft     = -127.0;    // Temperatur Zuluft
+double TEMP3_Abluft     = -127.0;    // Temperatur Abluft
+double TEMP4_Fortluft   = -127.0;    // Temperatur Fortluft
+int    EffiencyKwl      =  100 ;     // Wirkungsgrad auf Differenzberechnung der Temps
 
 // PID REGLER
 // Define the aggressive and conservative Tuning Parameters
@@ -371,8 +402,8 @@ PID PidPreheater(&TEMP4_Fortluft, &techSetpointPreheater, &antifreezeTempUpperLi
 ///////////////////////
 
 // Temperatur Sensoren, Pinbelegung steht oben
-#define TEMPERATURE_PRECISION TEMP_9_BIT     // Genauigkeit der Temperatursensoren 9_BIT, Standard sind 12_BIT
-OneWire Temp1OneWire(TEMP1_ONE_WIRE_BUS); // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
+#define TEMPERATURE_PRECISION TEMP_9_BIT      // Genauigkeit der Temperatursensoren 9_BIT, Standard sind 12_BIT
+OneWire Temp1OneWire(TEMP1_ONE_WIRE_BUS);     // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
 OneWire Temp2OneWire(TEMP2_ONE_WIRE_BUS);
 OneWire Temp3OneWire(TEMP3_ONE_WIRE_BUS);
 OneWire Temp4OneWire(TEMP4_ONE_WIRE_BUS);
@@ -482,6 +513,14 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // AntiFreezeHysterese
     eeprom_write_int(12, i);
   }
+  if (topicStr == TOPICCmdBypassHystereseMinutes) {
+    payload[length] = '\0';
+    String s = String((char*)payload);
+    int i = s.toInt();
+    bypassHystereseMinutes = i;
+    // BypassHystereseMinutes
+    eeprom_write_int(10, i);
+  }
   if (topicStr == TOPICCmdBypassManualFlap) {
     payload[length] = '\0';
     String s = String((char*)payload);
@@ -523,7 +562,15 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     String s = String((char*)payload);
     mqttCmdSendBypassAllValues = true;
   }
-
+  if (topicStr == TOPICCmdGetvalues) {
+    // Alle Values
+    payload[length] = '\0';
+    String s = String((char*)payload);
+    mqttCmdSendTemp            = true;
+    mqttCmdSendDht             = true;
+    mqttCmdSendFans            = true;
+    mqttCmdSendBypassAllValues = true;
+  }
 
   // Debug Messages, den folgenden Block in der produktiven Version auskommentieren
   if (topicStr == TOPICKwlDebugsetTemperaturAussenluft) {
@@ -587,6 +634,8 @@ boolean mqttReconnect() {
   }
   Serial.println ("reconnect end");
   Serial.println ((long)currentMillis);
+  Serial.print ("IsMqttConnected: ");
+  Serial.println (mqttClient.connected());
   return mqttClient.connected();
 }
 
@@ -627,7 +676,7 @@ void setSpeedToFan() {
     techSetpointFan2 = 0;
   }
 
-  // Sicherheitsüberprüfung, um ein einfrieren des Wärmetauschers zu vermeiden
+  // Sicherheitsüberprüfung, um ein Einfrieren des Wärmetauschers zu vermeiden
   if ((TEMP4_Fortluft <= -1)
       && (TEMP4_Fortluft != -127.0)) {
     techSetpointFan2 = 0; // Frostschutzalarm bei -1°C wird der Zuluftventilator abgeschaltet
@@ -821,6 +870,7 @@ void loopTemperaturRead() {
 
 
 void loopDHTRead() {
+  // Diese Routine liest den oder die DHT Sensoren aus
   currentMillis = millis();
   if (currentMillis - previousMillisDHTRead >= intervalDHTRead) {
     previousMillisDHTRead = currentMillis;
@@ -1211,6 +1261,16 @@ void loopMqttSendMode() {
   }
 }
 
+void loopMqttSendConfig() {
+  // Senden der aktuellen Konfiguration, die im EEPROM gespeichert wird.
+  // Bedingung: a)  mqttCmdSendConfig == true
+  if (mqttCmdSendConfig) {
+    mqttCmdSendConfig = false;
+    // Zusammensuchen der Konfig
+
+  }
+}
+
 void loopMqttSendBypass() {
   // Senden der Bypass - Einstellung per Mqtt
   // Bedingung: a) alle x Sekunden
@@ -1387,22 +1447,38 @@ void loopMqttHeartbeat() {
   }
 }
 
-void loopMqttConnection() {
+void loopNetworkConnection() {
+  // LAN CONNECTION
+  if (millis() - lastLanReconnectAttempt > 10000) {
+    if (Ethernet.localIP()[0] == 0) {
+      // KEIN NETZVERBINDUNG
+      Serial.println("LAN not connected");
+      bLanOk = false;
+      Ethernet.begin(mac, ip, DnServer, gateway, subnet);
+    } else {
+      bLanOk = true;
+    }
+    lastLanReconnectAttempt = millis();
+  }
+
   // mqtt Client connected?
   if (!mqttClient.connected()) {
     long now = millis();
-    if (now - lastReconnectAttempt > 5000) {
+    if (now - lastMqttReconnectAttempt > 5000) {
       //if (serialDebug == 1) {
-      Serial.println("Client not connected");
+      Serial.println("Mqtt Client not connected");
+      bMqttOk = false;
       //}
-      lastReconnectAttempt = now;
+      lastMqttReconnectAttempt = now;
       // Attempt to reconnect
       if (mqttReconnect()) {
-        lastReconnectAttempt = 0;
+        bMqttOk = true;
+        lastMqttReconnectAttempt = 0;
       }
     }
   } else {
     // Client connected
+    bMqttOk = true;
     mqttClient.loop();
   }
 }
@@ -1490,6 +1566,7 @@ void setup()
 
   // *** TFT AUSGABE ***
   start_tft();
+  start_touch();
   print_header();
   print_footer();
 
@@ -1499,25 +1576,35 @@ void setup()
   Serial.println();
   Serial.println("Booting...");
   SetCursor(0, 30);
-  tft.println("Booting...");
+  tft.println   ("Booting...");
 
   Serial.println("Initialisierung Ethernet");
   tft.println("Initialisierung Ethernet");
   Ethernet.begin(mac, ip, DnServer, gateway, subnet);
   delay(1500);    // Delay in Setup erlaubt
-  lastReconnectAttempt = 0;
-  Serial.print("...Server Adresse: ");
+  lastMqttReconnectAttempt = 0;
+  lastLanReconnectAttempt = 0;
+  Serial.print("...IP Adresse: ");
   Serial.println(Ethernet.localIP());
-  tft.print("...Server Adresse: ");
+  tft.print("...IP Adresse: ");
   tft.println(Ethernet.localIP());
+  bLanOk = true;
+
+  if (Ethernet.localIP()[0] == 0) {
+    Serial.println("...FEHLER: KEINE LAN VERBINDUNG, WARTEN 30 Sek.");
+    tft.println   ("...FEHLER: KEINE LAN VERBINDUNG, WARTEN 30 Sek.");
+    bLanOk = false;
+    delay(30000);
+    // 30 Sekunden Pause
+  }
 
   Serial.println("Initialisierung Mqtt");
-  tft.println("Initialisierung Mqtt");
+  tft.println   ("Initialisierung Mqtt");
   mqttClient.setServer(mqttbroker, 1883);
   mqttClient.setCallback(mqttReceiveMsg);
 
   Serial.println("Initialisierung Temperatursensoren");
-  tft.println("Initialisierung Temperatursensoren");
+  tft.println   ("Initialisierung Temperatursensoren");
   // Temperatursensoren
   Temp1Sensor.begin();
   Temp1Sensor.setResolution(TEMPERATURE_PRECISION);
@@ -1654,8 +1741,8 @@ void loop()
   loopDisplayUpdate();
 
   loopMqttHeartbeat();
-  loopMqttConnection();
-
+  loopNetworkConnection();
+  loopTouch();
 }
 // *** LOOP ENDE ***
 
