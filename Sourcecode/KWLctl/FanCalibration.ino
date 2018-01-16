@@ -17,8 +17,6 @@ boolean       CalibrationPwmStufeStartet      = false;
 unsigned long CalibrationPwmStufeStartMillis  = 0;
 unsigned long timeoutPwmStufeCalibration      = 300000;   // max 5 Minuten pro Stufe
 
-int actKwlMode = 0;
-
 int  tempPwmSetpointFan1[defStandardModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
 int  tempPwmSetpointFan2[defStandardModeCnt];
 
@@ -34,7 +32,6 @@ void SpeedCalibrationStart() {
   CalibrationStartet = false;
   FanMode = FanMode_Calibration;
 }
-
 
 
 boolean SpeedCalibrationPwmStufe(int actKwlMode) {

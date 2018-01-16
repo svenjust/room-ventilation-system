@@ -186,6 +186,13 @@ void initializeEEPROM(boolean EraseMemory)
       Serial.println("ERROR: ModeCnt zu groß");
     }
     for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
+     /* Serial.print (F("Berechnung fuer Stufe: "));
+      Serial.println (i);
+      Serial.print("Wert Fan 1: ");
+      Serial.println((int)(defStandardSpeedSetpointFan1 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
+      Serial.print("Wert Fan 2: ");
+      Serial.println((int)(defStandardSpeedSetpointFan2 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
+      */
       eeprom_write_int(20 + (i * 4), (int)(defStandardSpeedSetpointFan1 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
       eeprom_write_int(22 + (i * 4), (int)(defStandardSpeedSetpointFan2 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
     }

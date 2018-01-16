@@ -72,7 +72,7 @@ byte          touchBtnYOffset             = 30;
 int16_t  x1, y1;
 uint16_t w, h;
 
-boolean       menuBtnActive[6];
+boolean       menuBtnActive[10];
 byte          menupage                    = 0;
 byte          menuBtnPressed              = -1;
 byte          LastMenuBtn                 = 0;
@@ -205,6 +205,7 @@ void loopDisplayUpdatePage0() {
     tft.print(strPrint);
   }
 }
+
 void NewMenuPage0() {
   NewMenuEntry (1, F("->"));  // Führt zur Page 1
   NewMenuEntry (3, F("+"));
@@ -259,6 +260,10 @@ void SetupBackgroundPage1() {
   tft.print("VOC");
 }
 
+void loopDisplayUpdatePage1() {
+
+}
+
 void NewMenuPage1() {
   //DHT, CO2, VOC Messwerte
   NewMenuEntry (1, F("->"));  // Führt zur Seite 2
@@ -305,31 +310,35 @@ void SetupBackgroundPage2() {
   tft.print(F("RES: Zurücksetzen aller Einstellungen"));
 }
 
+void loopDisplayUpdatePage2() {
+
+}
+
 void NewMenuPage2() {
   //Einstellungen Übersicht
-  NewMenuEntry (1, F("->"));  // Führt zur Seite 0
-  NewMenuEntry (2, F("L1"));  // Führt zur Seite 3
-  NewMenuEntry (3, F("L2"));  // Führt zur Seite 4
-  NewMenuEntry (4, F("CAL")); // Führt zur Seite 5
-  NewMenuEntry (5, F("RES")); // Fährt zur Seite 6
+  NewMenuEntry (1, F("<-"));  // Führt zur Seite 0
+  NewMenuEntry (3, F("L1"));  // Führt zur Seite 3
+  NewMenuEntry (4, F("L2"));  // Führt zur Seite 4
+  NewMenuEntry (5, F("CAL")); // Führt zur Seite 5
+  NewMenuEntry (6, F("RES")); // Fährt zur Seite 6
 }
 
 void DoMenuActionPage2() {
   // Einstellungen Übersicht
   switch (menuBtnPressed) {
     case 1:
-      gotoPage (0);
-      break;
-    case 2:
-      gotoPage (3);
+      gotoPage (1);
       break;
     case 3:
-      gotoPage (4);
+      gotoPage (3);
       break;
     case 4:
-      gotoPage (5);
+      gotoPage (4);
       break;
     case 5:
+      gotoPage (5);
+      break;
+    case 6:
       gotoPage (6);
       break;
     default:
@@ -352,33 +361,40 @@ void SetupBackgroundPage3() {
   tft.setCursor(160, 30 + baselineSmall);
   tft.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor );
   tft.setTextSize(fontFactorSmall);
-  tft.print(F("Normdrehzahl L1"));
+  tft.print("Normdrehzahl einstellen");
 
   tft.setTextColor(colFontColor, colBackColor );
 
   tft.setCursor(18, 166 + baselineMiddle);
-  tft.print (F("Normdrehzahl Zuluftventilator"));
+  tft.print ("Normdrehzahl Zuluftventilator");
 }
 
 void loopDisplayUpdatePage3() {
+
+  Serial.println("loopDisplayUpdatePage3");
+
   tft.setFont(&FreeSans12pt7b);
-  tft.setTextColor(colFontColor, colBackColor);
+  tft.setTextColor(colFontColor);
   tft.fillRect(18, 192, 80, numberfieldheight, colBackColor);
   tft.setCursor(18, 192 + baselineMiddle);
   tft.print (inputStandardSpeedSetpointFan1);
+
 }
 
 void NewMenuPage3() {
   //Einstellungen L1
+  NewMenuEntry (1, F("<-"));
   NewMenuEntry (3, F("+10"));
   NewMenuEntry (4, F("-10"));
-  NewMenuEntry (5, F("ESC"));
   NewMenuEntry (6, F("OK"));
 }
 
 void DoMenuActionPage3() {
   // L1
   switch (menuBtnPressed) {
+    case 1:
+      gotoPage (2);
+      break;
     case 3:
       previousMillisDisplayUpdate = 0;
       inputStandardSpeedSetpointFan1 = inputStandardSpeedSetpointFan1 + 10;
@@ -389,9 +405,6 @@ void DoMenuActionPage3() {
       inputStandardSpeedSetpointFan1 = inputStandardSpeedSetpointFan1 - 10;
       if (inputStandardSpeedSetpointFan1 < 0) inputStandardSpeedSetpointFan1 = 0;
       break;
-    case 5:
-      gotoPage (2);
-      break;
     case 6:
       previousMillisDisplayUpdate = 0;
       StandardSpeedSetpointFan1 = inputStandardSpeedSetpointFan1;
@@ -400,7 +413,9 @@ void DoMenuActionPage3() {
       tft.setFont(&FreeSans12pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 220 + baselineMiddle);
-      tft.print (F("WERT IM EEPROM GESPEICHERT"));
+      tft.print ("Wert im EEPROM gespeichert");
+      tft.setCursor(18, 250 + baselineMiddle);
+      tft.print ("Bitte Kalibrierung starten!");
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -441,15 +456,18 @@ void loopDisplayUpdatePage4() {
 
 void NewMenuPage4() {
   //Einstellungen L2
+  NewMenuEntry (1, F("<-"));
   NewMenuEntry (3, F("+10"));
   NewMenuEntry (4, F("-10"));
-  NewMenuEntry (5, F("ESC"));
   NewMenuEntry (6, F("OK"));
 }
 
 void DoMenuActionPage4() {
   // L2
   switch (menuBtnPressed) {
+    case 1:
+      gotoPage (2);
+      break;
     case 3:
       previousMillisDisplayUpdate = 0;
       inputStandardSpeedSetpointFan2 = inputStandardSpeedSetpointFan2 + 10;
@@ -460,9 +478,6 @@ void DoMenuActionPage4() {
       inputStandardSpeedSetpointFan2 = inputStandardSpeedSetpointFan2 - 10;
       if (inputStandardSpeedSetpointFan2 < 0) inputStandardSpeedSetpointFan2 = 0;
       break;
-    case 5:
-      gotoPage (2);
-      break;
     case 6:
       previousMillisDisplayUpdate = 0;
       StandardSpeedSetpointFan2 = inputStandardSpeedSetpointFan2;
@@ -471,7 +486,9 @@ void DoMenuActionPage4() {
       tft.setFont(&FreeSans12pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 220 + baselineMiddle);
-      tft.print (F("WERT IM EEPROM GESPEICHERT"));
+      tft.print ("Wert im EEPROM gespeichert");
+      tft.setCursor(18, 250 + baselineMiddle);
+      tft.print ("Bitte Kalibrierung starten!");
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -484,14 +501,18 @@ void DoMenuActionPage4() {
 
 void NewMenuPage5() {
   //Einstellungen CAL
-  NewMenuEntry (5, F("ESC"));
+  NewMenuEntry (1, F("<-"));
   NewMenuEntry (6, F("OK"));
+}
+
+void loopDisplayUpdatePage5() {
+
 }
 
 void DoMenuActionPage5() {
   // CAL
   switch (menuBtnPressed) {
-    case 5:
+    case 1:
       gotoPage (2);
       break;
     case 6:
@@ -501,7 +522,7 @@ void DoMenuActionPage5() {
       tft.setFont(&FreeSans12pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 220 + baselineMiddle);
-      tft.print (F("Kalibrierung Lüfter wird gestartet"));
+      tft.print (F("Kalibrierung Luefter wird gestartet"));
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -513,8 +534,12 @@ void DoMenuActionPage5() {
 // ****************************************** Page 6: WERKSEINSTELLUNGEN **********************************
 void NewMenuPage6() {
   //Factory Reset
-  NewMenuEntry (5, F("ESC"));
+   NewMenuEntry (1, F("<-"));
   NewMenuEntry (6, F("OK"));
+}
+
+void loopDisplayUpdatePage6() {
+
 }
 
 void DoMenuActionPage6() {
@@ -522,21 +547,25 @@ void DoMenuActionPage6() {
   Serial.println ("DoMenuActionPage6");
   Serial.println (menuBtnPressed);
   switch (menuBtnPressed) {
-    case 5:
+    case 1:
       gotoPage (2);
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
-      Serial.println(F("Speicherbereich wird gelöscht"));
+      Serial.println(F("Speicherbereich wird geloescht"));
       tft.setFont(&FreeSans12pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 220 + baselineMiddle);
-      tft.println(F("Speicherbereich wird gelöscht"));
-      Serial.println ("MP 6, MB 6");
+      tft.println(F("Speicherbereich wird geloescht"));
+
       initializeEEPROM(true);
+
+      tft.setCursor(18, 250 + baselineMiddle);
+      tft.println(F("Loeschung erfolgreich, jetzt Reboot..."));
+
       // Reboot
       Serial.println(F("Reboot"));
-      delay (1000);
+      delay (5000);
       asm volatile ("jmp 0");
       break;
     default:
@@ -591,11 +620,23 @@ void loopDisplayUpdate() {
         // Standardseite
         loopDisplayUpdatePage0();
         break;
+      case 1:
+        loopDisplayUpdatePage1();
+        break;
+      case 2:
+        loopDisplayUpdatePage2();
+        break;
       case 3:
         loopDisplayUpdatePage3();
         break;
       case 4:
         loopDisplayUpdatePage4();
+        break;
+      case 5:
+        loopDisplayUpdatePage5();
+        break;
+      case 6:
+        loopDisplayUpdatePage6();
         break;
     }
 
@@ -655,12 +696,12 @@ void SetupBackgroundPage() {
       SetupBackgroundPage2();
       break;
     case 3:
-      // Übersicht Einstellungen
+      // L1
       SetupPage3();
       SetupBackgroundPage3();
       break;
     case 4:
-      // Übersicht Einstellungen
+      // L2
       SetupPage4();
       SetupBackgroundPage4();
       break;
@@ -725,24 +766,31 @@ void DoMenuAction() {
 
   if (menupage == 0) {
     DoMenuActionPage0();
+    menuBtnPressed = -1;
   }
   if (menupage == 1) {
     DoMenuActionPage1();
+    menuBtnPressed = -1;
   }
   if (menupage == 2) {
     DoMenuActionPage2();
+    menuBtnPressed = -1;
   }
   if (menupage == 3) {
     DoMenuActionPage3();
+    menuBtnPressed = -1;
   }
   if (menupage == 4) {
     DoMenuActionPage4();
+    menuBtnPressed = -1;
   }
   if (menupage == 5) {
     DoMenuActionPage5();
+    menuBtnPressed = -1;
   }
   if (menupage == 6) {
     DoMenuActionPage6();
+    menuBtnPressed = -1;
   }
 }
 
@@ -854,7 +902,6 @@ void loopTouch()
           millisLastMenuBtnPress = millis();
         }
         DoMenuAction();
-        menuBtnPressed = -1;
       }
     }
   }
