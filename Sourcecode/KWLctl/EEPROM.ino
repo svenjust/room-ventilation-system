@@ -1,7 +1,7 @@
 // siehe http://fluuux.de/2013/04/daten-im-eeprom-speichern-auslesen-und-variablen-zuweisen/
 
 /************************************************************
-  Funktionen zum lesen und schreiben des EEPROMS            *
+  Funktionen zum Lesen und Schreiben des EEPROMS            *
   **********************************************************/
 
 // Speicherbereich löschen
