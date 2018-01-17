@@ -61,6 +61,8 @@ int           LastEffiencyKwl             = 0;
 String        LastErrorText               = "";
 String        LastInfoText                = "";
 double LastDisplayT1 = 0, LastDisplayT2 = 0, LastDisplayT3 = 0, LastDisplayT4 = 0;
+double LastDisplayDHT1Temp = 0, LastDisplayDHT2Temp = 0, LastDisplayMHZ14_CO2_ppm = 0;
+
 byte          LastLanOk                   = true;
 byte          LastMqttOk                  = true;
 
@@ -247,21 +249,62 @@ void SetupBackgroundPage1() {
 
   tft.setTextColor(colFontColor, colBackColor );
 
-  tft.setCursor(18, 166 + baselineMiddle);
-  tft.print("DHT 1");
+  if (DHT1IsAvailable) {
+    tft.setCursor(18, 166 + baselineMiddle);
+    tft.print(F("DHT 1"));
+  }
 
-  tft.setCursor(18, 192 + baselineMiddle);
-  tft.print("DHT 2");
+  if (DHT2IsAvailable) {
+    tft.setCursor(18, 192 + baselineMiddle);
+    tft.print(F("DHT 2"));
+  }
 
-  tft.setCursor(18, 218 + baselineMiddle);
-  tft.print("CO2");
+  if (MHZ14IsAvailable) {
+    tft.setCursor(18, 218 + baselineMiddle);
+    tft.print(F("CO2"));
+  }
 
   tft.setCursor(18, 244 + baselineMiddle);
-  tft.print("VOC");
+  tft.print(F("VOC"));
 }
 
 void loopDisplayUpdatePage1() {
+  char strPrint[10];
+  // DHT 1
+  if (DHT1IsAvailable) {
+    if (abs(LastDisplayDHT1Temp - DHT1Temp) > 0.5 || updateDisplayNow) {
+      LastDisplayDHT1Temp = DHT1Temp;
+      tft.fillRect(160, 166, 80, numberfieldheight, colBackColor);
+      sprintf(strPrint, "%5d.%1d", (int)DHT1Temp, abs(((int)(DHT1Temp * 10)) % 10));
+      tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
+      tft.setCursor(240 - w, 166 + baselineMiddle);
+      tft.print(strPrint);
+    }
+  }
+  // DHT 2
+  if (DHT2IsAvailable) {
+    if (abs(LastDisplayDHT2Temp - DHT2Temp) > 0.5 || updateDisplayNow) {
+      LastDisplayDHT2Temp = DHT2Temp;
+      tft.fillRect(160, 192, 80, numberfieldheight, colBackColor);
+      sprintf(strPrint, "%5d.%1d", (int)DHT2Temp, abs(((int)(DHT2Temp * 10)) % 10));
+      tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
+      tft.setCursor(240 - w, 192 + baselineMiddle);
+      tft.print(strPrint);
+    }
+  }
 
+  // CO2
+  if (MHZ14IsAvailable) {
+    if (abs(LastDisplayMHZ14_CO2_ppm - MHZ14_CO2_ppm) > 10 || updateDisplayNow) {
+      LastDisplayMHZ14_CO2_ppm = MHZ14_CO2_ppm;
+      tft.fillRect(160, 218, 80, numberfieldheight, colBackColor);
+      sprintf(strPrint, "%5d", (int)MHZ14_CO2_ppm);
+      tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
+      tft.setCursor(240 - w, 218 + baselineMiddle);
+      tft.print(strPrint);
+    }
+
+  }
 }
 
 void NewMenuPage1() {
@@ -361,18 +404,17 @@ void SetupBackgroundPage3() {
   tft.setCursor(160, 30 + baselineSmall);
   tft.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor );
   tft.setTextSize(fontFactorSmall);
-  tft.print("Normdrehzahl einstellen");
+  tft.print(F("Normdrehzahl Zuluftventilator"));
 
   tft.setTextColor(colFontColor, colBackColor );
 
   tft.setCursor(18, 166 + baselineMiddle);
-  tft.print ("Normdrehzahl Zuluftventilator");
+  tft.print (F("Aktueller Wert: "));
+  tft.print (StandardSpeedSetpointFan1);
+  tft.println(" U/min");
 }
 
 void loopDisplayUpdatePage3() {
-
-  Serial.println("loopDisplayUpdatePage3");
-
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(colFontColor);
   tft.fillRect(18, 192, 80, numberfieldheight, colBackColor);
@@ -413,9 +455,9 @@ void DoMenuActionPage3() {
       tft.setFont(&FreeSans12pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 220 + baselineMiddle);
-      tft.print ("Wert im EEPROM gespeichert");
+      tft.print (F("Wert im EEPROM gespeichert"));
       tft.setCursor(18, 250 + baselineMiddle);
-      tft.print ("Bitte Kalibrierung starten!");
+      tft.print (F("Bitte Kalibrierung starten!"));
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -437,12 +479,14 @@ void SetupBackgroundPage4() {
   tft.setCursor(160, 30 + baselineSmall);
   tft.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor );
   tft.setTextSize(fontFactorSmall);
-  tft.print(F("Normdrehzahl L2"));
+  tft.print(F("Normdrehzahl Abluftventilator"));
 
   tft.setTextColor(colFontColor, colBackColor );
 
   tft.setCursor(18, 166 + baselineMiddle);
-  tft.print (F("Normdrehzahl Abluftventilator"));
+  tft.print (F("Aktueller Wert: "));
+  tft.print (StandardSpeedSetpointFan2);
+  tft.println(" U/min");
 
 }
 
@@ -486,9 +530,9 @@ void DoMenuActionPage4() {
       tft.setFont(&FreeSans12pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 220 + baselineMiddle);
-      tft.print ("Wert im EEPROM gespeichert");
+      tft.print (F("Wert im EEPROM gespeichert"));
       tft.setCursor(18, 250 + baselineMiddle);
-      tft.print ("Bitte Kalibrierung starten!");
+      tft.print (F("Bitte Kalibrierung starten!"));
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -534,7 +578,7 @@ void DoMenuActionPage5() {
 // ****************************************** Page 6: WERKSEINSTELLUNGEN **********************************
 void NewMenuPage6() {
   //Factory Reset
-   NewMenuEntry (1, F("<-"));
+  NewMenuEntry (1, F("<-"));
   NewMenuEntry (6, F("OK"));
 }
 
@@ -544,8 +588,6 @@ void loopDisplayUpdatePage6() {
 
 void DoMenuActionPage6() {
   // RESET
-  Serial.println ("DoMenuActionPage6");
-  Serial.println (menuBtnPressed);
   switch (menuBtnPressed) {
     case 1:
       gotoPage (2);
@@ -584,7 +626,7 @@ void loopDisplayUpdate() {
 
   if ((currentMillis - previousMillisDisplayUpdate >= intervalDisplayUpdate) || updateDisplayNow) {
     if (serialDebugDisplay == 1) {
-      Serial.println("loopDisplayUpdate");
+      Serial.println(F("loopDisplayUpdate"));
     }
 
     char strPrint[10];
@@ -761,8 +803,10 @@ void ShowMenu() {
 
 
 void DoMenuAction() {
-  Serial.print (F("DoMenuAction "));
-  Serial.println(menupage);
+  if (serialDebugDisplay) {
+    Serial.print (F("DoMenuAction "));
+    Serial.println(menupage);
+  }
 
   if (menupage == 0) {
     DoMenuActionPage0();
@@ -866,10 +910,12 @@ void loopTouch()
       xpos = map(tp.x, TS_LEFT, TS_RT, 0, tft.width());
       ypos = map(tp.y, TS_TOP, TS_BOT, 0, tft.height());
 
-      Serial.print("Touch (xpos / ypos): ");
-      Serial.print(xpos);
-      Serial.print(" / ");
-      Serial.println(ypos);
+      if (serialDebugDisplay) {
+        Serial.print("Touch (xpos / ypos): ");
+        Serial.print(xpos);
+        Serial.print(" / ");
+        Serial.println(ypos);
+      }
 
       // are we in top color box area ?
       if (xpos > 480 - touchBtnWidth) {               //draw white border on selected color box
@@ -913,7 +959,7 @@ void loopTouch()
 // *** TFT starten
 void SetupTftScreen() {
   if (serialDebugDisplay == 1) {
-    Serial.println("start_tft");
+    Serial.println(F("start_tft"));
   }
   ID = tft.readID();  // you must detect the correct controller
   tft.begin(ID);      // everything will start working
@@ -924,16 +970,16 @@ void SetupTftScreen() {
   // Baseline bestimmen für kleinen Font
   tft.getTextBounds("M", 0, 0, &x1, &y1, &w, &h);
   baselineBigNumber = h;
-  Serial.print ("Font baseline (big/middle/small): ");
+  Serial.print (F("Font baseline (big/middle/small): "));
   Serial.print (h);
-  Serial.print (" / ");
+  Serial.print (F(" / "));
   tft.setFont(&FreeSans12pt7b);  // Mittlerer Font
   // Baseline bestimmen für kleinen Font
   tft.getTextBounds("9", 0, 0, &x1, &y1, &w, &h);
   baselineMiddle = h;
   numberfieldheight = h + 1 ;
   Serial.print (numberfieldheight);
-  Serial.print (" / ");
+  Serial.print (F(" / "));
   tft.setFont(&FreeSans9pt7b);  // Kleiner Font
   // Baseline bestimmen für kleinen Font
   tft.getTextBounds("M", 0, 0, &x1, &y1, &w, &h);
@@ -941,7 +987,7 @@ void SetupTftScreen() {
   Serial.print (h);
   Serial.println ();
 
-  Serial.print("TFT controller: ");
+  Serial.print(F("TFT controller: "));
   Serial.println(ID);
   tft.setRotation(1);
   tft.fillScreen(colBackColor);

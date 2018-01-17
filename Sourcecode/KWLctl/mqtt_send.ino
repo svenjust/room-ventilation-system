@@ -68,17 +68,17 @@ void loopMqttSendBypass() {
     if (bypassFlapState == bypassFlapState_Open) {
       mqttClient.publish(TOPICKwlBypassState, "open");
       if (serialDebug == 1) {
-        Serial.println("TOPICKwlBypassState: open");
+        Serial.println(F("TOPICKwlBypassState: open"));
       }
     } else if (bypassFlapState == bypassFlapState_Close) {
       mqttClient.publish(TOPICKwlBypassState, "closed");
       if (serialDebug == 1) {
-        Serial.println("TOPICKwlBypassState: closed");
+        Serial.println(F("TOPICKwlBypassState: closed"));
       }
     } else if (bypassFlapState == bypassFlapState_Unknown) {
       mqttClient.publish(TOPICKwlBypassState, "unknown");
       if (serialDebug == 1) {
-        Serial.println("TOPICKwlBypassState: unknown");
+        Serial.println(F("TOPICKwlBypassState: unknown"));
       }
     }
     // In MqttSendBypassAllValues() wird geprüft, ob alle Werte gesendet werden sollen.
@@ -96,12 +96,12 @@ void MqttSendBypassAllValues() {
     if (bypassMode == bypassMode_Auto) {
       mqttClient.publish(TOPICKwlBypassMode, "auto");
       if (serialDebug == 1) {
-        Serial.println("TOPICKwlBypassMode: auto");
+        Serial.println(F("TOPICKwlBypassMode: auto"));
       }
     } else if (bypassFlapState == bypassMode_Manual) {
       mqttClient.publish(TOPICKwlBypassMode, "manual");
       if (serialDebug == 1) {
-        Serial.println("TOPICKwlBypassMode: manual");
+        Serial.println(F("TOPICKwlBypassMode: manual"));
       }
     }
     itoa(bypassTempAbluftMin, buffer, 10);
@@ -264,7 +264,7 @@ void loopNetworkConnection() {
   if (millis() - lastLanReconnectAttempt > 10000) {
     if (Ethernet.localIP()[0] == 0) {
       // KEIN NETZVERBINDUNG
-      Serial.println("LAN not connected");
+      Serial.println(F("LAN not connected"));
       bLanOk = false;
       Ethernet.begin(mac, ip, DnServer, gateway, subnet);
     } else {
@@ -278,7 +278,7 @@ void loopNetworkConnection() {
     long now = millis();
     if (now - lastMqttReconnectAttempt > 5000) {
       //if (serialDebug == 1) {
-      Serial.println("Mqtt Client not connected");
+      Serial.println(F("Mqtt Client not connected"));
       bMqttOk = false;
       //}
       lastMqttReconnectAttempt = now;

@@ -456,9 +456,9 @@ int     MHZ14_CO2_ppm = -1;
 
 void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   // handle message arrived
-  Serial.print("Message arrived [");
+  Serial.print(F("Message arrived ["));
   Serial.print(topic);
-  Serial.print("] ");
+  Serial.print(F("] "));
   for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
   }
@@ -480,7 +480,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "YES")   {
-      Serial.println("Kalibrierung Lüfter wird gestartet");
+      Serial.println(F("Kalibrierung Lüfter wird gestartet"));
       SpeedCalibrationStart();
     }
   }
@@ -488,10 +488,10 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "YES")   {
-      Serial.println("Speicherbereich wird gelöscht");
+      Serial.println(F("Speicherbereich wird gelöscht"));
       initializeEEPROM(true);
       // Reboot
-      Serial.println("Reboot");
+      Serial.println(F("Reboot"));
       delay (1000);
       asm volatile ("jmp 0");
     }
@@ -640,7 +640,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
 }
 
 boolean mqttReconnect() {
-  Serial.println ("reconnect start");
+  Serial.println (F("reconnect start"));
   Serial.println ((long)currentMillis);
   if (mqttClient.connect("arduinoClientKwl", TOPICHeartbeat, 0, true, "offline")) {
     // Once connected, publish an announcement...
@@ -649,9 +649,9 @@ boolean mqttReconnect() {
     mqttClient.subscribe(TOPICCommand);
     mqttClient.subscribe(TOPICCommandDebug);
   }
-  Serial.println ("reconnect end");
+  Serial.println (F("reconnect end"));
   Serial.println ((long)currentMillis);
-  Serial.print ("IsMqttConnected: ");
+  Serial.print (F("IsMqttConnected: "));
   Serial.println (mqttClient.connected());
   return mqttClient.connected();
 }
@@ -717,26 +717,26 @@ void setSpeedToFan() {
   }
 
   if (serialDebugFan == 1) {
-    Serial.print ("Timestamp: ");
+    Serial.print (F("Timestamp: "));
     Serial.println ((long)millis());
-    Serial.print ("Fan 1: ");
-    Serial.print ("\tGap: ");
+    Serial.print (F("Fan 1: "));
+    Serial.print (F("\tGap: "));
     Serial.print (speedTachoFan1 - speedSetpointFan1);
-    Serial.print ("\tspeedTachoFan1: ");
+    Serial.print (F("\tspeedTachoFan1: "));
     Serial.print (speedTachoFan1);
-    Serial.print ("\ttechSetpointFan1: ");
+    Serial.print (F("\ttechSetpointFan1: "));
     Serial.print (techSetpointFan1);
-    Serial.print ("\tspeedSetpointFan1: ");
+    Serial.print (F("\tspeedSetpointFan1: "));
     Serial.println(speedSetpointFan1);
 
-    Serial.print ("Fan 2: ");
-    Serial.print ("\tGap: ");
+    Serial.print (F("Fan 2: "));
+    Serial.print (F("\tGap: "));
     Serial.print (speedTachoFan2 - speedSetpointFan2);
-    Serial.print ("\tspeedTachoFan2: ");
+    Serial.print (F("\tspeedTachoFan2: "));
     Serial.print (speedTachoFan2);
-    Serial.print ("\ttechSetpointFan2: ");
+    Serial.print (F("\ttechSetpointFan2: "));
     Serial.print (techSetpointFan2);
-    Serial.print ("\tspeedSetpointFan2: ");
+    Serial.print (F("\tspeedSetpointFan2: "));
     Serial.println(speedSetpointFan2);
   }
   // Setzen per PWM
@@ -776,15 +776,15 @@ void SetPreheating() {
   // Schwelle: 1000 U/min
 
   if (serialDebugAntifreeze == 1) {
-    Serial.println ("SetPreheating start");
+    Serial.println (F("SetPreheating start"));
   }
   if (antifreezeState) {
     if (serialDebugAntifreeze == 1) {
-      Serial.println ("antifreezeState true");
+      Serial.println (F("antifreezeState true"));
     }
     if (!antifreezeAlarm) {
       if (serialDebugAntifreeze == 1) {
-        Serial.println ("Vorheizer versuchen");
+        Serial.println (F("Vorheizer versuchen"));
       }
       // Vorheizer versuchen
       if (PidPreheater.GetMode() == MANUAL) {
@@ -796,13 +796,13 @@ void SetPreheating() {
       // antifreezeAlarm == true also 10 Minuten vergangen seit antifreezeState == true
       // jetzt pidPreheater ausschalten,techSetpointPreheater=0 und Zuluftventilator ausschalten
       if (serialDebugAntifreeze == 1) {
-        Serial.println ("antifreezeAlarm == true also 10 Minuten vergangen seit antifreezeState == true");
+        Serial.println (F("antifreezeAlarm == true also 10 Minuten vergangen seit antifreezeState == true"));
       }
       if (PidPreheater.GetMode() == AUTOMATIC) {
         PidPreheater.SetMode(MANUAL); // Pid ausschalten
       }
       if (serialDebugAntifreeze == 1) {
-        Serial.println ("fan2 = 0");
+        Serial.println (F("fan2 = 0"));
       }
       techSetpointFan2 = 0;
       techSetpointPreheater = 0;
@@ -888,7 +888,7 @@ void loopAntiFreezeCheck() {
   currentMillis = millis();
   if (currentMillis - previousMillisAntifreeze >= intervalAntifreezeCheck) {
     if (serialDebugAntifreeze == 1) {
-      Serial.println ("loopAntiFreezeCheck start");
+      Serial.println (F("loopAntiFreezeCheck start"));
     }
     previousMillisAntifreeze = currentMillis;
     // Antifreeze Flag einschalten
@@ -984,7 +984,7 @@ void loopBypassSummerCheck() {
           //ok, dann Klappe schliessen
           if (bypassFlapSetpoint != bypassFlapState_Close) {
             if (serialDebugSummerbypass == 1) {
-              Serial.println("Klappe schliessen");
+              Serial.println(F("Klappe schliessen"));
             }
             bypassFlapSetpoint = bypassFlapState_Close;
             bypassLastChangeMillis = millis();
@@ -1187,7 +1187,7 @@ void loopCheckForErrors() {
 void initializeVariables()
 {
   Serial.println();
-  Serial.println("initializeVariables");
+  Serial.println(F("initializeVariables"));
   int temp = 0;
 
   // Normdrehzahl Lüfter 1
@@ -1227,26 +1227,16 @@ void initializeVariables()
   // max 10 Werte * 2 Lüfter * 2 Byte
   // 20 bis 60
   if (defStandardModeCnt > 10) {
-    Serial.println("ERROR: ModeCnt zu groß");
+    Serial.println(F("ERROR: ModeCnt zu groß"));
   }
   for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
     eeprom_read_int (20 + (i * 4), &temp);
     PwmSetpointFan1[i] = temp;
-   /* Serial.print ("Read1 ");
-    Serial.print (i);
-    Serial.print (" ");
-    Serial.println (temp); */
     eeprom_read_int (22 + (i * 4), &temp);
     PwmSetpointFan2[i] = temp;
-  /*  Serial.print ("Read2 ");
-    Serial.print (i);
-    Serial.print (" ");
-    Serial.println (temp); */
   }
   // ENDE PWM für max 10 Lüftungsstufen
   // Weiter geht es ab Speicherplatz 60dez ff
-
-
 }
 
 
