@@ -75,19 +75,28 @@ int16_t  x1, y1;
 uint16_t w, h;
 
 boolean       menuBtnActive[10];
-byte          menupage                    = 0;
+byte          menuScreen                  = 0;
 byte          menuBtnPressed              = -1;
 byte          LastMenuBtn                 = 0;
 unsigned long millisLastMenuBtnPress      = 0;
 unsigned long intervalMenuBtn             = 500;
+unsigned long intervalLastMillisTouch     = 60000; // eine Minute
+unsigned long LastMillisTouch             = 0;
 
 int inputStandardSpeedSetpointFan1 = 0;
 int inputStandardSpeedSetpointFan2 = 0;
 
+/******************************************* Seitenverwaltung ********************************************
+  Für jeden Screen müssen die folgenden Funktionen implementiert werden:
+   - SetupBackgroundScreen       Zeichnet den statischen Anteil des Screens und wird nur einmal aufgerufen
+   - loopDisplayUpdateScreen     Zeichnet den dynamischen Anteil und wird regelmäßig aufgerufen
+   - NewMenuScreen               Definiert das Menü des Screens
+   - DoMenuActionScreen          Definiert die Aktion des Menüs
+*/
 
-// ****************************************** Page 0: HAUPTSEITE ******************************************
-void SetupBackgroundPage0() {
-  // Menu Page 0 Standardseite
+// ****************************************** Screen 0: HAUPTSEITE ******************************************
+void SetupBackgroundScreen0() {
+  // Menu Screen 0 Standardseite
 
   tft.setFont(&FreeSans9pt7b);  // Kleiner Font
 
@@ -118,13 +127,13 @@ void SetupBackgroundPage0() {
 
   tft.setCursor(18, 270 + baselineMiddle);
   tft.print(F("Wirkungsgrad"));
-  // Ende Menu Page 1
+  // Ende Menu Screen 1
 }
 
-void loopDisplayUpdatePage0() {
+void loopDisplayUpdateScreen0() {
   char strPrint[10];
 
-  // Menu Page 0
+  // Menu Screen 0
   if (LastDisplaykwlMode != kwlMode || updateDisplayNow) {
     // KWL Mode
     tft.setFont(&FreeSansBold24pt7b);
@@ -208,17 +217,21 @@ void loopDisplayUpdatePage0() {
   }
 }
 
-void NewMenuPage0() {
-  NewMenuEntry (1, F("->"));  // Führt zur Page 1
+void NewMenuScreen0() {
+  NewMenuEntry (1, F("->"));  // Führt zur Screen 3
+  NewMenuEntry (2, F("<-"));  // Führt zur Seite 2
   NewMenuEntry (3, F("+"));
   NewMenuEntry (4, F("-"));
 }
 
-void DoMenuActionPage0() {
+void DoMenuActionScreen0() {
   // Standardseite
   switch (menuBtnPressed) {
     case 1:
-      gotoPage (1);
+      gotoScreen (2);
+      break;
+    case 2:
+      gotoScreen (1);
       break;
     case 3:
       previousMillisDisplayUpdate = 0;
@@ -233,11 +246,11 @@ void DoMenuActionPage0() {
       break;
   }
 }
-// ************************************ ENDE: Page 0  *****************************************************
+// ************************************ ENDE: Screen 0  *****************************************************
 
-// ****************************************** Page 1: WEITERE SENSORWERTE *********************************
-void SetupBackgroundPage1() {
-  // Menu Page 1, Sensorwerte
+// ****************************************** Screen 1: WEITERE SENSORWERTE *********************************
+void SetupBackgroundScreen1() {
+  // Menu Screen 1, Sensorwerte
 
   tft.setFont(&FreeSans9pt7b);  // Kleiner Font
 
@@ -268,7 +281,7 @@ void SetupBackgroundPage1() {
   tft.print(F("VOC"));
 }
 
-void loopDisplayUpdatePage1() {
+void loopDisplayUpdateScreen1() {
   char strPrint[10];
   // DHT 1
   if (DHT1IsAvailable) {
@@ -307,20 +320,16 @@ void loopDisplayUpdatePage1() {
   }
 }
 
-void NewMenuPage1() {
+void NewMenuScreen1() {
   //DHT, CO2, VOC Messwerte
   NewMenuEntry (1, F("->"));  // Führt zur Seite 2
-  NewMenuEntry (2, F("<-"));  // Führt zur Seite 0
 }
 
-void DoMenuActionPage1() {
+void DoMenuActionScreen1() {
   // Weitere Sonsorwerte
   switch (menuBtnPressed) {
     case 1:
-      gotoPage (2);
-      break;
-    case 2:
-      gotoPage (0);
+      gotoScreen (0);
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -328,10 +337,10 @@ void DoMenuActionPage1() {
   }
 }
 
-// ************************************ ENDE: Page 1  *****************************************************
+// ************************************ ENDE: Screen 1  *****************************************************
 
-// ****************************************** Page 2: EINSTELLUNGEN ÜBERSICHT******************************
-void SetupBackgroundPage2() {
+// ****************************************** Screen 2: EINSTELLUNGEN ÜBERSICHT******************************
+void SetupBackgroundScreen2() {
   // Übersicht Einstellungen
   tft.setFont(&FreeSans9pt7b);  // Kleiner Font
 
@@ -353,11 +362,11 @@ void SetupBackgroundPage2() {
   tft.print(F("RES: Zurücksetzen aller Einstellungen"));
 }
 
-void loopDisplayUpdatePage2() {
+void loopDisplayUpdateScreen2() {
 
 }
 
-void NewMenuPage2() {
+void NewMenuScreen2() {
   //Einstellungen Übersicht
   NewMenuEntry (1, F("<-"));  // Führt zur Seite 0
   NewMenuEntry (3, F("L1"));  // Führt zur Seite 3
@@ -366,37 +375,37 @@ void NewMenuPage2() {
   NewMenuEntry (6, F("RES")); // Fährt zur Seite 6
 }
 
-void DoMenuActionPage2() {
+void DoMenuActionScreen2() {
   // Einstellungen Übersicht
   switch (menuBtnPressed) {
     case 1:
-      gotoPage (1);
+      gotoScreen (0);
       break;
     case 3:
-      gotoPage (3);
+      gotoScreen (3);
       break;
     case 4:
-      gotoPage (4);
+      gotoScreen (4);
       break;
     case 5:
-      gotoPage (5);
+      gotoScreen (5);
       break;
     case 6:
-      gotoPage (6);
+      gotoScreen (6);
       break;
     default:
       previousMillisDisplayUpdate = 0;
       break;
   }
 }
-// ************************************ ENDE: Page 2  *****************************************************
+// ************************************ ENDE: Screen 2  *****************************************************
 
-// ****************************************** Page 3: EINSTELLUNG NORMDREHZAHL L1 *************************
-void SetupPage3() {
+// ****************************************** Screen 3: EINSTELLUNG NORMDREHZAHL L1 *************************
+void SetupScreen3() {
   inputStandardSpeedSetpointFan1 = StandardSpeedSetpointFan1;
 }
 
-void SetupBackgroundPage3() {
+void SetupBackgroundScreen3() {
   // Übersicht Einstellungen
   tft.setFont(&FreeSans9pt7b);  // Kleiner Font
 
@@ -410,20 +419,19 @@ void SetupBackgroundPage3() {
 
   tft.setCursor(18, 166 + baselineMiddle);
   tft.print (F("Aktueller Wert: "));
-  tft.print (StandardSpeedSetpointFan1);
+  tft.print (int(StandardSpeedSetpointFan1));
   tft.println(" U/min");
 }
 
-void loopDisplayUpdatePage3() {
+void loopDisplayUpdateScreen3() {
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(colFontColor);
   tft.fillRect(18, 192, 80, numberfieldheight, colBackColor);
   tft.setCursor(18, 192 + baselineMiddle);
   tft.print (inputStandardSpeedSetpointFan1);
-
 }
 
-void NewMenuPage3() {
+void NewMenuScreen3() {
   //Einstellungen L1
   NewMenuEntry (1, F("<-"));
   NewMenuEntry (3, F("+10"));
@@ -431,11 +439,11 @@ void NewMenuPage3() {
   NewMenuEntry (6, F("OK"));
 }
 
-void DoMenuActionPage3() {
+void DoMenuActionScreen3() {
   // L1
   switch (menuBtnPressed) {
     case 1:
-      gotoPage (2);
+      gotoScreen (2);
       break;
     case 3:
       previousMillisDisplayUpdate = 0;
@@ -464,14 +472,14 @@ void DoMenuActionPage3() {
       break;
   }
 }
-// ************************************ ENDE: Page 3  *****************************************************
+// ************************************ ENDE: Screen 3  *****************************************************
 
-// ****************************************** Page 4: EINSTELLUNG NORMDREHZAHL L2 *************************
-void SetupPage4() {
+// ****************************************** Screen 4: EINSTELLUNG NORMDREHZAHL L2 *************************
+void SetupScreen4() {
   inputStandardSpeedSetpointFan2 = StandardSpeedSetpointFan2;
 }
 
-void SetupBackgroundPage4() {
+void SetupBackgroundScreen4() {
   // Übersicht Einstellungen
   tft.setFont(&FreeSans9pt7b);  // Kleiner Font
 
@@ -485,12 +493,12 @@ void SetupBackgroundPage4() {
 
   tft.setCursor(18, 166 + baselineMiddle);
   tft.print (F("Aktueller Wert: "));
-  tft.print (StandardSpeedSetpointFan2);
+  tft.print (int(StandardSpeedSetpointFan2));
   tft.println(" U/min");
 
 }
 
-void loopDisplayUpdatePage4() {
+void loopDisplayUpdateScreen4() {
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(colFontColor, colBackColor);
   tft.fillRect(18, 192, 80, numberfieldheight, colBackColor);
@@ -498,7 +506,7 @@ void loopDisplayUpdatePage4() {
   tft.print (inputStandardSpeedSetpointFan2);
 }
 
-void NewMenuPage4() {
+void NewMenuScreen4() {
   //Einstellungen L2
   NewMenuEntry (1, F("<-"));
   NewMenuEntry (3, F("+10"));
@@ -506,11 +514,11 @@ void NewMenuPage4() {
   NewMenuEntry (6, F("OK"));
 }
 
-void DoMenuActionPage4() {
+void DoMenuActionScreen4() {
   // L2
   switch (menuBtnPressed) {
     case 1:
-      gotoPage (2);
+      gotoScreen (2);
       break;
     case 3:
       previousMillisDisplayUpdate = 0;
@@ -539,25 +547,25 @@ void DoMenuActionPage4() {
       break;
   }
 }
-// ************************************ ENDE: Page 4  *****************************************************
+// ************************************ ENDE: Screen 4  *****************************************************
 
-// ****************************************** Page 5: KALIBRIERUNG LÜFTER *********************************
+// ****************************************** Screen 5: KALIBRIERUNG LÜFTER *********************************
 
-void NewMenuPage5() {
+void NewMenuScreen5() {
   //Einstellungen CAL
   NewMenuEntry (1, F("<-"));
   NewMenuEntry (6, F("OK"));
 }
 
-void loopDisplayUpdatePage5() {
+void loopDisplayUpdateScreen5() {
 
 }
 
-void DoMenuActionPage5() {
+void DoMenuActionScreen5() {
   // CAL
   switch (menuBtnPressed) {
     case 1:
-      gotoPage (2);
+      gotoScreen (2);
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
@@ -573,24 +581,24 @@ void DoMenuActionPage5() {
       break;
   }
 }
-// ************************************ ENDE: Page 5  *****************************************************
+// ************************************ ENDE: Screen 5  *****************************************************
 
-// ****************************************** Page 6: WERKSEINSTELLUNGEN **********************************
-void NewMenuPage6() {
+// ****************************************** Screen 6: WERKSEINSTELLUNGEN **********************************
+void NewMenuScreen6() {
   //Factory Reset
   NewMenuEntry (1, F("<-"));
   NewMenuEntry (6, F("OK"));
 }
 
-void loopDisplayUpdatePage6() {
+void loopDisplayUpdateScreen6() {
 
 }
 
-void DoMenuActionPage6() {
+void DoMenuActionScreen6() {
   // RESET
   switch (menuBtnPressed) {
     case 1:
-      gotoPage (2);
+      gotoScreen (2);
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
@@ -615,7 +623,7 @@ void DoMenuActionPage6() {
       break;
   }
 }
-// ************************************ ENDE: Page 6  *****************************************************
+// ************************************ ENDE: Screen 6  *****************************************************
 
 
 void loopDisplayUpdate() {
@@ -657,28 +665,28 @@ void loopDisplayUpdate() {
     }
 
     // Einzelseiten
-    switch (menupage) {
+    switch (menuScreen) {
       case 0:
         // Standardseite
-        loopDisplayUpdatePage0();
+        loopDisplayUpdateScreen0();
         break;
       case 1:
-        loopDisplayUpdatePage1();
+        loopDisplayUpdateScreen1();
         break;
       case 2:
-        loopDisplayUpdatePage2();
+        loopDisplayUpdateScreen2();
         break;
       case 3:
-        loopDisplayUpdatePage3();
+        loopDisplayUpdateScreen3();
         break;
       case 4:
-        loopDisplayUpdatePage4();
+        loopDisplayUpdateScreen4();
         break;
       case 5:
-        loopDisplayUpdatePage5();
+        loopDisplayUpdateScreen5();
         break;
       case 6:
-        loopDisplayUpdatePage6();
+        loopDisplayUpdateScreen6();
         break;
     }
 
@@ -717,35 +725,35 @@ void loopDisplayUpdate() {
 }
 
 
-void SetupBackgroundPage() {
+void SetupBackgroundScreen() {
 
   if (serialDebugDisplay == 1) {
-    Serial.println(F("SetupBackgroundPage"));
+    Serial.println(F("SetupBackgroundScreen"));
   }
   tft.fillRect(0, 30, 480 - touchBtnWidth, 290, colBackColor);
 
-  switch (menupage) {
+  switch (menuScreen) {
     case 0:
       // Standardseite
-      SetupBackgroundPage0();
+      SetupBackgroundScreen0();
       break;
     case 1:
       // Weitere Sensorwerte
-      SetupBackgroundPage1();
+      SetupBackgroundScreen1();
       break;
     case 2:
       // Übersicht Einstellungen
-      SetupBackgroundPage2();
+      SetupBackgroundScreen2();
       break;
     case 3:
       // L1
-      SetupPage3();
-      SetupBackgroundPage3();
+      SetupScreen3();
+      SetupBackgroundScreen3();
       break;
     case 4:
       // L2
-      SetupPage4();
-      SetupBackgroundPage4();
+      SetupScreen4();
+      SetupBackgroundScreen4();
       break;
   }
   ShowMenu();
@@ -758,13 +766,13 @@ void SetCursor(int x, int y) {
 
 
 // ********************************** Menüfunktionen ******************************************
-// menupage = Angezeigte Bildschirmseite
+// menuScreen = Angezeigte Bildschirmseite
 // menuBtnActive[0..6] = true, wenn Menüeintrag sichtbar und aktiviert ist, ansonsten false
 
-void gotoPage(byte PageNo) {
+void gotoScreen(byte ScreenNo) {
   previousMillisDisplayUpdate = 0;
-  menupage = PageNo;
-  SetupBackgroundPage();
+  menuScreen = ScreenNo;
+  SetupBackgroundScreen();
 }
 
 void ShowMenu() {
@@ -777,27 +785,27 @@ void ShowMenu() {
 
   for (int i = 0; i <= 6; i++) menuBtnActive[i] = false;
 
-  if (menupage == 0) {
+  if (menuScreen == 0) {
     //Standardseite
-    NewMenuPage0();
-  } else if (menupage == 1) {
+    NewMenuScreen0();
+  } else if (menuScreen == 1) {
     //DHT, CO2, VOC Messwerte
-    NewMenuPage1();
-  } else if (menupage == 2) {
+    NewMenuScreen1();
+  } else if (menuScreen == 2) {
     //Einstellungen Übersicht
-    NewMenuPage2();
-  } else if (menupage == 3) {
+    NewMenuScreen2();
+  } else if (menuScreen == 3) {
     //Einstellungen L1
-    NewMenuPage3();
-  } else if (menupage == 4) {
+    NewMenuScreen3();
+  } else if (menuScreen == 4) {
     //Einstellungen L2
-    NewMenuPage4();
-  } else if (menupage == 5) {
+    NewMenuScreen4();
+  } else if (menuScreen == 5) {
     //Einstellungen CAL
-    NewMenuPage5();
-  } else if (menupage == 6) {
+    NewMenuScreen5();
+  } else if (menuScreen == 6) {
     //Factory Reset
-    NewMenuPage6();
+    NewMenuScreen6();
   }
 }
 
@@ -805,35 +813,35 @@ void ShowMenu() {
 void DoMenuAction() {
   if (serialDebugDisplay) {
     Serial.print (F("DoMenuAction "));
-    Serial.println(menupage);
+    Serial.println(menuScreen);
   }
 
-  if (menupage == 0) {
-    DoMenuActionPage0();
+  if (menuScreen == 0) {
+    DoMenuActionScreen0();
     menuBtnPressed = -1;
   }
-  if (menupage == 1) {
-    DoMenuActionPage1();
+  if (menuScreen == 1) {
+    DoMenuActionScreen1();
     menuBtnPressed = -1;
   }
-  if (menupage == 2) {
-    DoMenuActionPage2();
+  if (menuScreen == 2) {
+    DoMenuActionScreen2();
     menuBtnPressed = -1;
   }
-  if (menupage == 3) {
-    DoMenuActionPage3();
+  if (menuScreen == 3) {
+    DoMenuActionScreen3();
     menuBtnPressed = -1;
   }
-  if (menupage == 4) {
-    DoMenuActionPage4();
+  if (menuScreen == 4) {
+    DoMenuActionScreen4();
     menuBtnPressed = -1;
   }
-  if (menupage == 5) {
-    DoMenuActionPage5();
+  if (menuScreen == 5) {
+    DoMenuActionScreen5();
     menuBtnPressed = -1;
   }
-  if (menupage == 6) {
-    DoMenuActionPage6();
+  if (menuScreen == 6) {
+    DoMenuActionScreen6();
     menuBtnPressed = -1;
   }
 }
@@ -883,6 +891,8 @@ void SetMenuBorder(byte menuBtn) {
 
 void loopTouch()
 {
+  loopIsDisplayTouched();
+
   SetMenuBorder(0);
 
   if (millis() - millisLastMenuBtnPress > intervalMenuBtn) {
@@ -910,6 +920,8 @@ void loopTouch()
       xpos = map(tp.x, TS_LEFT, TS_RT, 0, tft.width());
       ypos = map(tp.y, TS_TOP, TS_BOT, 0, tft.height());
 
+      LastMillisTouch = millis();
+
       if (serialDebugDisplay) {
         Serial.print("Touch (xpos / ypos): ");
         Serial.print(xpos);
@@ -918,40 +930,60 @@ void loopTouch()
       }
 
       // are we in top color box area ?
-      if (xpos > 480 - touchBtnWidth) {               //draw white border on selected color box
+      if (xpos > 480 - touchBtnWidth) {               // Touch im Menübereich, rechte Seite
 
-        if (ypos < touchBtnYOffset + touchBtnHeight * 0) {
+        if         (ypos < touchBtnYOffset + touchBtnHeight * 0) {
           // Headline, Nothing to do
-        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 1 && menuBtnActive[1]) {
-          menuBtnPressed = 1;
-          SetMenuBorder(menuBtnPressed);
-          millisLastMenuBtnPress = millis();
-        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 2 && menuBtnActive[2]) {
-          menuBtnPressed = 2;
-          SetMenuBorder(menuBtnPressed);
-          millisLastMenuBtnPress = millis();
-        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 3 && menuBtnActive[3]) {
-          menuBtnPressed = 3;
-          SetMenuBorder(menuBtnPressed);
-          millisLastMenuBtnPress = millis();
-        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 4 && menuBtnActive[4]) {
-          menuBtnPressed = 4;
-          SetMenuBorder(menuBtnPressed);
-          millisLastMenuBtnPress = millis();
-        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 5 && menuBtnActive[5]) {
-          menuBtnPressed = 5;
-          SetMenuBorder(menuBtnPressed);
-          millisLastMenuBtnPress = millis();
-        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 6 && menuBtnActive[6]) {
-          menuBtnPressed = 6;
-          SetMenuBorder(menuBtnPressed);
-          millisLastMenuBtnPress = millis();
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 1) {
+          if (menuBtnActive[1]) {
+            menuBtnPressed = 1;
+            SetMenuBorder(menuBtnPressed);
+            millisLastMenuBtnPress = millis();
+          }
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 2) {
+          if (menuBtnActive[2]) {
+            menuBtnPressed = 2;
+            SetMenuBorder(menuBtnPressed);
+            millisLastMenuBtnPress = millis();
+          }
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 3) {
+          if (menuBtnActive[3]) {
+            menuBtnPressed = 3;
+            SetMenuBorder(menuBtnPressed);
+            millisLastMenuBtnPress = millis();
+          }
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 4) {
+          if (menuBtnActive[4]) {
+            menuBtnPressed = 4;
+            SetMenuBorder(menuBtnPressed);
+            millisLastMenuBtnPress = millis();
+          }
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 5) {
+          if (menuBtnActive[5]) {
+            menuBtnPressed = 5;
+            SetMenuBorder(menuBtnPressed);
+            millisLastMenuBtnPress = millis();
+          }
+        } else if (ypos <  touchBtnYOffset + touchBtnHeight * 6) {
+          if (menuBtnActive[6]) {
+            menuBtnPressed = 6;
+            SetMenuBorder(menuBtnPressed);
+            millisLastMenuBtnPress = millis();
+          }
         }
         DoMenuAction();
       }
     }
   }
 }
+
+void loopIsDisplayTouched() {
+  if (millis() - LastMillisTouch > intervalLastMillisTouch) {
+    LastMillisTouch = millis();
+    if (menuScreen != 0) gotoScreen (0);
+  }
+}
+
 // **************************** ENDE  Menüfunktionen ******************************************
 
 

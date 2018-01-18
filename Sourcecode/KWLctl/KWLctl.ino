@@ -132,7 +132,7 @@ int serialDebug = 1;             // 1 = Allgemein Debugausgaben auf der serielle
 int serialDebugFan = 0;          // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
 int serialDebugAntifreeze = 0;   // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
 int serialDebugSummerbypass = 0; // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
-int serialDebugDisplay = 1;      // 1 = Debugausgaben für die Displayanzeige
+int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
 #define strVersion "v0.01"
@@ -1393,7 +1393,7 @@ void setup()
   // 4 Sekunden Pause für die TFT Anzeige, damit man sie auch lesen kann
   delay (4000);
 
-  SetupBackgroundPage();   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
+  SetupBackgroundScreen();   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
 
   //PID
   //turn the PID on
