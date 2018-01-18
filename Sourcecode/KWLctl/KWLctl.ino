@@ -68,6 +68,8 @@
 #define DAC_CHANNEL_FAN1         0 // Kanal 1 des DAC für Zuluft
 #define DAC_CHANNEL_FAN2         1 // Kanal 2 des DAC für Abluft
 #define DAC_CHANNEL_PREHEATER    2 // Kanal 3 des DAC für Vorheizregister
+
+#define sensPinVoc               A15 //Analog Pin für VOC Sensor
 // *******************************************E N D E ***  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
 
 
@@ -339,10 +341,12 @@ unsigned long intervalBypassSummerSetFlaps   = 60000; // 300000;  // 1 * 60 * 10
 unsigned long intervalCheckForErrors         = 1000;
 unsigned long intervalDHTRead                = 10000;
 unsigned long intervalMHZ14Read              = 30000;
+unsigned long intervalTGS2600Read            = 30000;
+
 unsigned long intervalMqttFan                = 5000;
 unsigned long intervalMqttMode               = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttTemp               = 5000;
-unsigned long intervalMqttMHZ14              = 10000;
+unsigned long intervalMqttMHZ14              = 60000;
 unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttFanOversampling    = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttMHZ14Oversampling  = 300000; // 5 * 60 * 1000; 5 Minuten
@@ -357,6 +361,7 @@ unsigned long previousMillisBypassSummerSetFlaps  = 0;
 unsigned long previousMillisCheckForErrors        = 0;
 unsigned long previousMillisDHTRead               = 0;
 unsigned long previousMillisMHZ14Read             = 0;
+unsigned long previousMillisTGS2600Read           = 0;
 
 unsigned long previousMillisMqttHeartbeat         = 0;
 unsigned long previousMillisMqttFan               = 0;
@@ -449,6 +454,10 @@ float DHT2Hum  = 0;
 // CO2 Sensor MH-Z14
 boolean MHZ14IsAvailable = false;
 int     MHZ14_CO2_ppm = -1;
+
+// VOC Sensor TG2600
+boolean TGS2600IsAvailable = false;
+float   TGS2600_VOC   = -1.0;
 
 // Ende Definition
 ///////////////////////////////////////
@@ -1384,6 +1393,15 @@ void setup()
   } else {
     Serial.println(F("...CO2 Sensor MH-Z14 NICHT gefunden"));
     tft.println   (F("...CO2 Sensor MH-Z14 NICHT gefunden"));
+  }
+
+  // TGS2600 VOC Sensor
+  if (SetupTGS2600()) {
+    Serial.println(F("...VOC Sensor TGS2600 gefunden"));
+    tft.println   (F("...VOC Sensor TGS2600 gefunden"));
+  } else {
+    Serial.println(F("...VOC Sensor TGS2600 NICHT gefunden"));
+    tft.println   (F("...VOC Sensor TGS2600 NICHT gefunden"));
   }
 
   // Setup fertig

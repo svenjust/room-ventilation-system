@@ -6,7 +6,6 @@ long    TGS2600_DEFAULTRO        = 45000;         //default Ro for TGS2600_DEFAU
 #define TGS2600_EXPONENT           -3.337882361   //CO2 gas value
 #define TGS2600_MAXRSRO            2.428          //for CO2
 #define TGS2600_MINRSRO            0.358          //for CO2
-float   TGS2600_valAIQ           = 0.0;
 float   TGS2600_RL               = 1000;
 
 
@@ -116,23 +115,25 @@ char getChecksum(char *packet) {
 
 // ----------------------------- TGS2600 ------------------------------------
 
-void calcSensor_VOC(int valr)
+float calcSensor_VOC(int valr)
 {
   float val;
   float TGS2600_ro;
+  float valAIQ;
+
   //Serial.println(valr);
   if (valr > 0) {
     val =  ((float)TGS2600_RL * (1024 - valr) / valr);
     TGS2600_ro = TGS2600_getro(val, TGS2600_DEFAULTPPM);
     //convert to ppm (using default ro)
-    TGS2600_valAIQ = TGS2600_getppm(val, TGS2600_DEFAULTRO);
+    valAIQ = TGS2600_getppm(val, TGS2600_DEFAULTRO);
   }
   Serial.print ( F("Vrl / Rs / ratio:"));
   Serial.print ( val);
   Serial.print ( F(" / "));
   Serial.print ( TGS2600_ro);
   Serial.print ( F(" / "));
-  Serial.println ( TGS2600_valAIQ);
+  Serial.println ( valAIQ);
 }
 
 
@@ -151,3 +152,20 @@ float TGS2600_getppm(long resvalue, long ro) {
   ret = (float)TGS2600_SCALINGFACTOR * pow(((float)resvalue / ro), TGS2600_EXPONENT);
   return ret;
 }
+
+void loopVocRead() {
+  if (TGS2600IsAvailable) {
+    currentMillis = millis();
+    if (currentMillis - previousMillisTGS2600Read >= intervalTGS2600Read) {
+      previousMillisTGS2600Read = currentMillis;
+      int analogVal = analogRead(sensPinVoc);
+      TGS2600_VOC = calcSensor_VOC(analogVal);
+    }
+  }
+}
+
+boolean SetupTGS2600(){
+  int analogVal = analogRead(sensPinVoc);
+  if (analogVal > 100) return true; else return false;
+}
+
