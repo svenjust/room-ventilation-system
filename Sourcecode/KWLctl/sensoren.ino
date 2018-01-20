@@ -68,9 +68,18 @@ const uint8_t cmdCalZeroPoint[9] = {0xFF, 0x01, 0x87, 0x00, 0x00, 0x00, 0x00, 0x
 #define Co2Min 402
 
 boolean SetupMHZ14() {
+  int ppm = 0;
+  uint8_t response[9];
+  
   Serial2.begin(9600);
-  MHZ14IsAvailable = true;
-  return true;
+  Serial2.write(cmdReadGasPpm, 9);
+  if (Serial2.readBytes(response, 9) == 9){
+    int responseHigh = (int) response[2];
+    int responseLow = (int) response[3];
+    int ppm = (256 * responseHigh) + responseLow;
+  }
+  if (ppm != 0)   MHZ14IsAvailable = true; else MHZ14IsAvailable = false;
+  return MHZ14IsAvailable;
 }
 
 void loopMHZ14Read() {
@@ -164,8 +173,10 @@ void loopVocRead() {
   }
 }
 
-boolean SetupTGS2600(){
+boolean SetupTGS2600() {
+  pinMode(sensPinVoc, INPUT_PULLUP);
   int analogVal = analogRead(sensPinVoc);
-  if (analogVal > 100) return true; else return false;
+  Serial.println(analogVal);
+  if (analogVal < 1023) return true; else return false;
 }
 

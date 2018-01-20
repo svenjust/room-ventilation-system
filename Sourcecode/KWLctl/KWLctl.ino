@@ -134,7 +134,7 @@ int serialDebug = 1;             // 1 = Allgemein Debugausgaben auf der serielle
 int serialDebugFan = 0;          // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
 int serialDebugAntifreeze = 0;   // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
 int serialDebugSummerbypass = 0; // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
-int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
+int serialDebugDisplay = 1;      // 1 = Debugausgaben für die Displayanzeige
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
 #define strVersion "v0.01"
@@ -1276,19 +1276,21 @@ void setup()
   SetCursor(0, 30);
   tft.println   (F("Booting..."));
 
-  Serial.println(F("Initialisierung Ethernet"));
-  tft.println(F("Initialisierung Ethernet"));
+  Serial.print(F("Initialisierung Ethernet:"));
+  tft.print(F("Initialisierung Ethernet:"));
   Ethernet.begin(mac, ip, DnServer, gateway, subnet);
   delay(1500);    // Delay in Setup erlaubt
   lastMqttReconnectAttempt = 0;
   lastLanReconnectAttempt = 0;
-  Serial.print(F("...IP Adresse: "));
+  Serial.print(F(" IP Adresse: "));
   Serial.println(Ethernet.localIP());
-  tft.print(F("...IP Adresse: "));
+  tft.print(F(" IP Adresse: "));
   tft.println(Ethernet.localIP());
   bLanOk = true;
 
   if (Ethernet.localIP()[0] == 0) {
+    Serial.println();
+    tft.println();
     Serial.println(F("...FEHLER: KEINE LAN VERBINDUNG, WARTEN 15 Sek."));
     tft.println   (F("...FEHLER: KEINE LAN VERBINDUNG, WARTEN 15 Sek."));
     bLanOk = false;
@@ -1364,44 +1366,44 @@ void setup()
   dht1.begin();
   dht2.begin();
   delay(1500);
-  Serial.println(F("Initialisierung DHT Sensoren"));
-  tft.println   (F("Initialisierung DHT Sensoren"));
+  Serial.println(F("Initialisierung Sensoren"));
+  tft.println   (F("Initialisierung Sensoren"));
   sensors_event_t event;
   dht1.temperature().getEvent(&event);
   if (!isnan(event.temperature)) {
     DHT1IsAvailable = true;
-    Serial.println(F("...DHT1 gefunden"));
-    tft.println   (F("...DHT1 gefunden"));
+    Serial.println(F("...gefunden: DHT1"));
+    tft.println   (F("...gefunden: DHT1"));
   } else {
-    Serial.println(F("...DHT1 NICHT gefunden"));
-    tft.println   (F("...DHT1 NICHT gefunden"));
+    Serial.println(F("...NICHT gefunden: DHT1"));
+    tft.println   (F("...NICHT gefunden: DHT1"));
   }
   dht2.temperature().getEvent(&event);
   if (!isnan(event.temperature)) {
     DHT2IsAvailable = true;
-    Serial.println(F("...DHT2 gefunden"));
-    tft.println   (F("...DHT2 gefunden"));
+    Serial.println(F("...gefunden: DHT2"));
+    tft.println   (F("...gefunden: DHT2"));
   } else {
-    Serial.println(F("...DHT2 NICHT gefunden"));
-    tft.println   (F("...DHT2 NICHT gefunden"));
+    Serial.println(F("...NICHT gefunden: DHT2"));
+    tft.println   (F("...NICHT gefunden: DHT2"));
   }
 
   // MH-Z14 CO2 Sensor
   if (SetupMHZ14()) {
-    Serial.println(F("...CO2 Sensor MH-Z14 gefunden"));
-    tft.println   (F("...CO2 Sensor MH-Z14 gefunden"));
+    Serial.println(F("...gefunden: CO2 Sensor MH-Z14"));
+    tft.println   (F("...gefunden: CO2 Sensor MH-Z14"));
   } else {
-    Serial.println(F("...CO2 Sensor MH-Z14 NICHT gefunden"));
-    tft.println   (F("...CO2 Sensor MH-Z14 NICHT gefunden"));
+    Serial.println(F("...NICHT gefunden: CO2 Sensor MH-Z14"));
+    tft.println   (F("...NICHT gefunden: CO2 Sensor MH-Z14"));
   }
 
   // TGS2600 VOC Sensor
   if (SetupTGS2600()) {
-    Serial.println(F("...VOC Sensor TGS2600 gefunden"));
-    tft.println   (F("...VOC Sensor TGS2600 gefunden"));
+    Serial.println(F("...gefunden: VOC Sensor TGS2600"));
+    tft.println   (F("...gefunden: VOC Sensor TGS2600"));
   } else {
-    Serial.println(F("...VOC Sensor TGS2600 NICHT gefunden"));
-    tft.println   (F("...VOC Sensor TGS2600 NICHT gefunden"));
+    Serial.println(F("...NICHT gefunden: VOC Sensor TGS2600"));
+    tft.println   (F("...NICHT gefunden: VOC Sensor TGS2600"));
   }
 
   // Setup fertig

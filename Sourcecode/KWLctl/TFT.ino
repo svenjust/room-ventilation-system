@@ -51,6 +51,8 @@ int           baselineMiddle              = 0;
 int           baselineBigNumber           = 0;
 int           numberfieldheight           = 0;
 
+char strPrint[50];
+
 unsigned long previousMillisDisplayUpdate = 0;
 unsigned long intervalDisplayUpdate       = 5000;
 boolean       updateDisplayNow            = false;
@@ -61,7 +63,7 @@ int           LastEffiencyKwl             = 0;
 String        LastErrorText               = "";
 String        LastInfoText                = "";
 double LastDisplayT1 = 0, LastDisplayT2 = 0, LastDisplayT3 = 0, LastDisplayT4 = 0;
-double LastDisplayDHT1Temp = 0, LastDisplayDHT2Temp = 0, LastDisplayMHZ14_CO2_ppm = 0;
+double LastDisplayDHT1Temp = 0, LastDisplayDHT2Temp = 0, LastDisplayMHZ14_CO2_ppm = 0, LastDisplayTGS2600 = 0;
 
 byte          LastLanOk                   = true;
 byte          LastMqttOk                  = true;
@@ -98,14 +100,7 @@ int inputStandardSpeedSetpointFan2 = 0;
 void SetupBackgroundScreen0() {
   // Menu Screen 0 Standardseite
 
-  tft.setFont(&FreeSans9pt7b);  // Kleiner Font
-
-  tft.fillRect(0, 30, 480 - touchBtnWidth, 20, colWindowTitleBackColor );
-  tft.setCursor(160, 30 + baselineSmall);
-  tft.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor );
-  tft.setTextSize(fontFactorSmall);
-  tft.print(F("Lueftungsstufe"));
-  tft.setTextColor(colFontColor, colBackColor );
+  PrintScreenTitle("Lueftungsstufe");
 
   tft.setCursor(150, 140 + baselineSmall);
   tft.print(F("Temperatur"));
@@ -131,8 +126,6 @@ void SetupBackgroundScreen0() {
 }
 
 void loopDisplayUpdateScreen0() {
-  char strPrint[10];
-
   // Menu Screen 0
   if (LastDisplaykwlMode != kwlMode || updateDisplayNow) {
     // KWL Mode
@@ -252,37 +245,34 @@ void DoMenuActionScreen0() {
 void SetupBackgroundScreen1() {
   // Menu Screen 1, Sensorwerte
 
-  tft.setFont(&FreeSans9pt7b);  // Kleiner Font
 
-  tft.fillRect(0, 30, 480 - touchBtnWidth, 20, colWindowTitleBackColor );
-  tft.setCursor(100, 30 + baselineSmall);
-  tft.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor );
-  tft.setTextSize(fontFactorSmall);
-  tft.print(F("Weitere Sensorwerte"));
-
-  tft.setTextColor(colFontColor, colBackColor );
+  PrintScreenTitle("Weitere Sensorwerte");
 
   if (DHT1IsAvailable) {
     tft.setCursor(18, 166 + baselineMiddle);
-    tft.print(F("DHT 1"));
+    tft.print(F("DHT1"));
   }
 
   if (DHT2IsAvailable) {
     tft.setCursor(18, 192 + baselineMiddle);
-    tft.print(F("DHT 2"));
+    tft.print(F("DHT2"));
   }
 
   if (MHZ14IsAvailable) {
     tft.setCursor(18, 218 + baselineMiddle);
     tft.print(F("CO2"));
   }
-
-  tft.setCursor(18, 244 + baselineMiddle);
-  tft.print(F("VOC"));
+  if (TGS2600IsAvailable) {
+    tft.setCursor(18, 244 + baselineMiddle);
+    tft.print(F("VOC"));
+  }
 }
 
 void loopDisplayUpdateScreen1() {
-  char strPrint[10];
+  
+  tft.setFont(&FreeSans12pt7b);
+  tft.setTextColor(colFontColor, colBackColor);
+  
   // DHT 1
   if (DHT1IsAvailable) {
     if (abs(LastDisplayDHT1Temp - DHT1Temp) > 0.5 || updateDisplayNow) {
@@ -299,7 +289,7 @@ void loopDisplayUpdateScreen1() {
     if (abs(LastDisplayDHT2Temp - DHT2Temp) > 0.5 || updateDisplayNow) {
       LastDisplayDHT2Temp = DHT2Temp;
       tft.fillRect(160, 192, 80, numberfieldheight, colBackColor);
-      sprintf(strPrint, "%5d.%1d", (int)DHT2Temp, abs(((int)(DHT2Temp * 10)) % 10));
+      sprintf(strPrint, " %5d.%1d", (int)DHT2Temp, abs(((int)(DHT2Temp * 10)) % 10));
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(240 - w, 192 + baselineMiddle);
       tft.print(strPrint);
@@ -316,13 +306,24 @@ void loopDisplayUpdateScreen1() {
       tft.setCursor(240 - w, 218 + baselineMiddle);
       tft.print(strPrint);
     }
+  }
 
+  // VOC
+  if (TGS2600IsAvailable) {
+    if (abs(LastDisplayTGS2600 - TGS2600_VOC) > 10 || updateDisplayNow) {
+      LastDisplayTGS2600 = TGS2600_VOC;
+      tft.fillRect(160, 244, 80, numberfieldheight, colBackColor);
+      sprintf(strPrint, "%5d", (int)TGS2600_VOC);
+      tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
+      tft.setCursor(240 - w, 244 + baselineMiddle);
+      tft.print(strPrint);
+    }
   }
 }
 
 void NewMenuScreen1() {
   //DHT, CO2, VOC Messwerte
-  NewMenuEntry (1, F("->"));  // Führt zur Seite 2
+  NewMenuEntry (1, F("->"));  // Führt zur Seite 0
 }
 
 void DoMenuActionScreen1() {
@@ -342,13 +343,7 @@ void DoMenuActionScreen1() {
 // ****************************************** Screen 2: EINSTELLUNGEN ÜBERSICHT******************************
 void SetupBackgroundScreen2() {
   // Übersicht Einstellungen
-  tft.setFont(&FreeSans9pt7b);  // Kleiner Font
-
-  tft.fillRect(0, 30, 480 - touchBtnWidth, 20, colWindowTitleBackColor );
-  tft.setCursor(160, 30 + baselineSmall);
-  tft.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor );
-  tft.setTextSize(fontFactorSmall);
-  tft.print(F("Einstellungen"));
+  PrintScreenTitle("Einstellungen");
 
   tft.setTextColor(colFontColor, colBackColor );
 
@@ -357,9 +352,9 @@ void SetupBackgroundScreen2() {
   tft.setCursor(18, 192 + baselineMiddle);
   tft.print (F("L2:  Normdrehzahl Abluftventilator einstellen"));
   tft.setCursor(18, 218 + baselineMiddle);
-  tft.print(F("CAL: Kalibrierung der Ventilatoransteuerung"));
+  tft.print(F("KAL: Kalibrierung der Ventilatoransteuerung"));
   tft.setCursor(18, 244 + baselineMiddle);
-  tft.print(F("RES: Zurücksetzen aller Einstellungen"));
+  tft.print(F("RGL: Regelung der Ventilatoren"));
 }
 
 void loopDisplayUpdateScreen2() {
@@ -368,17 +363,21 @@ void loopDisplayUpdateScreen2() {
 
 void NewMenuScreen2() {
   //Einstellungen Übersicht
-  NewMenuEntry (1, F("<-"));  // Führt zur Seite 0
+  NewMenuEntry (1, F("->"));  // Führt zur Seite 6
+  NewMenuEntry (2, F("<-"));  // Führt zur Seite 0
   NewMenuEntry (3, F("L1"));  // Führt zur Seite 3
   NewMenuEntry (4, F("L2"));  // Führt zur Seite 4
-  NewMenuEntry (5, F("CAL")); // Führt zur Seite 5
-  NewMenuEntry (6, F("RES")); // Fährt zur Seite 6
+  NewMenuEntry (5, F("KAL")); // Führt zur Seite 5
+  NewMenuEntry (6, F("RGL")); // Fährt zur Seite 6
 }
 
 void DoMenuActionScreen2() {
   // Einstellungen Übersicht
   switch (menuBtnPressed) {
     case 1:
+      gotoScreen (6);
+      break;
+    case 2:
       gotoScreen (0);
       break;
     case 3:
@@ -391,7 +390,7 @@ void DoMenuActionScreen2() {
       gotoScreen (5);
       break;
     case 6:
-      gotoScreen (6);
+      gotoScreen (7);
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -407,20 +406,12 @@ void SetupScreen3() {
 
 void SetupBackgroundScreen3() {
   // Übersicht Einstellungen
-  tft.setFont(&FreeSans9pt7b);  // Kleiner Font
-
-  tft.fillRect(0, 30, 480 - touchBtnWidth, 20, colWindowTitleBackColor );
-  tft.setCursor(160, 30 + baselineSmall);
-  tft.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor );
-  tft.setTextSize(fontFactorSmall);
-  tft.print(F("Normdrehzahl Zuluftventilator"));
-
-  tft.setTextColor(colFontColor, colBackColor );
+  PrintScreenTitle("Normdrehzahl Zuluftventilator");
 
   tft.setCursor(18, 166 + baselineMiddle);
   tft.print (F("Aktueller Wert: "));
   tft.print (int(StandardSpeedSetpointFan1));
-  tft.println(" U/min");
+  tft.println(" U / min");
 }
 
 void loopDisplayUpdateScreen3() {
@@ -434,8 +425,8 @@ void loopDisplayUpdateScreen3() {
 void NewMenuScreen3() {
   //Einstellungen L1
   NewMenuEntry (1, F("<-"));
-  NewMenuEntry (3, F("+10"));
-  NewMenuEntry (4, F("-10"));
+  NewMenuEntry (3, F("+ 10"));
+  NewMenuEntry (4, F("- 10"));
   NewMenuEntry (6, F("OK"));
 }
 
@@ -481,20 +472,12 @@ void SetupScreen4() {
 
 void SetupBackgroundScreen4() {
   // Übersicht Einstellungen
-  tft.setFont(&FreeSans9pt7b);  // Kleiner Font
-
-  tft.fillRect(0, 30, 480 - touchBtnWidth, 20, colWindowTitleBackColor );
-  tft.setCursor(160, 30 + baselineSmall);
-  tft.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor );
-  tft.setTextSize(fontFactorSmall);
-  tft.print(F("Normdrehzahl Abluftventilator"));
-
-  tft.setTextColor(colFontColor, colBackColor );
+  PrintScreenTitle("Normdrehzahl Abluftventilator");
 
   tft.setCursor(18, 166 + baselineMiddle);
   tft.print (F("Aktueller Wert: "));
   tft.print (int(StandardSpeedSetpointFan2));
-  tft.println(" U/min");
+  tft.println(" U / min");
 
 }
 
@@ -509,8 +492,8 @@ void loopDisplayUpdateScreen4() {
 void NewMenuScreen4() {
   //Einstellungen L2
   NewMenuEntry (1, F("<-"));
-  NewMenuEntry (3, F("+10"));
-  NewMenuEntry (4, F("-10"));
+  NewMenuEntry (3, F("+ 10"));
+  NewMenuEntry (4, F("- 10"));
   NewMenuEntry (6, F("OK"));
 }
 
@@ -550,6 +533,12 @@ void DoMenuActionScreen4() {
 // ************************************ ENDE: Screen 4  *****************************************************
 
 // ****************************************** Screen 5: KALIBRIERUNG LÜFTER *********************************
+void SetupScreen5() {
+}
+
+void SetupBackgroundScreen5() {
+  PrintScreenTitle("Kalibrierung Ventilatoren");
+}
 
 void NewMenuScreen5() {
   //Einstellungen CAL
@@ -584,6 +573,13 @@ void DoMenuActionScreen5() {
 // ************************************ ENDE: Screen 5  *****************************************************
 
 // ****************************************** Screen 6: WERKSEINSTELLUNGEN **********************************
+void SetupScreen6() {
+}
+
+void SetupBackgroundScreen6() {
+  PrintScreenTitle("Ruecksetzen auf Werkseinstellungen");
+}
+
 void NewMenuScreen6() {
   //Factory Reset
   NewMenuEntry (1, F("<-"));
@@ -591,7 +587,6 @@ void NewMenuScreen6() {
 }
 
 void loopDisplayUpdateScreen6() {
-
 }
 
 void DoMenuActionScreen6() {
@@ -625,6 +620,67 @@ void DoMenuActionScreen6() {
 }
 // ************************************ ENDE: Screen 6  *****************************************************
 
+// ****************************************** Screen 7: REGELUNG VENTILATOREN **********************************
+byte tmpInput = -1;
+
+void SetupScreen7() {
+  tmpInput = -1;
+}
+
+void SetupBackgroundScreen7() {
+  // Übersicht Einstellungen
+  PrintScreenTitle("Einstellungen Regelung Ventilatoren");
+
+  tft.setCursor(18, 166 + baselineMiddle);
+  tft.print (F("SET: Ansteuerung mit festem Signal"));
+  tft.setCursor(18, 192 + baselineMiddle);
+  tft.print (F("PID: Drehzahl wird permanent überwacht"));
+}
+
+void NewMenuScreen7() {
+  NewMenuEntry (1, F(" < -"));
+  NewMenuEntry (3, F("SET"));
+  NewMenuEntry (4, F("PID"));
+  NewMenuEntry (6, F("OK"));
+}
+
+void loopDisplayUpdateScreen7() {
+
+}
+
+void DoMenuActionScreen7() {
+  // RESET
+  switch (menuBtnPressed) {
+    case 1:
+      gotoScreen (2);
+      break;
+    case 3:
+      tmpInput = CalculateSpeed_PROP;
+      break;
+    case 4:
+      tmpInput = CalculateSpeed_PID;
+      break;
+    case 6:
+      previousMillisDisplayUpdate = 0;
+      if ((tmpInput == CalculateSpeed_PROP || tmpInput == CalculateSpeed_PID) && tmpInput != FansCalculateSpeed) {
+        FansCalculateSpeed = tmpInput;
+        tft.setFont(&FreeSans12pt7b);
+        tft.setTextColor(colFontColor, colBackColor);
+        tft.setCursor(18, 220 + baselineMiddle);
+        tft.print (F("Steuerung per "));
+        if (tmpInput == CalculateSpeed_PROP) tft.print (F("festem Signal")); else  tft.print (F("PID - Regler"));
+      } else {
+        tft.setFont(&FreeSans12pt7b);
+        tft.setTextColor(colFontColor, colBackColor);
+        tft.setCursor(18, 220 + baselineMiddle);
+        tft.print (F("Wert nicht geaendert"));
+      }
+    default:
+      previousMillisDisplayUpdate = 0;
+      break;
+  }
+}
+// ************************************ ENDE: Screen 7  *****************************************************
 
 void loopDisplayUpdate() {
   // Das Update wird alle 1000mS durchlaufen
@@ -636,8 +692,6 @@ void loopDisplayUpdate() {
     if (serialDebugDisplay == 1) {
       Serial.println(F("loopDisplayUpdate"));
     }
-
-    char strPrint[10];
 
     // Netzwerkverbindung anzeigen
     if (!bLanOk) {
@@ -665,6 +719,10 @@ void loopDisplayUpdate() {
     }
 
     // Einzelseiten
+    if (serialDebugDisplay == 1) {
+      Serial.print ("loopDisplayUpdate: menuScreen: ");
+      Serial.println(menuScreen);
+    }
     switch (menuScreen) {
       case 0:
         // Standardseite
@@ -687,6 +745,9 @@ void loopDisplayUpdate() {
         break;
       case 6:
         loopDisplayUpdateScreen6();
+        break;
+      case 7:
+        loopDisplayUpdateScreen7();
         break;
     }
 
@@ -755,6 +816,16 @@ void SetupBackgroundScreen() {
       SetupScreen4();
       SetupBackgroundScreen4();
       break;
+    case 5:
+      // L2
+      SetupScreen5();
+      SetupBackgroundScreen5();
+      break;
+    case 6:
+      // L2
+      SetupScreen6();
+      SetupBackgroundScreen6();
+      break;
   }
   ShowMenu();
   updateDisplayNow = true;
@@ -767,7 +838,7 @@ void SetCursor(int x, int y) {
 
 // ********************************** Menüfunktionen ******************************************
 // menuScreen = Angezeigte Bildschirmseite
-// menuBtnActive[0..6] = true, wenn Menüeintrag sichtbar und aktiviert ist, ansonsten false
+// menuBtnActive[0..7] = true, wenn Menüeintrag sichtbar und aktiviert ist, ansonsten false
 
 void gotoScreen(byte ScreenNo) {
   previousMillisDisplayUpdate = 0;
@@ -806,6 +877,9 @@ void ShowMenu() {
   } else if (menuScreen == 6) {
     //Factory Reset
     NewMenuScreen6();
+  } else if (menuScreen == 7) {
+    //Einstellung Regelung
+    NewMenuScreen7();
   }
 }
 
@@ -844,6 +918,10 @@ void DoMenuAction() {
     DoMenuActionScreen6();
     menuBtnPressed = -1;
   }
+  if (menuScreen == 7) {
+    DoMenuActionScreen7();
+    menuBtnPressed = -1;
+  }
 }
 
 void NewMenuEntry(byte mnuBtn, String mnuTxt) {
@@ -856,7 +934,6 @@ void PrintMenuBtn (byte mnuBtn, String mnuTxt, long colFrame) {
 
   if (mnuBtn > 0 && mnuBtn <= 6 && menuBtnActive[mnuBtn]) {
     int x, y;
-    char strPrint[10];
     x = 480 - touchBtnWidth + 1;
     y = touchBtnYOffset + 1 + touchBtnHeight * (mnuBtn - 1);
 
@@ -887,6 +964,18 @@ void SetMenuBorder(byte menuBtn) {
       PrintMenuBtn (LastMenuBtn, "", colMenuBtnFrame);
     }
   }
+}
+
+void PrintScreenTitle(char* title) {
+  //title.toCharArray(strPrint, title.length()) ;
+  tft.setFont(&FreeSans9pt7b);  // Kleiner Font
+  tft.setTextSize(fontFactorSmall);
+  tft.getTextBounds(title, 0, 0, &x1, &y1, &w, &h);
+  tft.setCursor((480 - touchBtnWidth) / 2 - w / 2, 30 + baselineSmall);
+  tft.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor );
+  tft.fillRect(0, 30, 480 - touchBtnWidth, 20, colWindowTitleBackColor );
+  tft.print(title);
+  tft.setTextColor(colFontColor, colBackColor );
 }
 
 void loopTouch()
@@ -1002,7 +1091,7 @@ void SetupTftScreen() {
   // Baseline bestimmen für kleinen Font
   tft.getTextBounds("M", 0, 0, &x1, &y1, &w, &h);
   baselineBigNumber = h;
-  Serial.print (F("Font baseline (big/middle/small): "));
+  Serial.print (F("Font baseline (big / middle / small): "));
   Serial.print (h);
   Serial.print (F(" / "));
   tft.setFont(&FreeSans12pt7b);  // Mittlerer Font
@@ -1044,7 +1133,7 @@ void show_Touch_Serial(void)
   Serial.print(F("Found "));
   Serial.print(name);
   Serial.println(F(" LCD driver"));
-  Serial.print(F("ID=0x"));
+  Serial.print(F("ID = 0x"));
   Serial.println(identifier, HEX);
   Serial.println("Screen is " + String(tft.width()) + "x" + String(tft.height()));
   Serial.println("Calibration is: ");
@@ -1052,8 +1141,8 @@ void show_Touch_Serial(void)
   Serial.println("TOP  = " + String(TS_TOP)  + " BOT = " + String(TS_BOT));
   Serial.print("Wiring is: ");
   Serial.println(SwapXY ? "SWAPXY" : "PORTRAIT");
-  Serial.println("YP=" + String(YP)  + " XM=" + String(XM));
-  Serial.println("YM=" + String(YM)  + " XP=" + String(XP));
+  Serial.println("YP = " + String(YP)  + " XM = " + String(XM));
+  Serial.println("YM = " + String(YM)  + " XP = " + String(XP));
 }
 
 // *** oberer Rand
