@@ -849,7 +849,7 @@ void gotoScreen(byte ScreenNo) {
 void ShowMenu() {
 
   // Menu Hintergrund
-  tft.fillRect(480 - touchBtnWidth , touchBtnYOffset, touchBtnWidth , 280, colMenuBackColor );
+  tft.fillRect(480 - touchBtnWidth , touchBtnYOffset, touchBtnWidth , 320 - touchBtnYOffset - 20, colMenuBackColor );
 
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(colMenuFontColor, colMenuBackColor);
