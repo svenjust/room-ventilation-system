@@ -70,6 +70,8 @@
 #define DAC_CHANNEL_PREHEATER    2 // Kanal 3 des DAC für Vorheizregister
 
 #define sensPinVoc               A15 //Analog Pin für VOC Sensor
+
+#define SerialMHZ14              Serial2
 // *******************************************E N D E ***  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
 
 

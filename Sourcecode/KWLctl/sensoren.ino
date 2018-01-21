@@ -78,10 +78,10 @@ boolean SetupMHZ14() {
   int ppm = 0;
   uint8_t response[9];
 
-  Serial2.begin(9600);
+  SerialMHZ14.begin(9600);
   delay(100);
-  Serial2.write(cmdReadGasPpm, 9);
-  if (Serial2.readBytes(response, 9) == 9) {
+  SerialMHZ14.write(cmdReadGasPpm, 9);
+  if (SerialMHZ14.readBytes(response, 9) == 9) {
     int responseHigh = (int) response[2];
     int responseLow = (int) response[3];
     int ppm = (256 * responseHigh) + responseLow;
@@ -103,8 +103,8 @@ void loopMHZ14Read() {
       previousMillisMHZ14Read = currentMillis;
 
       uint8_t response[9];
-      Serial2.write(cmdReadGasPpm, 9);
-      if (Serial2.readBytes(response, 9) == 9) {
+      SerialMHZ14.write(cmdReadGasPpm, 9);
+      if (SerialMHZ14.readBytes(response, 9) == 9) {
         int responseHigh = (int) response[2];
         int responseLow = (int) response[3];
         int ppm = (256 * responseHigh) + responseLow;
@@ -124,7 +124,7 @@ void loopMHZ14Read() {
 
 void MHZ14CalibrateZeroPoint() {
   if (MHZ14IsAvailable) {
-    Serial2.write(cmdCalZeroPoint, 9);
+    SerialMHZ14.write(cmdCalZeroPoint, 9);
   }
 }
 
