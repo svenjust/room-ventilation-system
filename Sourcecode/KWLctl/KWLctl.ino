@@ -64,14 +64,15 @@
 #define TEMP3_ONE_WIRE_BUS      32
 #define TEMP4_ONE_WIRE_BUS      33
 
+// I2C nutzt beim Arduino Mega Pin 20 u 21
 #define DAC_I2C_OUT_ADDR  176 >> 1 // I2C-OUTPUT-Addresse für Horter DAC als 7 Bit, wird verwendet als Alternative zur PWM Ansteuerung der Lüfter und für Vorheizregister
 #define DAC_CHANNEL_FAN1         0 // Kanal 1 des DAC für Zuluft
 #define DAC_CHANNEL_FAN2         1 // Kanal 2 des DAC für Abluft
 #define DAC_CHANNEL_PREHEATER    2 // Kanal 3 des DAC für Vorheizregister
 
 #define sensPinVoc               A15 //Analog Pin für VOC Sensor
-
-#define SerialMHZ14              Serial2
+// Serial2 nutzt beim Arduino Mega Pin 16 u 17
+#define SerialMHZ14              Serial2  // CO2 Sensor (Winsen MH-Z14) wird über die Zweite Serielle Schnittstelle (Serial2) angeschlossen
 // *******************************************E N D E ***  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
 
 
