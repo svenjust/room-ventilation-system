@@ -8,6 +8,11 @@ long    TGS2600_DEFAULTRO        = 45000;         //default Ro for TGS2600_DEFAU
 #define TGS2600_MINRSRO            0.358          //for CO2
 float   TGS2600_RL               = 1000;
 
+int cycleMHZ14Counter = 0;
+int tachoMHZ14TimeSum  = 0;
+volatile byte tachoMHZ14CountSum       = 0;
+volatile long tachoMHZ14LastMillis = 0;
+
 
 
 void loopDHTRead() {
@@ -68,19 +73,27 @@ const uint8_t cmdCalZeroPoint[9] = {0xFF, 0x01, 0x87, 0x00, 0x00, 0x00, 0x00, 0x
 #define Co2Min 402
 
 boolean SetupMHZ14() {
+  MHZ14IsAvailable = false;
+
   int ppm = 0;
   uint8_t response[9];
-  
+
   Serial2.begin(9600);
+  delay(100);
   Serial2.write(cmdReadGasPpm, 9);
-  if (Serial2.readBytes(response, 9) == 9){
+  if (Serial2.readBytes(response, 9) == 9) {
     int responseHigh = (int) response[2];
     int responseLow = (int) response[3];
     int ppm = (256 * responseHigh) + responseLow;
+    if (serialDebugSensor) {
+      Serial.print(F("CO2 ppm: "));
+      Serial.println(ppm);
+    }
+    MHZ14IsAvailable = true;
   }
-  if (ppm != 0)   MHZ14IsAvailable = true; else MHZ14IsAvailable = false;
   return MHZ14IsAvailable;
 }
+
 
 void loopMHZ14Read() {
   // Auslesen des CO2 Sensors
@@ -96,8 +109,12 @@ void loopMHZ14Read() {
         int responseLow = (int) response[3];
         int ppm = (256 * responseHigh) + responseLow;
 
+        if (serialDebugSensor) {
+          Serial.print(F("CO2 ppm: "));
+          Serial.println(ppm);
+        }
         // Automatische Kalibrieren des Nullpunktes auf den kleinstmöglichen Wert
-        if (ppm < Co2Min) MHZ14CalibrateZeroPoint;
+        //if (ppm < Co2Min) MHZ14CalibrateZeroPoint;
 
         MHZ14_CO2_ppm = ppm;
       }
@@ -122,27 +139,31 @@ char getChecksum(char *packet) {
   return checksum;
 }
 
+
 // ----------------------------- TGS2600 ------------------------------------
 
 float calcSensor_VOC(int valr)
 {
   float val;
   float TGS2600_ro;
-  float valAIQ;
-
+  float val_voc;
+ 
   //Serial.println(valr);
   if (valr > 0) {
     val =  ((float)TGS2600_RL * (1024 - valr) / valr);
     TGS2600_ro = TGS2600_getro(val, TGS2600_DEFAULTPPM);
     //convert to ppm (using default ro)
-    valAIQ = TGS2600_getppm(val, TGS2600_DEFAULTRO);
+    val_voc = TGS2600_getppm(val, TGS2600_DEFAULTRO);
   }
-  Serial.print ( F("Vrl / Rs / ratio:"));
-  Serial.print ( val);
-  Serial.print ( F(" / "));
-  Serial.print ( TGS2600_ro);
-  Serial.print ( F(" / "));
-  Serial.println ( valAIQ);
+  if (serialDebugSensor) {
+    Serial.print ( F("Vrl / Rs / ratio:"));
+    Serial.print ( val);
+    Serial.print ( F(" / "));
+    Serial.print ( TGS2600_ro);
+    Serial.print ( F(" / "));
+    Serial.println (val_voc);
+  }
+  return val_voc;
 }
 
 
@@ -165,9 +186,14 @@ float TGS2600_getppm(long resvalue, long ro) {
 void loopVocRead() {
   if (TGS2600IsAvailable) {
     currentMillis = millis();
+    intervalTGS2600Read = 1000;
     if (currentMillis - previousMillisTGS2600Read >= intervalTGS2600Read) {
       previousMillisTGS2600Read = currentMillis;
       int analogVal = analogRead(sensPinVoc);
+      if (serialDebugSensor) {
+        Serial.print(F("VOC analogVal: "));
+        Serial.println(analogVal);
+      }
       TGS2600_VOC = calcSensor_VOC(analogVal);
     }
   }
@@ -176,7 +202,12 @@ void loopVocRead() {
 boolean SetupTGS2600() {
   pinMode(sensPinVoc, INPUT_PULLUP);
   int analogVal = analogRead(sensPinVoc);
-  Serial.println(analogVal);
-  if (analogVal < 1023) return true; else return false;
+  if (serialDebugSensor) Serial.println(analogVal);
+  if (analogVal < 1023) {
+    TGS2600IsAvailable = true;
+  } else {
+    TGS2600IsAvailable = false;
+  }
+  return TGS2600IsAvailable;
 }
 

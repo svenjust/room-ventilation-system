@@ -134,10 +134,11 @@ int serialDebug = 1;             // 1 = Allgemein Debugausgaben auf der serielle
 int serialDebugFan = 0;          // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
 int serialDebugAntifreeze = 0;   // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
 int serialDebugSummerbypass = 0; // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
-int serialDebugDisplay = 1;      // 1 = Debugausgaben für die Displayanzeige
+int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
+int serialDebugSensor = 1;       // 1 = Debugausgaben für die Sensoren
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
-#define strVersion "v0.01"
+#define strVersion "v0.10"
 
 // ***************************************************  T T F   U N D   T O U C H  ********************************************************
 // *** TFT
@@ -340,7 +341,7 @@ unsigned long intervalBypassSummerCheck      = 60000;  // ;   // Zeitraum zum Ch
 unsigned long intervalBypassSummerSetFlaps   = 60000; // 300000;  // 1 * 60 * 1000 Zeitraum zum Fahren des Bypasses, 1 Minuten
 unsigned long intervalCheckForErrors         = 1000;
 unsigned long intervalDHTRead                = 10000;
-unsigned long intervalMHZ14Read              = 30000;
+unsigned long intervalMHZ14Read              = 10000;
 unsigned long intervalTGS2600Read            = 30000;
 
 unsigned long intervalMqttFan                = 5000;
@@ -1455,6 +1456,7 @@ void loop()
   loopTemperaturRead();
   loopDHTRead();
   loopMHZ14Read();
+  loopVocRead();
   loopEffiencyCalc();
   loopCheckForErrors();
   loopDisplayUpdate();
