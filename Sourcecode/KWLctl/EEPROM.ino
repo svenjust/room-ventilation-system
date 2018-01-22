@@ -1,3 +1,4 @@
+/*
 ################################################################
 #
 #   Copyright notice
@@ -23,6 +24,8 @@
 #   This copyright notice MUST APPEAR in all copies of the script!
 #
 ################################################################
+*/
+
 
 // siehe http://fluuux.de/2013/04/daten-im-eeprom-speichern-auslesen-und-variablen-zuweisen/
 

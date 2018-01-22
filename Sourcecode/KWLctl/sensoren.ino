@@ -1,3 +1,4 @@
+/*
 ################################################################
 #
 #   Copyright notice
@@ -23,7 +24,7 @@
 #   This copyright notice MUST APPEAR in all copies of the script!
 #
 ################################################################
-
+*/
 
 // TGS2600
 #define TGS2600_DEFAULTPPM         10             //default ppm of CO2 for calibration

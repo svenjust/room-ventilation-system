@@ -1,3 +1,4 @@
+/*
 ################################################################
 #
 #   Copyright notice
@@ -23,6 +24,7 @@
 #   This copyright notice MUST APPEAR in all copies of the script!
 #
 ################################################################
+*/
 
 
 /* Die für bestimmte Drehzahl erforderlichen PWM Werte werden ermittelt und abgespeichert.

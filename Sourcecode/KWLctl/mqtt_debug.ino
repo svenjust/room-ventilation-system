@@ -1,3 +1,4 @@
+/*
 ################################################################
 #
 #   Copyright notice
@@ -23,7 +24,7 @@
 #   This copyright notice MUST APPEAR in all copies of the script!
 #
 ################################################################
-
+*/
 
 void mqtt_debug_fan1() {
   String out = "";

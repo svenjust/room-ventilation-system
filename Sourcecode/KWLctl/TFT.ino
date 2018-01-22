@@ -1,3 +1,4 @@
+/*
 ################################################################
 #
 #   Copyright notice
@@ -23,6 +24,7 @@
 #   This copyright notice MUST APPEAR in all copies of the script!
 #
 ################################################################
+*/
 
 // Font einbinden
 #include <Fonts/FreeSans9pt7b.h>  // Font
