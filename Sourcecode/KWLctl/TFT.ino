@@ -1,29 +1,29 @@
 /*
-################################################################
-#
-#   Copyright notice
-#
-#   Control software for a Room Ventilation System
-#   https://github.com/svenjust/room-ventilation-system
-#    
-#   Copyright (C) 2018  Sven Just (sven@familie-just.de)
-#
-#   This program is free software: you can redistribute it and/or modify
-#   it under the terms of the GNU General Public License as published by
-#   the Free Software Foundation, either version 3 of the License, or
-#   (at your option) any later version.
-#
-#   This program is distributed in the hope that it will be useful,
-#   but WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#   GNU General Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License
-#   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
-#   This copyright notice MUST APPEAR in all copies of the script!
-#
-################################################################
+  ################################################################
+  #
+  #   Copyright notice
+  #
+  #   Control software for a Room Ventilation System
+  #   https://github.com/svenjust/room-ventilation-system
+  #
+  #   Copyright (C) 2018  Sven Just (sven@familie-just.de)
+  #
+  #   This program is free software: you can redistribute it and/or modify
+  #   it under the terms of the GNU General Public License as published by
+  #   the Free Software Foundation, either version 3 of the License, or
+  #   (at your option) any later version.
+  #
+  #   This program is distributed in the hope that it will be useful,
+  #   but WITHOUT ANY WARRANTY; without even the implied warranty of
+  #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  #   GNU General Public License for more details.
+  #
+  #   You should have received a copy of the GNU General Public License
+  #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+  #
+  #   This copyright notice MUST APPEAR in all copies of the script!
+  #
+  ################################################################
 */
 
 // Font einbinden
@@ -297,10 +297,10 @@ void SetupBackgroundScreen1() {
 }
 
 void loopDisplayUpdateScreen1() {
-  
+
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(colFontColor, colBackColor);
-  
+
   // DHT 1
   if (DHT1IsAvailable) {
     if (abs(LastDisplayDHT1Temp - DHT1Temp) > 0.5 || updateDisplayNow) {
@@ -375,13 +375,13 @@ void SetupBackgroundScreen2() {
 
   tft.setTextColor(colFontColor, colBackColor );
 
-  tft.setCursor(18, 166 + baselineMiddle);
+  tft.setCursor(18, 121 + baselineMiddle);
   tft.print (F("L1:  Normdrehzahl Zuluftventilator einstellen"));
-  tft.setCursor(18, 192 + baselineMiddle);
+  tft.setCursor(18, 166 + baselineMiddle);
   tft.print (F("L2:  Normdrehzahl Abluftventilator einstellen"));
-  tft.setCursor(18, 218 + baselineMiddle);
+  tft.setCursor(18, 211 + baselineMiddle);
   tft.print(F("KAL: Kalibrierung der Ventilatoransteuerung"));
-  tft.setCursor(18, 244 + baselineMiddle);
+  tft.setCursor(18, 256 + baselineMiddle);
   tft.print(F("RGL: Regelung der Ventilatoren"));
 }
 
@@ -433,20 +433,24 @@ void SetupScreen3() {
 }
 
 void SetupBackgroundScreen3() {
-  // Übersicht Einstellungen
-  PrintScreenTitle("Normdrehzahl Zuluftventilator");
+  PrintScreenTitle("Normdrehzahl Abluftventilator");
 
-  tft.setCursor(18, 166 + baselineMiddle);
-  tft.print (F("Aktueller Wert: "));
+  tft.setCursor(18, 75 + baselineMiddle);
+  tft.print (F("Mit dem Button 'OK' wird der Wert gespeichert."));
+  tft.setCursor(18, 100 + baselineMiddle);
+  tft.print (F("Der aktueller Wert betraegt: "));
   tft.print (int(StandardSpeedSetpointFan1));
   tft.println(" U / min");
+  tft.setCursor(18, 150 + baselineMiddle);
+  tft.print (F("Neuer Wert: "));
+
 }
 
 void loopDisplayUpdateScreen3() {
   tft.setFont(&FreeSans12pt7b);
-  tft.setTextColor(colFontColor);
-  tft.fillRect(18, 192, 80, numberfieldheight, colBackColor);
-  tft.setCursor(18, 192 + baselineMiddle);
+  tft.setTextColor(colFontColor, colBackColor);
+  tft.fillRect(18, 175, 80, numberfieldheight, colBackColor);
+  tft.setCursor(18, 175 + baselineMiddle);
   tft.print (inputStandardSpeedSetpointFan1);
 }
 
@@ -479,9 +483,9 @@ void DoMenuActionScreen3() {
       StandardSpeedSetpointFan1 = inputStandardSpeedSetpointFan1;
       // Drehzahl Lüfter 1
       eeprom_write_int(2, inputStandardSpeedSetpointFan1);
-      tft.setFont(&FreeSans12pt7b);
+      tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
-      tft.setCursor(18, 220 + baselineMiddle);
+      tft.setCursor(18, 225 + baselineMiddle);
       tft.print (F("Wert im EEPROM gespeichert"));
       tft.setCursor(18, 250 + baselineMiddle);
       tft.print (F("Bitte Kalibrierung starten!"));
@@ -499,21 +503,24 @@ void SetupScreen4() {
 }
 
 void SetupBackgroundScreen4() {
-  // Übersicht Einstellungen
   PrintScreenTitle("Normdrehzahl Abluftventilator");
 
-  tft.setCursor(18, 166 + baselineMiddle);
-  tft.print (F("Aktueller Wert: "));
+  tft.setCursor(18, 75 + baselineMiddle);
+  tft.print (F("Mit dem Button 'OK' wird der Wert gespeichert."));
+  tft.setCursor(18, 100 + baselineMiddle);
+  tft.print (F("Der aktueller Wert betraegt: "));
   tft.print (int(StandardSpeedSetpointFan2));
   tft.println(" U / min");
+  tft.setCursor(18, 150 + baselineMiddle);
+  tft.print (F("Neuer Wert: "));
 
 }
 
 void loopDisplayUpdateScreen4() {
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(colFontColor, colBackColor);
-  tft.fillRect(18, 192, 80, numberfieldheight, colBackColor);
-  tft.setCursor(18, 192 + baselineMiddle);
+  tft.fillRect(18, 175, 80, numberfieldheight, colBackColor);
+  tft.setCursor(18, 175 + baselineMiddle);
   tft.print (inputStandardSpeedSetpointFan2);
 }
 
@@ -546,9 +553,9 @@ void DoMenuActionScreen4() {
       StandardSpeedSetpointFan2 = inputStandardSpeedSetpointFan2;
       // Drehzahl Lüfter 1
       eeprom_write_int(4, inputStandardSpeedSetpointFan2);
-      tft.setFont(&FreeSans12pt7b);
+      tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
-      tft.setCursor(18, 220 + baselineMiddle);
+      tft.setCursor(18, 225 + baselineMiddle);
       tft.print (F("Wert im EEPROM gespeichert"));
       tft.setCursor(18, 250 + baselineMiddle);
       tft.print (F("Bitte Kalibrierung starten!"));
@@ -566,6 +573,13 @@ void SetupScreen5() {
 
 void SetupBackgroundScreen5() {
   PrintScreenTitle("Kalibrierung Ventilatoren");
+
+  tft.setCursor(18, 75 + baselineMiddle);
+  tft.print (F("Bei der Kalibrierung werden die Drehzahlen"));
+  tft.setCursor(18, 100 + baselineMiddle);
+  tft.print (F("der Luefter eingestellt und die notwendigen"));
+  tft.setCursor(18, 125 + baselineMiddle);
+  tft.print (F("PWM-Werte für jede Stufe gespeichert."));
 }
 
 void NewMenuScreen5() {
@@ -586,12 +600,12 @@ void DoMenuActionScreen5() {
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
-      Serial.println(F("Kalibrierung Lüfter wird gestartet"));
+      Serial.println(F("Kalibrierung Lüfter ist gestartet"));
       SpeedCalibrationStart();
-      tft.setFont(&FreeSans12pt7b);
+      tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
-      tft.setCursor(18, 220 + baselineMiddle);
-      tft.print (F("Kalibrierung Luefter wird gestartet"));
+      tft.setCursor(18, 211 + baselineMiddle);
+      tft.print (F("Kalibrierung Luefter ist gestartet"));
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -606,6 +620,15 @@ void SetupScreen6() {
 
 void SetupBackgroundScreen6() {
   PrintScreenTitle("Ruecksetzen auf Werkseinstellungen");
+
+  tft.setTextColor(colFontColor, colBackColor );
+
+  tft.setCursor(18, 125 + baselineMiddle);
+  tft.print (F("Es werden alle Werte der Steuerung auf die"));
+  tft.setCursor(18, 150 + baselineMiddle);
+  tft.print (F("Standardwerte zurueckgesetzt."));
+  tft.setCursor(18, 175 + baselineMiddle);
+  tft.print(F("Die Steuerung wird anschliessend neu gestartet."));
 }
 
 void NewMenuScreen6() {
@@ -625,11 +648,11 @@ void DoMenuActionScreen6() {
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
-      Serial.println(F("Speicherbereich wird geloescht"));
+      Serial.println(F("Speicherbereich wird geloescht..."));
       tft.setFont(&FreeSans12pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 220 + baselineMiddle);
-      tft.println(F("Speicherbereich wird geloescht"));
+      tft.println(F("Speicherbereich wird geloescht..."));
 
       initializeEEPROM(true);
 
@@ -659,21 +682,37 @@ void SetupBackgroundScreen7() {
   // Übersicht Einstellungen
   PrintScreenTitle("Einstellungen Regelung Ventilatoren");
 
-  tft.setCursor(18, 166 + baselineMiddle);
-  tft.print (F("SET: Ansteuerung mit festem Signal"));
-  tft.setCursor(18, 192 + baselineMiddle);
-  tft.print (F("PID: Drehzahl wird permanent überwacht"));
+  tft.setTextColor(colFontColor, colBackColor );
+
+  tft.setCursor(18, 75 + baselineMiddle);
+  tft.print (F("Die Luefter koennen mit festen PWM Werten"));
+  tft.setCursor(18, 100 + baselineMiddle);
+  tft.print (F("oder dynamisch per PID-Regler geregelt"));
+  tft.setCursor(18, 125 + baselineMiddle);
+  tft.print(F("werden. Aktuelle Einstellung: "));
+  if (FansCalculateSpeed == CalculateSpeed_PROP) {
+    tft.print(F("PWM Wert"));
+  } else {
+    tft.print(F("PID-Regler"));
+  }
+  tft.setCursor(18, 175 + baselineMiddle);
+  tft.print (F("Neuer Wert: "));
 }
 
 void NewMenuScreen7() {
   NewMenuEntry (1, F(" < -"));
-  NewMenuEntry (3, F("SET"));
+  NewMenuEntry (3, F("PWM"));
   NewMenuEntry (4, F("PID"));
   NewMenuEntry (6, F("OK"));
 }
 
 void loopDisplayUpdateScreen7() {
-
+  tft.setFont(&FreeSans9pt7b);
+  tft.setTextColor(colFontColor, colBackColor);
+  tft.fillRect(18, 200, 130, numberfieldheight, colBackColor);
+  tft.setCursor(18, 200 + baselineMiddle);
+  if (tmpInput == CalculateSpeed_PROP) tft.print (F("PWM Wert"));
+  if (tmpInput == CalculateSpeed_PID) tft.print (F("PID-Regler"));
 }
 
 void DoMenuActionScreen7() {
@@ -683,24 +722,27 @@ void DoMenuActionScreen7() {
       gotoScreen (2);
       break;
     case 3:
+      previousMillisDisplayUpdate = 0;
       tmpInput = CalculateSpeed_PROP;
       break;
     case 4:
+      previousMillisDisplayUpdate = 0;
       tmpInput = CalculateSpeed_PID;
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
       if ((tmpInput == CalculateSpeed_PROP || tmpInput == CalculateSpeed_PID) && tmpInput != FansCalculateSpeed) {
         FansCalculateSpeed = tmpInput;
-        tft.setFont(&FreeSans12pt7b);
+        tft.setFont(&FreeSans9pt7b);
         tft.setTextColor(colFontColor, colBackColor);
-        tft.setCursor(18, 220 + baselineMiddle);
-        tft.print (F("Steuerung per "));
-        if (tmpInput == CalculateSpeed_PROP) tft.print (F("festem Signal")); else  tft.print (F("PID - Regler"));
+        tft.fillRect(18, 250, 200, numberfieldheight, colBackColor);
+        tft.setCursor(18, 250 + baselineMiddle);
+        tft.print (F("Wert gespeichert."));
       } else {
-        tft.setFont(&FreeSans12pt7b);
+        tft.setFont(&FreeSans9pt7b);
         tft.setTextColor(colFontColor, colBackColor);
-        tft.setCursor(18, 220 + baselineMiddle);
+        tft.fillRect(18, 250, 200, numberfieldheight, colBackColor);
+        tft.setCursor(18, 250 + baselineMiddle);
         tft.print (F("Wert nicht geaendert"));
       }
     default:
@@ -845,14 +887,16 @@ void SetupBackgroundScreen() {
       SetupBackgroundScreen4();
       break;
     case 5:
-      // L2
       SetupScreen5();
       SetupBackgroundScreen5();
       break;
     case 6:
-      // L2
       SetupScreen6();
       SetupBackgroundScreen6();
+      break;
+    case 7:
+      SetupScreen7();
+      SetupBackgroundScreen7();
       break;
   }
   ShowMenu();

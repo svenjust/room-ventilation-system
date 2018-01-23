@@ -1,29 +1,29 @@
 /*
-################################################################
-#
-#   Copyright notice
-#
-#   Control software for a Room Ventilation System
-#   https://github.com/svenjust/room-ventilation-system
-#    
-#   Copyright (C) 2018  Sven Just (sven@familie-just.de)
-#
-#   This program is free software: you can redistribute it and/or modify
-#   it under the terms of the GNU General Public License as published by
-#   the Free Software Foundation, either version 3 of the License, or
-#   (at your option) any later version.
-#
-#   This program is distributed in the hope that it will be useful,
-#   but WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#   GNU General Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License
-#   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
-#   This copyright notice MUST APPEAR in all copies of the script!
-#
-################################################################
+  ################################################################
+  #
+  #   Copyright notice
+  #
+  #   Control software for a Room Ventilation System
+  #   https://github.com/svenjust/room-ventilation-system
+  #
+  #   Copyright (C) 2018  Sven Just (sven@familie-just.de)
+  #
+  #   This program is free software: you can redistribute it and/or modify
+  #   it under the terms of the GNU General Public License as published by
+  #   the Free Software Foundation, either version 3 of the License, or
+  #   (at your option) any later version.
+  #
+  #   This program is distributed in the hope that it will be useful,
+  #   but WITHOUT ANY WARRANTY; without even the implied warranty of
+  #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  #   GNU General Public License for more details.
+  #
+  #   You should have received a copy of the GNU General Public License
+  #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+  #
+  #   This copyright notice MUST APPEAR in all copies of the script!
+  #
+  ################################################################
 */
 
 // TGS2600
@@ -116,7 +116,8 @@ boolean SetupMHZ14() {
       Serial.print(F("CO2 ppm: "));
       Serial.println(ppm);
     }
-    MHZ14IsAvailable = true;
+    if (ppm > 0)
+      MHZ14IsAvailable = true;
   }
   return MHZ14IsAvailable;
 }
@@ -174,7 +175,7 @@ float calcSensor_VOC(int valr)
   float val;
   float TGS2600_ro;
   float val_voc;
- 
+
   //Serial.println(valr);
   if (valr > 0) {
     val =  ((float)TGS2600_RL * (1024 - valr) / valr);
