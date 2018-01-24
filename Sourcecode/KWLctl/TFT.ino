@@ -622,6 +622,7 @@ void SetupBackgroundScreen6() {
   PrintScreenTitle("Ruecksetzen auf Werkseinstellungen");
 
   tft.setTextColor(colFontColor, colBackColor );
+  tft.setFont(&FreeSans9pt7b);
 
   tft.setCursor(18, 125 + baselineMiddle);
   tft.print (F("Es werden alle Werte der Steuerung auf die"));
@@ -649,7 +650,7 @@ void DoMenuActionScreen6() {
     case 6:
       previousMillisDisplayUpdate = 0;
       Serial.println(F("Speicherbereich wird geloescht..."));
-      tft.setFont(&FreeSans12pt7b);
+      tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 220 + baselineMiddle);
       tft.println(F("Speicherbereich wird geloescht..."));

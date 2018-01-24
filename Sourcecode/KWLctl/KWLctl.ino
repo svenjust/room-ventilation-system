@@ -61,7 +61,7 @@
 #include <PubSubClient.h>       // mqtt Client
 #include <PID_v1.h>             // PID-Regler für die Drehzahlregelung
 #include <OneWire.h>            // OneWire Temperatursensoren
-#include <DallasTemperature.h>
+#include <DallasTemperature.h>  // https://www.milesburton.com/Dallas_Temperature_Control_Library
 #include <Wire.h>
 #include <DHT.h>
 #include <DHT_U.h>
@@ -450,7 +450,7 @@ PID PidPreheater(&TEMP4_Fortluft, &techSetpointPreheater, &antifreezeTempUpperLi
 ///////////////////////
 
 // Temperatur Sensoren, Pinbelegung steht oben
-#define TEMPERATURE_PRECISION TEMP_9_BIT      // Genauigkeit der Temperatursensoren 9_BIT, Standard sind 12_BIT
+#define TEMPERATURE_PRECISION 0x1F            // Genauigkeit der Temperatursensoren 9_BIT, Standard sind 12_BIT
 OneWire Temp1OneWire(TEMP1_ONE_WIRE_BUS);     // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
 OneWire Temp2OneWire(TEMP2_ONE_WIRE_BUS);
 OneWire Temp3OneWire(TEMP3_ONE_WIRE_BUS);
