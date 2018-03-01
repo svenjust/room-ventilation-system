@@ -195,7 +195,7 @@ void loopDisplayUpdateScreen0() {
   if (abs(LastDisplayT1 - TEMP1_Aussenluft) > 0.5 || updateDisplayNow) {
     LastDisplayT1 = TEMP1_Aussenluft;
     tft.fillRect(160, 166, 80, numberfieldheight, colBackColor);
-    sprintf(strPrint, "%5d.%1d", (int)TEMP1_Aussenluft, abs(((int)(TEMP1_Aussenluft * 10)) % 10));
+    dtostrf(TEMP1_Aussenluft,5,1,strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 166 + baselineMiddle);
     tft.print(strPrint);
@@ -204,7 +204,7 @@ void loopDisplayUpdateScreen0() {
   if (abs(LastDisplayT2 - TEMP2_Zuluft) > 0.5 || updateDisplayNow) {
     LastDisplayT2 = TEMP2_Zuluft;
     tft.fillRect(160, 192, 80, numberfieldheight, colBackColor);
-    sprintf(strPrint, "%5d.%1d", (int)TEMP2_Zuluft, abs(((int)(TEMP2_Zuluft * 10)) % 10));
+    dtostrf(TEMP2_Zuluft,5,1,strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 192 + baselineMiddle);
     tft.print(strPrint);
@@ -213,7 +213,7 @@ void loopDisplayUpdateScreen0() {
   if (abs(LastDisplayT3 - TEMP3_Abluft) > 0.5 || updateDisplayNow) {
     LastDisplayT3 = TEMP3_Abluft;
     tft.fillRect(160, 218, 80, numberfieldheight, colBackColor);
-    sprintf(strPrint, "%5d.%1d", (int)TEMP3_Abluft, abs(((int)(TEMP3_Abluft * 10)) % 10));
+    dtostrf(TEMP3_Abluft,5,1,strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 218 + baselineMiddle);
     tft.print(strPrint);
@@ -222,7 +222,7 @@ void loopDisplayUpdateScreen0() {
   if (abs(LastDisplayT4 - TEMP4_Fortluft) > 0.5 || updateDisplayNow) {
     LastDisplayT4 = TEMP4_Fortluft;
     tft.fillRect(160, 244, 80, numberfieldheight, colBackColor);
-    sprintf(strPrint, "%5d.%1d", (int)TEMP4_Fortluft, abs(((int)(TEMP4_Fortluft * 10)) % 10));
+    dtostrf(TEMP4_Fortluft,5,1,strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 244 + baselineMiddle);
     tft.print(strPrint);
@@ -306,7 +306,7 @@ void loopDisplayUpdateScreen1() {
     if (abs(LastDisplayDHT1Temp - DHT1Temp) > 0.5 || updateDisplayNow) {
       LastDisplayDHT1Temp = DHT1Temp;
       tft.fillRect(160, 166, 80, numberfieldheight, colBackColor);
-      sprintf(strPrint, "%5d.%1d", (int)DHT1Temp, abs(((int)(DHT1Temp * 10)) % 10));
+      dtostrf(DHT1Temp,5,1,strPrint);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(240 - w, 166 + baselineMiddle);
       tft.print(strPrint);
@@ -317,7 +317,7 @@ void loopDisplayUpdateScreen1() {
     if (abs(LastDisplayDHT2Temp - DHT2Temp) > 0.5 || updateDisplayNow) {
       LastDisplayDHT2Temp = DHT2Temp;
       tft.fillRect(160, 192, 80, numberfieldheight, colBackColor);
-      sprintf(strPrint, " %5d.%1d", (int)DHT2Temp, abs(((int)(DHT2Temp * 10)) % 10));
+      dtostrf(DHT2Temp,5,1,strPrint);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(240 - w, 192 + baselineMiddle);
       tft.print(strPrint);

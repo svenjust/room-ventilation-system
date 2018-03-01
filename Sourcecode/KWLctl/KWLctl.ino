@@ -66,6 +66,9 @@
 #include <DHT.h>
 #include <DHT_U.h>
 
+// ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
+#define strVersion "v0.11"
+
 
 // ***************************************************  A N S T E U E R U N G   P W M oder D A C   ***************************************************
 #define  ControlFansDAC         1 // 1 = zusätzliche Ansteuerung durch DAC über SDA und SLC (und PWM)
@@ -170,7 +173,6 @@ int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
 int serialDebugSensor = 1;       // 1 = Debugausgaben für die Sensoren
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
-#define strVersion "v0.10"
 
 // ***************************************************  T T F   U N D   T O U C H  ********************************************************
 // *** TFT
