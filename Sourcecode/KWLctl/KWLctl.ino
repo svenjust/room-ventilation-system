@@ -1474,14 +1474,8 @@ void setup()
 // *** LOOP START ***
 void loop()
 {
-
   //loopWrite100Millis();
-  loopMqttSendMode();
-  loopMqttSendFan();
-  loopMqttSendTemp();
-  loopMqttSendDHT();
-  loopMqttSendBypass();
-
+  
   loopTachoFan();
   loopSetFan();
   loopAntiFreezeCheck();
@@ -1494,6 +1488,13 @@ void loop()
   loopVocRead();
   loopEffiencyCalc();
   loopCheckForErrors();
+
+  loopMqttSendMode();
+  loopMqttSendFan();
+  loopMqttSendTemp();
+  loopMqttSendDHT();
+  loopMqttSendBypass();
+  
   loopDisplayUpdate();
 
   loopMqttHeartbeat();
