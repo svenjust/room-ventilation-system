@@ -270,6 +270,11 @@ void loopMqttSendTemp() {
       if (serialDebug == 1) {
         Serial.println("TOPICKwlTemperaturFortluft: " + String(TEMP4_Fortluft));
       }
+      itoa(EffiencyKwl, buffer, 10);
+      mqttClient.publish(TOPICKwlEffiency, buffer);
+      if (serialDebug == 1) {
+        Serial.println("TOPICKwlEffiency: " + String(EffiencyKwl));
+      }      
       if (antifreezeState) {
         mqttClient.publish(TOPICKwlAntifreeze, "on");
       } else {

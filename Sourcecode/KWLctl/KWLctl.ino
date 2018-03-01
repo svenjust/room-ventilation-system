@@ -240,6 +240,7 @@ const char *TOPICKwlTemperaturAussenluft    = "d15/state/kwl/aussenluft/temperat
 const char *TOPICKwlTemperaturZuluft        = "d15/state/kwl/zuluft/temperatur";
 const char *TOPICKwlTemperaturAbluft        = "d15/state/kwl/abluft/temperatur";
 const char *TOPICKwlTemperaturFortluft      = "d15/state/kwl/fortluft/temperatur";
+const char *TOPICKwlEffiency                = "d15/state/kwl/effiencyKwl";
 const char *TOPICKwlAntifreeze              = "d15/state/kwl/antifreeze";
 const char *TOPICKwlBypassState             = "d15/state/kwl/summerbypass/flap";
 const char *TOPICKwlBypassMode              = "d15/state/kwl/summerbypass/mode";
