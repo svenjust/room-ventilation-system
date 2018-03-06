@@ -1,29 +1,29 @@
 /*
-################################################################
-#
-#   Copyright notice
-#
-#   Control software for a Room Ventilation System
-#   https://github.com/svenjust/room-ventilation-system
-#    
-#   Copyright (C) 2018  Sven Just (sven@familie-just.de)
-#
-#   This program is free software: you can redistribute it and/or modify
-#   it under the terms of the GNU General Public License as published by
-#   the Free Software Foundation, either version 3 of the License, or
-#   (at your option) any later version.
-#
-#   This program is distributed in the hope that it will be useful,
-#   but WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#   GNU General Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License
-#   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
-#   This copyright notice MUST APPEAR in all copies of the script!
-#
-################################################################
+  ################################################################
+  #
+  #   Copyright notice
+  #
+  #   Control software for a Room Ventilation System
+  #   https://github.com/svenjust/room-ventilation-system
+  #
+  #   Copyright (C) 2018  Sven Just (sven@familie-just.de)
+  #
+  #   This program is free software: you can redistribute it and/or modify
+  #   it under the terms of the GNU General Public License as published by
+  #   the Free Software Foundation, either version 3 of the License, or
+  #   (at your option) any later version.
+  #
+  #   This program is distributed in the hope that it will be useful,
+  #   but WITHOUT ANY WARRANTY; without even the implied warranty of
+  #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  #   GNU General Public License for more details.
+  #
+  #   You should have received a copy of the GNU General Public License
+  #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+  #
+  #   This copyright notice MUST APPEAR in all copies of the script!
+  #
+  ################################################################
 */
 
 // loopMqtt... senden Werte an den mqtt-Server.
@@ -274,11 +274,16 @@ void loopMqttSendTemp() {
       mqttClient.publish(TOPICKwlEffiency, buffer);
       if (serialDebug == 1) {
         Serial.println("TOPICKwlEffiency: " + String(EffiencyKwl));
-      }      
+      }
       if (antifreezeState) {
         mqttClient.publish(TOPICKwlAntifreeze, "on");
       } else {
         mqttClient.publish(TOPICKwlAntifreeze, "off");
+      }
+      if (heatingAppCombUse == 1) {
+        mqttClient.publish(TOPICKwlHeatingAppCombUse, "YES");
+      } else {
+        mqttClient.publish(TOPICKwlHeatingAppCombUse, "NO");
       }
     }
   }

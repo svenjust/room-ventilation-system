@@ -1,29 +1,29 @@
 /*
-################################################################
-#
-#   Copyright notice
-#
-#   Control software for a Room Ventilation System
-#   https://github.com/svenjust/room-ventilation-system
-#    
-#   Copyright (C) 2018  Sven Just (sven@familie-just.de)
-#
-#   This program is free software: you can redistribute it and/or modify
-#   it under the terms of the GNU General Public License as published by
-#   the Free Software Foundation, either version 3 of the License, or
-#   (at your option) any later version.
-#
-#   This program is distributed in the hope that it will be useful,
-#   but WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#   GNU General Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License
-#   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
-#   This copyright notice MUST APPEAR in all copies of the script!
-#
-################################################################
+  ################################################################
+  #
+  #   Copyright notice
+  #
+  #   Control software for a Room Ventilation System
+  #   https://github.com/svenjust/room-ventilation-system
+  #
+  #   Copyright (C) 2018  Sven Just (sven@familie-just.de)
+  #
+  #   This program is free software: you can redistribute it and/or modify
+  #   it under the terms of the GNU General Public License as published by
+  #   the Free Software Foundation, either version 3 of the License, or
+  #   (at your option) any later version.
+  #
+  #   This program is distributed in the hope that it will be useful,
+  #   but WITHOUT ANY WARRANTY; without even the implied warranty of
+  #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  #   GNU General Public License for more details.
+  #
+  #   You should have received a copy of the GNU General Public License
+  #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+  #
+  #   This copyright notice MUST APPEAR in all copies of the script!
+  #
+  ################################################################
 */
 
 
@@ -67,7 +67,7 @@
 #include <DHT_U.h>
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
-#define strVersion "v0.11"
+#define strVersion "v0.14"
 
 
 // ***************************************************  A N S T E U E R U N G   P W M oder D A C   ***************************************************
@@ -151,6 +151,7 @@ int      kwlMode                            = 2;                            // S
 #define  defStandardBypassManualSetpoint      1                             // 1 = Close, Stellung der Bypassklappen im manuellen Betrieb
 #define  defStandardBypassMode                0                             // 0 = Auto, Automatik oder manueller Betrieb der Bypassklappe. 
 // Im Automatikbetrieb steuert diese Steuerung die Bypass-Klappe, im manuellen Betrieb wird die Bypass-Klappe durch mqtt-Kommandos gesteuert.
+#define  defStandardHeatingAppCombUse         0                             // 0 = NO, 1 = YES
 // **************************************E N D E *** W E R K S E I N S T E L L U N G E N **********************************************************************
 
 
@@ -167,10 +168,10 @@ int      kwlMode                            = 2;                            // S
 // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
 int serialDebug = 1;             // 1 = Allgemein Debugausgaben auf der seriellen Schnittstelle aktiviert
 int serialDebugFan = 0;          // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
-int serialDebugAntifreeze = 0;   // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
+int serialDebugAntifreeze = 1;   // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
 int serialDebugSummerbypass = 0; // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
 int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
-int serialDebugSensor = 1;       // 1 = Debugausgaben für die Sensoren
+int serialDebugSensor = 0;       // 1 = Debugausgaben für die Sensoren
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
 
@@ -232,6 +233,7 @@ const char *TOPICCmdBypassGetValues         = "d15/set/kwl/summerbypass/getvalue
 const char *TOPICCmdBypassManualFlap        = "d15/set/kwl/summerbypass/flap";
 const char *TOPICCmdBypassMode              = "d15/set/kwl/summerbypass/mode";
 const char *TOPICCmdBypassHystereseMinutes  = "d15/set/kwl/summerbypass/HystereseMinutes";
+const char *TOPICCmdHeatingAppCombUse       = "d15/set/kwl/heatingapp/combinedUse";
 
 const char *TOPICHeartbeat                  = "d15/state/kwl/heartbeat";
 const char *TOPICFan1Speed                  = "d15/state/kwl/fan1/speed";
@@ -249,6 +251,7 @@ const char *TOPICKwlBypassMode              = "d15/state/kwl/summerbypass/mode";
 const char *TOPICKwlBypassTempAbluftMin     = "d15/state/kwl/summerbypass/TempAbluftMin";
 const char *TOPICKwlBypassTempAussenluftMin = "d15/state/kwl/summerbypass/TempAussenluftMin";
 const char *TOPICKwlBypassHystereseMinutes  = "d15/state/kwl/summerbypass/HystereseMinutes";
+const char *TOPICKwlHeatingAppCombUse       = "d15/state/kwl/heatingapp/combinedUse";
 
 const char *TOPICKwlDHT1Temperatur          = "d15/state/kwl/dht1/temperatur";
 const char *TOPICKwlDHT2Temperatur          = "d15/state/kwl/dht2/temperatur";
@@ -330,14 +333,25 @@ int  PwmSetpointFan2[defStandardModeCnt];
 int FanMode                           = FanMode_Normal;                   // Umschaltung zum Kalibrieren der PWM Signale zur Erreichung der Lüfterdrehzahlen für jede Stufe
 int actKwlMode = 0;
 
+// Start Definition für Heating Appliance (Feuerstätte)  //////////////////////////////////////////
+int            heatingAppCombUse                    = defStandardHeatingAppCombUse;
+unsigned long  heatingAppCombUseAntiFreezeInterval  = 14400000;   // 4 Stunden = 4 *60 * 60 * 1000
+unsigned long  heatingAppCombUseAntiFreezeStartTime = 0;
+// Ende  Definition für Heating Appliance (Feuerstätte)  //////////////////////////////////////////
+
 // Start Definition für AntiFreeze (Frostschutz) //////////////////////////////////////////
-boolean antifreezeState               = false;
-float   antifreezeTemp                = 2.0;
-int     antifreezeHyst                = 3;
+#define antifreezeOff                   0
+#define antifreezePreheater             1
+#define antifreezeZuluftOff             2
+#define  antifreezeFireplace                 3
+
+int     antifreezeState               = antifreezeOff;
+float   antifreezeTemp                = 1.5;     // Nach kaltem Wetter im Feb 2018 gemäß Messwerte
+int     antifreezeHyst                = 2;
 double  antifreezeTempUpperLimit;
 boolean antifreezeAlarm               = false;
 
-double        techSetpointPreheater   = 0.0;     // Analogsignal 0..1000 für Vorheizer
+double        techSetpointPreheater   = 0.0;      // Analogsignal 0..1000 für Vorheizer
 unsigned long PreheaterStartMillis    = 0;        // Beginn der Vorheizung
 // Ende Definition für AntiFreeze (Frostschutz) //////////////////////////////////////////
 
@@ -594,6 +608,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // Stellung Bypassklappe bei manuellem Modus
   }
   if (topicStr == TOPICCmdBypassMode) {
+    // Auto oder manueller Modus
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "auto")   {
@@ -604,7 +619,24 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       bypassMode = bypassMode_Manual;
       mqttCmdSendBypassState = true;
     }
-    // Auto oder manueller Modus
+  }
+  if (topicStr == TOPICCmdHeatingAppCombUse) {
+    payload[length] = '\0';
+    String s = String((char*)payload);
+    if (s == "YES")   {
+      Serial.println(F("Feuerstättenmodus wird aktiviert und gespeichert"));
+      int i = 1;
+      heatingAppCombUse = i;
+      eeprom_write_int(60, i);
+      mqttCmdSendTemp = true;
+    }
+    if (s == "NO")   {
+      Serial.println(F("Feuerstättenmodus wird DEAKTIVIERT und gespeichert"));
+      int i = 0;
+      heatingAppCombUse = i;
+      eeprom_write_int(60, i);
+      mqttCmdSendTemp = true;
+    }
   }
 
   // Get Commands
@@ -738,14 +770,8 @@ void setSpeedToFan() {
     techSetpointFan2 = 0;
   }
 
-  // Sicherheitsüberprüfung, um ein Einfrieren des Wärmetauschers zu vermeiden
-  if ((TEMP4_Fortluft <= -1)
-      && (TEMP4_Fortluft != -127.0)) {
-    techSetpointFan2 = 0; // Frostschutzalarm bei -1°C wird der Zuluftventilator abgeschaltet
-    // Eventuell sollte hier ein Fehler per mqtt gesenden werden!!!
-  }
-
-  SetPreheating();
+  DoActionAntiFreezeState();
+  SetPreheater();
 
   // Grenzwertbehandlung: Max- / Min-Werte
   if (techSetpointFan1 < 0)    techSetpointFan1 = 0;
@@ -814,54 +840,19 @@ void setSpeedToFan() {
 
 }
 
-void SetPreheating() {
+void SetPreheater() {
   // Das Vorheizregister wird durch ein PID geregelt
   // Die Stellgröße darf zwischen 0..10V liegen
   // Wenn der Zuluftventilator unter einer Schwelle des Tachosignals liegt, wird das Vorheizregister IMMER ausgeschaltet (SICHERHEIT)
   // Schwelle: 1000 U/min
 
   if (serialDebugAntifreeze == 1) {
-    Serial.println (F("SetPreheating start"));
-  }
-  if (antifreezeState) {
-    if (serialDebugAntifreeze == 1) {
-      Serial.println (F("antifreezeState true"));
-    }
-    if (!antifreezeAlarm) {
-      if (serialDebugAntifreeze == 1) {
-        Serial.println (F("Vorheizer versuchen"));
-      }
-      // Vorheizer versuchen
-      if (PidPreheater.GetMode() == MANUAL) {
-        antifreezeTempUpperLimit  = antifreezeTemp + antifreezeHyst;
-        PidPreheater.SetMode(AUTOMATIC);  // Pid einschalten
-      }
-      PidPreheater.Compute();
-    } else {
-      // antifreezeAlarm == true also 10 Minuten vergangen seit antifreezeState == true
-      // jetzt pidPreheater ausschalten,techSetpointPreheater=0 und Zuluftventilator ausschalten
-      if (serialDebugAntifreeze == 1) {
-        Serial.println (F("antifreezeAlarm == true also 10 Minuten vergangen seit antifreezeState == true"));
-      }
-      if (PidPreheater.GetMode() == AUTOMATIC) {
-        PidPreheater.SetMode(MANUAL); // Pid ausschalten
-      }
-      if (serialDebugAntifreeze == 1) {
-        Serial.println (F("fan2 = 0"));
-      }
-      techSetpointFan2 = 0;
-      techSetpointPreheater = 0;
-    }
-  } else {
-    if (PidPreheater.GetMode() == AUTOMATIC) {
-      PidPreheater.SetMode(MANUAL); // Pid ausschalten
-    }
-    techSetpointPreheater = 0;
+    Serial.println (F("SetPreheater start"));
   }
 
   // Sicherheitsabfrage
-  if (speedTachoFan2 < 1000 || (techSetpointFan2 == 0) )
-  { // Sicherheitsabschaltung Vorheizer unter 1000 Umdrehungen Zuluftventilator
+  if (speedTachoFan1 < 600 || (techSetpointFan1 == 0) )
+  { // Sicherheitsabschaltung Vorheizer unter 600 Umdrehungen Zuluftventilator
     techSetpointPreheater = 0;
   }
   if (mqttCmdSendAlwaysDebugPreheater) {
@@ -874,7 +865,7 @@ void SetPreheating() {
   byte HBy;
   byte LBy;
 
-  // FAN 1
+  // Preheater DAC
   HBy = techSetpointPreheater / 256;        //HIGH-Byte berechnen
   LBy = techSetpointPreheater - HBy * 256;  //LOW-Byte berechnen
   Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
@@ -929,68 +920,129 @@ void loopTemperaturRead() {
   }
 }
 
+void DoActionAntiFreezeState() {
+  // Funktion wird ausgeführt, um AntiFreeze (Frostschutz) zu erreichen.
+
+  mqttCmdSendTemp = true;
+
+  switch (antifreezeState) {
+
+    case antifreezePreheater:
+      PidPreheater.Compute();
+      break;
+
+    case antifreezeZuluftOff:
+      // Zuluft aus
+      if (serialDebugAntifreeze == 1) Serial.println (F("fan1 = 0"));
+      techSetpointFan1 = 0;
+      techSetpointPreheater = 0;
+      break;
+
+    case  antifreezeFireplace:
+      // Feuerstättenmodus
+      // beide Lüfter aus
+      if (serialDebugAntifreeze == 1) {
+        Serial.println (F("fan1 = 0"));
+        Serial.println (F("fan2 = 0"));
+      }
+      techSetpointFan1 = 0;
+      techSetpointFan2 = 0;
+      techSetpointPreheater = 0;
+      break;
+
+    default:
+      // Normal Mode without AntiFreeze
+      // Vorheizregister aus
+      techSetpointPreheater = 0;
+      break;
+  }
+}
+
 void loopAntiFreezeCheck() {
+  // Funktion wird regelmäßig zum Überprüfen ausgeführt
+  
   currentMillis = millis();
   if (currentMillis - previousMillisAntifreeze >= intervalAntifreezeCheck) {
-    if (serialDebugAntifreeze == 1) {
-      Serial.println (F("loopAntiFreezeCheck start"));
-    }
+    if (serialDebugAntifreeze == 1)  Serial.println (F("loopAntiFreezeCheck start"));
     previousMillisAntifreeze = currentMillis;
-    // Antifreeze Flag einschalten
-    if ((TEMP4_Fortluft <= antifreezeTemp) && (TEMP1_Aussenluft < 0.0)
-        && (TEMP4_Fortluft > -127.0) && (TEMP1_Aussenluft > -127.0))         // Wenn Sensoren fehlen, ist der Wert -127
-    {
-      if (serialDebugAntifreeze == 1) {
-        Serial.println (F("Antifreeze Flag einschalten?"));
-        Serial.print (F("antifreezeState: "));
-        Serial.println (antifreezeState);
-      }
-      if (!antifreezeState) {
-        // Nur bei Zustandsänderung Senden anstossen und PID einschalten
-        if (serialDebugAntifreeze == 1) {
-          Serial.println (F("Antifreeze Flag einschalten"));
+
+    // antifreezeState = aktueller Status der AntiFrostSchaltung
+    // Es wird in jeden Status überprüft, ob die Bedingungen für einen Statuswechsel erfüllt sind
+    // Wenn ja, werden die einmaligen Aktionen (Setzen von Variablen) hier ausgeführt.
+    // siehe auch "/Docs/Programming/Zustandsänderung Antifreeze.jpg"
+    // Die regelmäßigen Aktionen für jedem Status werden in DoActionAntiFreezeState ausgeführt.
+    switch (antifreezeState) {
+      
+      case antifreezeOff:  // antifreezeState = 0
+        if ((TEMP4_Fortluft <= antifreezeTemp) && (TEMP1_Aussenluft < 0.0)
+            && (TEMP4_Fortluft > -127.0) && (TEMP1_Aussenluft > -127.0))         // Wenn Sensoren fehlen, ist der Wert -127
+        {
+          // Neuer Status: antifreezePreheater
+          antifreezeState = antifreezePreheater;
+
+          PreheaterStartMillis = millis();
+          // Vorheizer einschalten
+          antifreezeTempUpperLimit  = antifreezeTemp + antifreezeHyst;
+          PidPreheater.SetMode(AUTOMATIC);  // Pid einschalten
         }
-        mqttCmdSendTemp = true;
-        antifreezeState = true;
-        PreheaterStartMillis = millis();
-      }
-    }
-    // Antifreeze Flag ausschalten
-    if (TEMP4_Fortluft > antifreezeTemp + antifreezeHyst) {
-      if (serialDebugAntifreeze == 1) {
-        Serial.println (F("Antifreeze Flag ausschalten?"));
-      }
-      if (antifreezeState) {
-        // Nur bei Zustandsänderung Senden anstossen
-        if (serialDebugAntifreeze == 1) {
-          Serial.println (F("Antifreeze Flag ausschalten"));
+        break;
+
+      // Vorheizregister ist an
+      case  antifreezePreheater:  // antifreezeState = 1
+
+        if (TEMP4_Fortluft > antifreezeTemp + antifreezeHyst) {
+          // Neuer Status: antifreezeOff
+          antifreezeState = antifreezeOff;
+          PidPreheater.SetMode(MANUAL);
         }
-        mqttCmdSendTemp = true;
-      }
-      // AntifreezeState und Alarm aufheben, Tempertatur liegt im "normalen" Bereich
-      antifreezeState = false;
-      antifreezeAlarm = false;
-      PreheaterStartMillis = 0;
-    }
-    if (serialDebugAntifreeze == 1) {
-      Serial.print (F("millis: "));
-      Serial.println (millis());
-      Serial.print (F("PreheaterStartMillis: "));
-      Serial.println (PreheaterStartMillis);
-      Serial.print (F("intervalAntiFreezeAlarmCheck: "));
-      Serial.println (intervalAntiFreezeAlarmCheck);
-    }
-    if (antifreezeState && (millis() - PreheaterStartMillis >= intervalAntiFreezeAlarmCheck)) {
-      if (serialDebugAntifreeze == 1) {
-        Serial.println (F("Antifreeze antifreezeAlarm Checktemp"));
-      }
-      if (TEMP4_Fortluft <= antifreezeTemp) {
-        if (serialDebugAntifreeze == 1) {
-          Serial.println (F("Antifreeze antifreezeAlarm"));
+
+        if ((currentMillis - PreheaterStartMillis > intervalAntiFreezeAlarmCheck) &&
+            (TEMP4_Fortluft <= antifreezeTemp) && (TEMP1_Aussenluft < 0.0)
+            && (TEMP4_Fortluft > -127.0) && (TEMP1_Aussenluft > -127.0)) {
+          // 10 Minuten vergangen seit antifreezeState == antifreezePreheater und Temperatur immer noch unter antifreezeTemp
+          if (serialDebugAntifreeze == 1) Serial.println (F("10 Minuten vergangen seit antifreezeState == antifreezePreheater"));
+
+          switch (heatingAppCombUse) {
+            case 0:
+              // Neuer Status: antifreezeZuluftOff
+              antifreezeState = antifreezeZuluftOff;
+              PidPreheater.SetMode(MANUAL);
+              break;
+            case 1:
+              // Neuer Status: antifreezeFireplace
+              antifreezeState =  antifreezeFireplace;
+              PidPreheater.SetMode(MANUAL);
+              // Zeit speichern
+              heatingAppCombUseAntiFreezeStartTime = millis();
+              break;
+          }
+          break;
+
+        // Zuluftventilator ist aus, kein KAMIN angeschlossen
+        case antifreezeZuluftOff:  // antifreezeState = 2
+          if (TEMP4_Fortluft > antifreezeTemp + antifreezeHyst) {
+            // Neuer Status: antifreezeOff
+            antifreezeState = antifreezeOff;
+            PidPreheater.SetMode(MANUAL);
+          }
+          break;
+
+        // Zu- und Abluftventilator sind für vier Stunden aus, KAMINMODUS
+        case antifreezeFireplace:  // antifreezeState = 4
+          if (millis() - heatingAppCombUseAntiFreezeStartTime > heatingAppCombUseAntiFreezeInterval) {
+            // Neuer Status: antifreezeOff
+            antifreezeState = antifreezeOff;
+            PidPreheater.SetMode(MANUAL);
+          }
+          break;
         }
-        // Temperatur konnte auch nach 10 Minuten nicht erhöht werden, Alarm setzen
-        antifreezeAlarm = true;
-      }
+
+        if (serialDebugAntifreeze == 1) {
+          Serial.print (F("millis: "));
+          Serial.println (millis());
+          Serial.print (F("antifreezeState: "));
+          Serial.println (antifreezeState);
+        }
     }
   }
 }
@@ -1200,13 +1252,16 @@ void loopCheckForErrors() {
       InfoText += actKwlMode;
       InfoText += ".   Bitte warten...";
     }
-    else if (antifreezeState && !antifreezeAlarm) {
+    else if (antifreezeState == antifreezePreheater) {
       InfoText = "Defroster: Vorheizregister eingeschaltet ";
       InfoText += int(techSetpointPreheater / 10);
       InfoText += "%";
     }
-    else if (antifreezeState && antifreezeAlarm) {
+    else if (antifreezeState == antifreezeZuluftOff) {
       InfoText = "Defroster: Zuluftventilator ausgeschaltet!";
+    }
+    else if (antifreezeState == antifreezeFireplace) {
+      InfoText = "Defroster: Zu- und Abluftventilator AUS! (KAMIN)";
     }
     else if (bypassFlapsRunning == true) {
       if (bypassFlapStateDriveRunning == bypassFlapState_Close) {
@@ -1281,7 +1336,12 @@ void initializeVariables()
     PwmSetpointFan2[i] = temp;
   }
   // ENDE PWM für max 10 Lüftungsstufen
-  // Weiter geht es ab Speicherplatz 60dez ff
+
+  // heatingAppCombUse
+  eeprom_read_int (60, &temp);
+  heatingAppCombUse = temp;
+
+  // Weiter geht es ab Speicherplatz 62dez ff
 }
 
 
@@ -1308,9 +1368,14 @@ void setup()
   initializeVariables();
 
   Serial.println();
-  Serial.println(F("Booting..."));
+  Serial.println(F("Booting... "));
   SetCursor(0, 30);
-  tft.println   (F("Booting..."));
+  tft.println   (F("Booting... "));
+
+  if (heatingAppCombUse == 1) {
+    Serial.println(F("...System mit Feuerstaettenbetrieb"));
+    tft.println   (F("...System mit Feuerstaettenbetrieb"));
+  }
 
   Serial.print(F("Initialisierung Ethernet:"));
   tft.print(F("Initialisierung Ethernet:"));
@@ -1453,7 +1518,7 @@ void setup()
 
   //PID
   //turn the PID on
-  // ab hier keine delays mehr verwenden, der Zeitnehmer für die PID-Regler läuft
+  // ab hier keine delays mehr verwenden, der Zeitnehmer für die PID-Regler laufen
   PidFan1.SetOutputLimits(0, 1000);
   PidFan1.SetMode(AUTOMATIC);
   PidFan1.SetSampleTime(intervalSetFan);
@@ -1475,7 +1540,7 @@ void setup()
 void loop()
 {
   //loopWrite100Millis();
-  
+
   loopTachoFan();
   loopSetFan();
   loopAntiFreezeCheck();
@@ -1494,7 +1559,7 @@ void loop()
   loopMqttSendTemp();
   loopMqttSendDHT();
   loopMqttSendBypass();
-  
+
   loopDisplayUpdate();
 
   loopMqttHeartbeat();

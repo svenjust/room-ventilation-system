@@ -226,8 +226,12 @@ void initializeEEPROM(boolean EraseMemory)
       eeprom_write_int(22 + (i * 4), (int)(defStandardSpeedSetpointFan2 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
     }
     // ENDE PWM für max 10 Lüftungsstufen
-    // Weiter geht es ab Speicherplatz 60dez ff
 
+    // heatingAppCombUse
+    eeprom_write_int(60, defStandardHeatingAppCombUse);
+    
+    // Weiter geht es ab Speicherplatz 62dez ff
+    
     delay(1000);
 
     Serial.println("Lese Speicherbereich...");
