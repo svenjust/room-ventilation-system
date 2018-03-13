@@ -92,22 +92,28 @@ void loopMqttSendBypass() {
     previousMillisMqttBypassState = currentMillis;
     mqttCmdSendBypassState = false;
 
-    if (bypassFlapState == bypassFlapState_Open) {
-      mqttClient.publish(TOPICKwlBypassState, "open");
-      if (serialDebug == 1) {
-        Serial.println(F("TOPICKwlBypassState: open"));
-      }
-    } else if (bypassFlapState == bypassFlapState_Close) {
-      mqttClient.publish(TOPICKwlBypassState, "closed");
-      if (serialDebug == 1) {
-        Serial.println(F("TOPICKwlBypassState: closed"));
-      }
-    } else if (bypassFlapState == bypassFlapState_Unknown) {
-      mqttClient.publish(TOPICKwlBypassState, "unknown");
-      if (serialDebug == 1) {
-        Serial.println(F("TOPICKwlBypassState: unknown"));
-      }
+    switch (bypassFlapState) {
+
+      case bypassFlapState_Open:
+        mqttClient.publish(TOPICKwlBypassState, "open");
+        if (serialDebug == 1) {
+          Serial.println(F("TOPICKwlBypassState: open"));
+        }
+        break;
+      case bypassFlapState_Close:
+        mqttClient.publish(TOPICKwlBypassState, "closed");
+        if (serialDebug == 1) {
+          Serial.println(F("TOPICKwlBypassState: closed"));
+        }
+        break;
+      case bypassFlapState_Unknown:
+        mqttClient.publish(TOPICKwlBypassState, "unknown");
+        if (serialDebug == 1) {
+          Serial.println(F("TOPICKwlBypassState: unknown"));
+        }
+        break;
     }
+
     // In MqttSendBypassAllValues() wird geprüft, ob alle Werte gesendet werden sollen.
     MqttSendBypassAllValues();
   }
@@ -125,7 +131,7 @@ void MqttSendBypassAllValues() {
       if (serialDebug == 1) {
         Serial.println(F("TOPICKwlBypassMode: auto"));
       }
-    } else if (bypassFlapState == bypassMode_Manual) {
+    } else if (bypassMode == bypassMode_Manual) {
       mqttClient.publish(TOPICKwlBypassMode, "manual");
       if (serialDebug == 1) {
         Serial.println(F("TOPICKwlBypassMode: manual"));

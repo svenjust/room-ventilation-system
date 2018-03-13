@@ -128,7 +128,8 @@ int inputStandardSpeedSetpointFan2 = 0;
 void SetupBackgroundScreen0() {
   // Menu Screen 0 Standardseite
 
-  PrintScreenTitle("Lueftungsstufe");
+  char title[] = "Lueftungsstufe";
+  PrintScreenTitle(title);
 
   tft.setCursor(150, 140 + baselineSmall);
   tft.print(F("Temperatur"));
@@ -195,7 +196,7 @@ void loopDisplayUpdateScreen0() {
   if (abs(LastDisplayT1 - TEMP1_Aussenluft) > 0.5 || updateDisplayNow) {
     LastDisplayT1 = TEMP1_Aussenluft;
     tft.fillRect(160, 166, 80, numberfieldheight, colBackColor);
-    dtostrf(TEMP1_Aussenluft,5,1,strPrint);
+    dtostrf(TEMP1_Aussenluft, 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 166 + baselineMiddle);
     tft.print(strPrint);
@@ -204,7 +205,7 @@ void loopDisplayUpdateScreen0() {
   if (abs(LastDisplayT2 - TEMP2_Zuluft) > 0.5 || updateDisplayNow) {
     LastDisplayT2 = TEMP2_Zuluft;
     tft.fillRect(160, 192, 80, numberfieldheight, colBackColor);
-    dtostrf(TEMP2_Zuluft,5,1,strPrint);
+    dtostrf(TEMP2_Zuluft, 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 192 + baselineMiddle);
     tft.print(strPrint);
@@ -213,7 +214,7 @@ void loopDisplayUpdateScreen0() {
   if (abs(LastDisplayT3 - TEMP3_Abluft) > 0.5 || updateDisplayNow) {
     LastDisplayT3 = TEMP3_Abluft;
     tft.fillRect(160, 218, 80, numberfieldheight, colBackColor);
-    dtostrf(TEMP3_Abluft,5,1,strPrint);
+    dtostrf(TEMP3_Abluft, 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 218 + baselineMiddle);
     tft.print(strPrint);
@@ -222,7 +223,7 @@ void loopDisplayUpdateScreen0() {
   if (abs(LastDisplayT4 - TEMP4_Fortluft) > 0.5 || updateDisplayNow) {
     LastDisplayT4 = TEMP4_Fortluft;
     tft.fillRect(160, 244, 80, numberfieldheight, colBackColor);
-    dtostrf(TEMP4_Fortluft,5,1,strPrint);
+    dtostrf(TEMP4_Fortluft, 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 244 + baselineMiddle);
     tft.print(strPrint);
@@ -273,8 +274,8 @@ void DoMenuActionScreen0() {
 void SetupBackgroundScreen1() {
   // Menu Screen 1, Sensorwerte
 
-
-  PrintScreenTitle("Weitere Sensorwerte");
+  char title[] = "Weitere Sensorwerte";
+  PrintScreenTitle(title);
 
   if (DHT1IsAvailable) {
     tft.setCursor(18, 166 + baselineMiddle);
@@ -306,7 +307,7 @@ void loopDisplayUpdateScreen1() {
     if (abs(LastDisplayDHT1Temp - DHT1Temp) > 0.5 || updateDisplayNow) {
       LastDisplayDHT1Temp = DHT1Temp;
       tft.fillRect(160, 166, 80, numberfieldheight, colBackColor);
-      dtostrf(DHT1Temp,5,1,strPrint);
+      dtostrf(DHT1Temp, 5, 1, strPrint);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(240 - w, 166 + baselineMiddle);
       tft.print(strPrint);
@@ -317,7 +318,7 @@ void loopDisplayUpdateScreen1() {
     if (abs(LastDisplayDHT2Temp - DHT2Temp) > 0.5 || updateDisplayNow) {
       LastDisplayDHT2Temp = DHT2Temp;
       tft.fillRect(160, 192, 80, numberfieldheight, colBackColor);
-      dtostrf(DHT2Temp,5,1,strPrint);
+      dtostrf(DHT2Temp, 5, 1, strPrint);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(240 - w, 192 + baselineMiddle);
       tft.print(strPrint);
@@ -371,7 +372,8 @@ void DoMenuActionScreen1() {
 // ****************************************** Screen 2: EINSTELLUNGEN ÜBERSICHT******************************
 void SetupBackgroundScreen2() {
   // Übersicht Einstellungen
-  PrintScreenTitle("Einstellungen");
+  char title[] = "Einstellungen";
+  PrintScreenTitle(title);
 
   tft.setTextColor(colFontColor, colBackColor );
 
@@ -433,7 +435,8 @@ void SetupScreen3() {
 }
 
 void SetupBackgroundScreen3() {
-  PrintScreenTitle("Normdrehzahl Abluftventilator");
+  char title[] = "Normdrehzahl Abluftventilator";
+  PrintScreenTitle(title);
 
   tft.setCursor(18, 75 + baselineMiddle);
   tft.print (F("Mit dem Button 'OK' wird der Wert gespeichert."));
@@ -503,7 +506,8 @@ void SetupScreen4() {
 }
 
 void SetupBackgroundScreen4() {
-  PrintScreenTitle("Normdrehzahl Abluftventilator");
+  char title[] = "Normdrehzahl Abluftventilator";
+  PrintScreenTitle(title);
 
   tft.setCursor(18, 75 + baselineMiddle);
   tft.print (F("Mit dem Button 'OK' wird der Wert gespeichert."));
@@ -572,7 +576,8 @@ void SetupScreen5() {
 }
 
 void SetupBackgroundScreen5() {
-  PrintScreenTitle("Kalibrierung Ventilatoren");
+  char title[] = "Kalibrierung Ventilatoren";
+  PrintScreenTitle(title);
 
   tft.setCursor(18, 75 + baselineMiddle);
   tft.print (F("Bei der Kalibrierung werden die Drehzahlen"));
@@ -619,7 +624,8 @@ void SetupScreen6() {
 }
 
 void SetupBackgroundScreen6() {
-  PrintScreenTitle("Ruecksetzen auf Werkseinstellungen");
+  char title[] = "Ruecksetzen auf Werkseinstellungen";
+  PrintScreenTitle(title);
 
   tft.setTextColor(colFontColor, colBackColor );
   tft.setFont(&FreeSans9pt7b);
@@ -681,7 +687,8 @@ void SetupScreen7() {
 
 void SetupBackgroundScreen7() {
   // Übersicht Einstellungen
-  PrintScreenTitle("Einstellungen Regelung Ventilatoren");
+  char title[] = "Einstellungen Regelung Ventilatoren";
+  PrintScreenTitle(title);
 
   tft.setTextColor(colFontColor, colBackColor );
 
@@ -1162,21 +1169,23 @@ void SetupTftScreen() {
   uint16_t w, h;
   tft.setFont(&FreeSansBold24pt7b);  // Großer Font
   // Baseline bestimmen für kleinen Font
-  tft.getTextBounds("M", 0, 0, &x1, &y1, &w, &h);
+  char CharM[] = "M";
+  tft.getTextBounds(CharM, 0, 0, &x1, &y1, &w, &h);
   baselineBigNumber = h;
   Serial.print (F("Font baseline (big / middle / small): "));
   Serial.print (h);
   Serial.print (F(" / "));
   tft.setFont(&FreeSans12pt7b);  // Mittlerer Font
   // Baseline bestimmen für kleinen Font
-  tft.getTextBounds("9", 0, 0, &x1, &y1, &w, &h);
+  char Char9[] = "9";
+  tft.getTextBounds(Char9, 0, 0, &x1, &y1, &w, &h);
   baselineMiddle = h;
   numberfieldheight = h + 1 ;
   Serial.print (numberfieldheight);
   Serial.print (F(" / "));
   tft.setFont(&FreeSans9pt7b);  // Kleiner Font
   // Baseline bestimmen für kleinen Font
-  tft.getTextBounds("M", 0, 0, &x1, &y1, &w, &h);
+  tft.getTextBounds(CharM, 0, 0, &x1, &y1, &w, &h);
   baselineSmall = h;
   Serial.print (h);
   Serial.println ();

@@ -67,7 +67,7 @@
 #include <DHT_U.h>
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
-#define strVersion "v0.14"
+#define strVersion "v0.15"
 
 
 // ***************************************************  A N S T E U E R U N G   P W M oder D A C   ***************************************************
@@ -166,12 +166,12 @@ int      kwlMode                            = 2;                            // S
 
 
 // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
-int serialDebug = 1;             // 1 = Allgemein Debugausgaben auf der seriellen Schnittstelle aktiviert
-int serialDebugFan = 0;          // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
-int serialDebugAntifreeze = 1;   // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
-int serialDebugSummerbypass = 0; // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
-int serialDebugDisplay = 0;      // 1 = Debugausgaben für die Displayanzeige
-int serialDebugSensor = 0;       // 1 = Debugausgaben für die Sensoren
+#define serialDebug              0 // 1 = Allgemeine Debugausgaben auf der seriellen Schnittstelle aktiviert
+#define serialDebugFan           0 // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
+#define serialDebugAntifreeze    0 // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
+#define serialDebugSummerbypass  1 // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
+#define serialDebugDisplay       0 // 1 = Debugausgaben für die Displayanzeige
+#define serialDebugSensor        0 // 1 = Debugausgaben für die Sensoren
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
 
@@ -201,7 +201,7 @@ uint16_t TS_LEFT = 949;
 uint16_t TS_RT  = 201;
 uint16_t TS_TOP = 943;
 uint16_t TS_BOT = 205;
-char *name = "Unknown controller";
+const char *name = "Unknown controller";
 
 // For better pressure precision, we need to know the resistance
 // between X+ and X- Use any multimeter to read it
@@ -343,7 +343,7 @@ unsigned long  heatingAppCombUseAntiFreezeStartTime = 0;
 #define antifreezeOff                   0
 #define antifreezePreheater             1
 #define antifreezeZuluftOff             2
-#define  antifreezeFireplace                 3
+#define antifreezeFireplace             3
 
 int     antifreezeState               = antifreezeOff;
 float   antifreezeTemp                = 1.5;     // Nach kaltem Wetter im Feb 2018 gemäß Messwerte
@@ -356,8 +356,8 @@ unsigned long PreheaterStartMillis    = 0;        // Beginn der Vorheizung
 // Ende Definition für AntiFreeze (Frostschutz) //////////////////////////////////////////
 
 // Start - Variablen für Bypass ///////////////////////////////////////////
-#define bypassMode_Manual 1
-#define bypassMode_Auto   0
+#define bypassMode_Auto         0
+#define bypassMode_Manual       1
 #define bypassFlapState_Unknown 0
 #define bypassFlapState_Close   1
 #define bypassFlapState_Open    2
@@ -370,8 +370,8 @@ int  bypassTempAbluftMin         = defStandardBypassTempAbluftMin;
 int  bypassTempAussenluftMin     = defStandardBypassTempAussenluftMin;
 int  bypassHystereseMinutes      = defStandardBypassHystereseMinutes;
 int  bypassFlapSetpoint          = defStandardBypassManualSetpoint;
-unsigned long bypassLastChangeMillis   = 0;                       // Letzte Änderung für Hysterese
 
+unsigned long bypassLastChangeMillis   = 0;                       // Letzte Änderung für Hysterese
 long          bypassFlapsDriveTime = 120000; // 120 * 1000;       // Fahrzeit (ms) der Klappe zwischen den Stellungen Open und Close
 boolean       bypassFlapsRunning = false;                         // True, wenn Klappe fährt
 unsigned long bypassFlapsStartTime = 0;                           // Startzeit für den Beginn Klappenwechsels
@@ -384,10 +384,10 @@ unsigned long intervalSetFan                 = 1000;
 unsigned long intervalTempRead               = 5000;    // Abfrage Temperatur, muss größer als 1000 sein
 
 unsigned long intervalEffiencyCalc           = 5000;    // Berechnung Wirkungsgrad
-unsigned long intervalAntifreezeCheck        = 10000;   //  60000 = 60 * 1000         // Frostschutzprüfung je Minute
+unsigned long intervalAntifreezeCheck        = 60000;   //  60000 = 60 * 1000         // Frostschutzprüfung je Minute
 unsigned long intervalAntiFreezeAlarmCheck   = 600000;  // 600000 = 10 * 60 * 1000;   // 10 Min Zeitraum zur Überprüfung, ob Vorheizregister die Temperatur erhöhen kann,
-unsigned long intervalBypassSummerCheck      = 60000;  // ;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
-unsigned long intervalBypassSummerSetFlaps   = 60000; // 300000;  // 1 * 60 * 1000 Zeitraum zum Fahren des Bypasses, 1 Minuten
+unsigned long intervalBypassSummerCheck      = 60000;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
+unsigned long intervalBypassSummerSetFlaps   = 60000;   // 60000;  // 1 * 60 * 1000 Zeitraum zum Fahren des Bypasses, 1 Minuten
 unsigned long intervalCheckForErrors         = 1000;
 unsigned long intervalDHTRead                = 10000;
 unsigned long intervalMHZ14Read              = 10000;
@@ -960,7 +960,7 @@ void DoActionAntiFreezeState() {
 
 void loopAntiFreezeCheck() {
   // Funktion wird regelmäßig zum Überprüfen ausgeführt
-  
+
   currentMillis = millis();
   if (currentMillis - previousMillisAntifreeze >= intervalAntifreezeCheck) {
     if (serialDebugAntifreeze == 1)  Serial.println (F("loopAntiFreezeCheck start"));
@@ -972,7 +972,7 @@ void loopAntiFreezeCheck() {
     // siehe auch "/Docs/Programming/Zustandsänderung Antifreeze.jpg"
     // Die regelmäßigen Aktionen für jedem Status werden in DoActionAntiFreezeState ausgeführt.
     switch (antifreezeState) {
-      
+
       case antifreezeOff:  // antifreezeState = 0
         if ((TEMP4_Fortluft <= antifreezeTemp) && (TEMP1_Aussenluft < 0.0)
             && (TEMP4_Fortluft > -127.0) && (TEMP1_Aussenluft > -127.0))         // Wenn Sensoren fehlen, ist der Wert -127
@@ -1062,29 +1062,39 @@ void loopBypassSummerCheck() {
       }
       // Automatic
       // Hysterese überprüfen
-      if (currentMillis - bypassLastChangeMillis >= (bypassHystereseMinutes * 60 * 1000)) {
+      if (currentMillis - bypassLastChangeMillis >= (bypassHystereseMinutes * 60L * 1000L)) {
         if (serialDebugSummerbypass == 1) {
           Serial.println(F("Time to Check"));
+          Serial.print(F("TEMP1_Aussenluft       : "));
+          Serial.println(TEMP1_Aussenluft);
+          Serial.print(F("TEMP3_Abluft           : "));
+          Serial.println(TEMP3_Abluft);
+          Serial.print(F("bypassTempAbluftMin    : "));
+          Serial.println(bypassTempAbluftMin);
+          Serial.print(F("bypassTempAussenluftMin: "));
+          Serial.println(bypassTempAussenluftMin);
         }
-        if ((TEMP1_Aussenluft    < TEMP3_Abluft - 2)
-            && (TEMP3_Abluft     > bypassTempAbluftMin)
-            && (TEMP1_Aussenluft > bypassTempAussenluftMin)) {
-          //ok, dann Klappe öffen
-          if (bypassFlapSetpoint != bypassFlapState_Open) {
-            if (serialDebugSummerbypass == 1) {
-              Serial.println(F("Klappe öffen"));
+        if ((TEMP1_Aussenluft > -127.0) && (TEMP3_Abluft > -127.0)) {
+          if ((TEMP1_Aussenluft    < TEMP3_Abluft - 2)
+              && (TEMP3_Abluft     > bypassTempAbluftMin)
+              && (TEMP1_Aussenluft > bypassTempAussenluftMin)) {
+            //ok, dann Klappe öffen
+            if (bypassFlapSetpoint != bypassFlapState_Open) {
+              if (serialDebugSummerbypass == 1) {
+                Serial.println(F("Klappe öffen"));
+              }
+              bypassFlapSetpoint = bypassFlapState_Open;
+              bypassLastChangeMillis = millis();
             }
-            bypassFlapSetpoint = bypassFlapState_Open;
-            bypassLastChangeMillis = millis();
-          }
-        } else {
-          //ok, dann Klappe schliessen
-          if (bypassFlapSetpoint != bypassFlapState_Close) {
-            if (serialDebugSummerbypass == 1) {
-              Serial.println(F("Klappe schliessen"));
+          } else {
+            //ok, dann Klappe schliessen
+            if (bypassFlapSetpoint != bypassFlapState_Close) {
+              if (serialDebugSummerbypass == 1) {
+                Serial.println(F("Klappe schliessen"));
+              }
+              bypassFlapSetpoint = bypassFlapState_Close;
+              bypassLastChangeMillis = millis();
             }
-            bypassFlapSetpoint = bypassFlapState_Close;
-            bypassLastChangeMillis = millis();
           }
         }
       }
@@ -1103,6 +1113,12 @@ void loopBypassSummerSetFlaps() {
   if (currentMillis - previousMillisBypassSummerSetFlaps >= intervalBypassSummerSetFlaps) {
     if (serialDebugSummerbypass == 1) {
       Serial.println(F("loopBypassSummerSetFlaps"));
+      Serial.print(F("bypassFlapSetpoint: "));
+      Serial.println(bypassFlapSetpoint);
+      Serial.print(F("bypassFlapState: "));
+      Serial.println(bypassFlapState);
+      Serial.print(F("bypassFlapStateDriveRunning: "));
+      Serial.println(bypassFlapStateDriveRunning);
     }
     previousMillisBypassSummerSetFlaps = currentMillis;
     if (bypassFlapSetpoint != bypassFlapState) {    // bypassFlapState wird NACH erfolgter Fahrt gesetzt
@@ -1136,7 +1152,7 @@ void loopBypassSummerSetFlaps() {
             Serial.println(F("Klappe wurde gefahren, jetzt abschalten"));
           }
           // Klappe wurde gefahren, jetzt abschalten
-          // Realis ausschalten
+          // Relais ausschalten
           // Erst Power, dann Richtung beim Ausschalten
           digitalWrite(relPinBypassPower, RELAY_OFF);
           digitalWrite(relPinBypassDirection, RELAY_OFF);
@@ -1147,6 +1163,14 @@ void loopBypassSummerSetFlaps() {
           // MQTT senden
           mqttCmdSendBypassState = true;
         }
+        Serial.println(F("Nach der Schleife"));
+        Serial.println(F("loopBypassSummerSetFlaps"));
+        Serial.print(F("bypassFlapSetpoint: "));
+        Serial.println(bypassFlapSetpoint);
+        Serial.print(F("bypassFlapState: "));
+        Serial.println(bypassFlapState);
+        Serial.print(F("bypassFlapStateDriveRunning: "));
+        Serial.println(bypassFlapStateDriveRunning);
       }
     }
   }
