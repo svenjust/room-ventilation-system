@@ -80,40 +80,11 @@
 // ****************************************** E N D E   A N S T E U E R U N G   P W M oder D A C   ***************************************************
 
 
-// ***************************************************  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
-// Die Anschlüsse können dem Schaltplan entnommen werden: https://github.com/svenjust/room-ventilation-system/blob/master/Docs/circuit%20diagram/KWL-Steuerung%20f%C3%BCr%20P300.pdf
-
-#define pwmPinFan1              44  // Lüfter Zuluft
-#define pwmPinFan2              46  // Lüfter Abluft
-#define pwmPinPreheater         45  // Vorheizer
-#define tachoPinFan1            18  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
-#define tachoPinFan2            19  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
-
-#define pinDHT1                 28  // Pin vom 1. DHT
-#define pinDHT2                 29  // Pin vom 2. DHT
-
-#define TEMP1_ONE_WIRE_BUS      30  // Für jeder Temperatursensor gibt es einen Anschluss auf dem Board, Vorteil: Temperatursensoren können per Kabel definiert werden, nicht Software
-#define TEMP2_ONE_WIRE_BUS      31
-#define TEMP3_ONE_WIRE_BUS      32
-#define TEMP4_ONE_WIRE_BUS      33
-
-// I2C nutzt beim Arduino Mega Pin 20 u 21
-#define DAC_I2C_OUT_ADDR  176 >> 1 // I2C-OUTPUT-Addresse für Horter DAC als 7 Bit, wird verwendet als Alternative zur PWM Ansteuerung der Lüfter und für Vorheizregister
-#define DAC_CHANNEL_FAN1         0 // Kanal 1 des DAC für Zuluft
-#define DAC_CHANNEL_FAN2         1 // Kanal 2 des DAC für Abluft
-#define DAC_CHANNEL_PREHEATER    2 // Kanal 3 des DAC für Vorheizregister
-
-#define sensPinVoc               A15 //Analog Pin für VOC Sensor
-// Serial2 nutzt beim Arduino Mega Pin 16 u 17
-#define SerialMHZ14              Serial2  // CO2 Sensor (Winsen MH-Z14) wird über die Zweite Serielle Schnittstelle (Serial2) angeschlossen
-// *******************************************E N D E ***  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
-
-
 // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
-#define serialDebug              0 // 1 = Allgemeine Debugausgaben auf der seriellen Schnittstelle aktiviert
-#define serialDebugFan           0 // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
+#define serialDebug              1 // 1 = Allgemeine Debugausgaben auf der seriellen Schnittstelle aktiviert
+#define serialDebugFan           1 // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
 #define serialDebugAntifreeze    0 // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
-#define serialDebugSummerbypass  1 // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
+#define serialDebugSummerbypass  0 // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
 #define serialDebugDisplay       0 // 1 = Debugausgaben für die Displayanzeige
 #define serialDebugSensor        0 // 1 = Debugausgaben für die Sensoren
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
@@ -417,10 +388,10 @@ PID PidPreheater(&TEMP4_Fortluft, &techSetpointPreheater, &antifreezeTempUpperLi
 
 // Temperatur Sensoren, Pinbelegung steht oben
 #define TEMPERATURE_PRECISION 0x1F            // Genauigkeit der Temperatursensoren 9_BIT, Standard sind 12_BIT
-OneWire Temp1OneWire(TEMP1_ONE_WIRE_BUS);     // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
-OneWire Temp2OneWire(TEMP2_ONE_WIRE_BUS);
-OneWire Temp3OneWire(TEMP3_ONE_WIRE_BUS);
-OneWire Temp4OneWire(TEMP4_ONE_WIRE_BUS);
+OneWire Temp1OneWire(kwl_config::PinTemp1OneWireBus);     // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
+OneWire Temp2OneWire(kwl_config::PinTemp2OneWireBus);
+OneWire Temp3OneWire(kwl_config::PinTemp3OneWireBus);
+OneWire Temp4OneWire(kwl_config::PinTemp4OneWireBus);
 DallasTemperature Temp1Sensor(&Temp1OneWire); // Bindung der Sensoren an den OneWire Bus
 DallasTemperature Temp2Sensor(&Temp2OneWire);
 DallasTemperature Temp3Sensor(&Temp3OneWire);
@@ -441,8 +412,8 @@ int   SendMqttMHZ14CO2 = 0;    // CO2 Wert
 
 
 // DHT Sensoren
-DHT_Unified dht1(pinDHT1, DHT22);
-DHT_Unified dht2(pinDHT2, DHT22);
+DHT_Unified dht1(kwl_config::PinDHTSensor1, DHT22);
+DHT_Unified dht2(kwl_config::PinDHTSensor2, DHT22);
 boolean DHT1IsAvailable = false;
 boolean DHT2IsAvailable = false;
 float DHT1Temp = 0;
@@ -796,8 +767,8 @@ void setSpeedToFan() {
     fan2speed.dump();
   }
   // Setzen per PWM
-  analogWrite(pwmPinFan1, techSetpointFan1 / 4);
-  analogWrite(pwmPinFan2, techSetpointFan2 / 4);
+  analogWrite(kwl_config::PinFan1PWM, techSetpointFan1 / 4);
+  analogWrite(kwl_config::PinFan2PWM, techSetpointFan2 / 4);
 
   // Setzen der Werte per DAC
   if (ControlFansDAC == 1) {
@@ -807,8 +778,8 @@ void setSpeedToFan() {
     // FAN 1
     HBy = techSetpointFan1 / 256;        //HIGH-Byte berechnen
     LBy = techSetpointFan1 - HBy * 256;  //LOW-Byte berechnen
-    Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
-    Wire.write(DAC_CHANNEL_FAN1);             // FAN 1 schreiben
+    Wire.beginTransmission(kwl_config::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
+    Wire.write(kwl_config::DacChannelFan1);             // FAN 1 schreiben
     Wire.write(LBy);                          // LOW-Byte schreiben
     Wire.write(HBy);                          // HIGH-Byte schreiben
     Wire.endTransmission();                   // Ende
@@ -816,8 +787,8 @@ void setSpeedToFan() {
     // FAN 2
     HBy = techSetpointFan2 / 256;        //HIGH-Byte berechnen
     LBy = techSetpointFan2 - HBy * 256;  //LOW-Byte berechnen
-    Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
-    Wire.write(DAC_CHANNEL_FAN2);             // FAN 2 schreiben
+    Wire.beginTransmission(kwl_config::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
+    Wire.write(kwl_config::DacChannelFan2);             // FAN 2 schreiben
     Wire.write(LBy);                          // LOW-Byte schreiben
     Wire.write(HBy);                          // HIGH-Byte schreiben
     Wire.endTransmission();                   // Ende
@@ -844,7 +815,7 @@ void SetPreheater() {
     mqtt_debug_Preheater();
   }
   // Setzen per PWM
-  analogWrite(pwmPinPreheater, techSetpointPreheater / 4);
+  analogWrite(kwl_config::PinPreheaterPWM, techSetpointPreheater / 4);
 
   // Setzen der Werte per DAC
   byte HBy;
@@ -853,8 +824,8 @@ void SetPreheater() {
   // Preheater DAC
   HBy = techSetpointPreheater / 256;        //HIGH-Byte berechnen
   LBy = techSetpointPreheater - HBy * 256;  //LOW-Byte berechnen
-  Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
-  Wire.write(DAC_CHANNEL_PREHEATER);        // PREHEATER schreiben
+  Wire.beginTransmission(kwl_config::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
+  Wire.write(kwl_config::DacChannelPreheater);        // PREHEATER schreiben
   Wire.write(LBy);                          // LOW-Byte schreiben
   Wire.write(HBy);                          // HIGH-Byte schreiben
   Wire.endTransmission();                   // Ende
@@ -1415,27 +1386,27 @@ void setup()
   Serial.println(F("Initialisierung Ventilatoren"));
   tft.println(F("Initialisierung Ventilatoren"));
   // Lüfter Speed
-  pinMode(pwmPinFan1, OUTPUT);
-  digitalWrite(pwmPinFan1, LOW);
-  pinMode(pwmPinFan2, OUTPUT);
-  digitalWrite(pwmPinFan2, LOW);
+  pinMode(kwl_config::PinFan1PWM, OUTPUT);
+  digitalWrite(kwl_config::PinFan1PWM, LOW);
+  pinMode(kwl_config::PinFan2PWM, OUTPUT);
+  digitalWrite(kwl_config::PinFan2PWM, LOW);
 
   // Lüfter Tacho Interrupt
-  pinMode(tachoPinFan1, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(tachoPinFan1), countUpFan1, RISING );
+  pinMode(kwl_config::PinFan1Tacho, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(kwl_config::PinFan1Tacho), countUpFan1, RISING );
 
   Serial.print (F("Pin und Interrupt: "));
-  Serial.print (tachoPinFan1);
+  Serial.print (kwl_config::PinFan1Tacho);
   Serial.print (F("\t"));
-  Serial.println (digitalPinToInterrupt(tachoPinFan1));
+  Serial.println (digitalPinToInterrupt(kwl_config::PinFan1Tacho));
 
-  pinMode(tachoPinFan2, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(tachoPinFan2), countUpFan2, RISING );
+  pinMode(kwl_config::PinFan2Tacho, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(kwl_config::PinFan2Tacho), countUpFan2, RISING );
 
   Serial.print (F("Pin und Interrupt: "));
-  Serial.print (tachoPinFan2);
+  Serial.print (kwl_config::PinFan2Tacho);
   Serial.print (F("\t"));
-  Serial.println (digitalPinToInterrupt(tachoPinFan2));
+  Serial.println (digitalPinToInterrupt(kwl_config::PinFan2Tacho));
 
   // Relais Ansteuerung Lüfter
   relFan1Power.on();

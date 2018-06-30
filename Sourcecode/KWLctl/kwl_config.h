@@ -48,6 +48,9 @@
 #include <Arduino.h>
 
 class IPAddress;
+class HardwareSerial;
+
+extern HardwareSerial Serial2;
 
 /// Helper to construct IP as a literal.
 class IPAddressLiteral
@@ -73,6 +76,7 @@ private:
 static constexpr unsigned MAX_FAN_MODE_CNT = 10;
 
 /// Default configuration, which can be overridden by the user configuration below.
+template<typename final_config>
 class kwl_default_config
 {
 protected:
@@ -167,6 +171,48 @@ public:
   /// Stromversorgung Lüfter 2.
   static constexpr uint8_t PinFan2Power       = 43;
 
+  /// Steuerung Lüfter Zuluft per PWM Signal.
+  static constexpr uint8_t PinFan1PWM         = 44;
+  /// Steuerung Lüfter Abluft per PWM Signal.
+  static constexpr uint8_t PinFan2PWM         = 46;
+  /// Steuerung Vorheizregister per PWM Signal.
+  static constexpr uint8_t PinPreheaterPWM    = 45;
+  /// Eingang Lüfter Zuluft Tachosignal mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt.
+  static constexpr uint8_t PinFan1Tacho       = 18;
+  /// Eingang Lüfter Abluft Tachosignal mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt.
+  static constexpr uint8_t PinFan2Tacho       = 19;
+
+  // Alternative zu PWM, Ansteuerung per DAC. I2C nutzt beim Arduino Mega Pin 20 u 21.
+  /// I2C-OUTPUT-Addresse für Horter DAC als 7 Bit, wird verwendet als Alternative zur PWM Ansteuerung der Lüfter und für Vorheizregister.
+  static constexpr uint8_t DacI2COutAddr       = 176 >> 1;
+  /// Kanal 1 des DAC für Zuluft.
+  static constexpr uint8_t DacChannelFan1      = 0;
+  /// Kanal 2 des DAC für Abluft.
+  static constexpr uint8_t DacChannelFan2      = 1;
+  /// Kanal 3 des DAC für Vorheizregister.
+  static constexpr uint8_t DacChannelPreheater = 2;
+
+  /// Pin vom 1. DHT Sensor.
+  static constexpr uint8_t PinDHTSensor1       = 28;
+  /// Pin vom 2. DHT Sensor.
+  static constexpr uint8_t PinDHTSensor2       = 29;
+
+  // Für jeder Temperatursensor gibt es einen Anschluss auf dem Board, Vorteil: Temperatursensoren können per Kabel definiert werden, nicht Software
+  /// Input Sensor Aussenlufttemperatur.
+  static constexpr uint8_t PinTemp1OneWireBus  = 30;
+  /// Input Sensor Zulufttemperatur.
+  static constexpr uint8_t PinTemp2OneWireBus  = 31;
+  /// Input Sensor Ablufttemperatur.
+  static constexpr uint8_t PinTemp3OneWireBus  = 32;
+  /// Input Sensor Fortlufttemperatur.
+  static constexpr uint8_t PinTemp4OneWireBus  = 33;
+
+  /// Analog Pin für VOC Sensor.
+  static constexpr uint8_t PinVocSensor        = A15;
+  /// CO2 Sensor (Winsen MH-Z14) wird über die Zweite Serielle Schnittstelle (Serial2) angeschlossen.
+  // Serial2 nutzt beim Arduino Mega Pin 16 u 17
+  static constexpr HardwareSerial& SerialMHZ14 = Serial2;
+
   // ******************************************* E N D E   A N S C H L U S S E I N S T E L L U N G E N **************************************************
 
   // ************************************** A N S T E U E R U N G   D E R    R E L A I S ****************************************************************
@@ -193,7 +239,7 @@ public:
  * @param name configuration parameter name.
  * @param value value for the parameter.
  */
-#define CONFIGURE(name, value) static constexpr decltype(kwl_default_config::name) name = value;
+#define CONFIGURE(name, value) static constexpr decltype(kwl_default_config<kwl_config>::name) name = value;
 
 /*!
  * @brief Helper macro to add configuration for object parameters in user_config.h.
@@ -204,10 +250,10 @@ public:
  * @param name configuration parameter name.
  * @param values constructor values (in form (a, b, c), including braces).
  */
-#define CONFIGURE_OBJ(name, values) static constexpr decltype(kwl_default_config::name) name = decltype(kwl_default_config::name) values;
+#define CONFIGURE_OBJ(name, values) static constexpr decltype(kwl_default_config<kwl_config>::name) name = decltype(kwl_default_config::name) values;
 
 /// Actual configuration, including user-specific values.
-class kwl_config : public kwl_default_config
+class kwl_config : public kwl_default_config<kwl_config>
 {
 public:
 #if !__has_include("user_config.h")
@@ -217,5 +263,5 @@ public:
 #endif
 };
 
-
-
+template<typename final_config>
+constexpr double kwl_default_config<final_config>::StandardKwlModeFactor[MAX_FAN_MODE_CNT];
