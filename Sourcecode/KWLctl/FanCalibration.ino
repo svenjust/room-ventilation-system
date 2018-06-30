@@ -152,8 +152,8 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
       Serial.println(speedSetpointFan2);
     }
     // Lüfter ansteuern
-    analogWrite(pwmPinFan1, techSetpointFan1 / 4);
-    analogWrite(pwmPinFan2, techSetpointFan2 / 4);
+    analogWrite(kwl_config::PinFan1PWM, techSetpointFan1 / 4);
+    analogWrite(kwl_config::PinFan2PWM, techSetpointFan2 / 4);
     
  // if (ControlFansDAC == 1) {
     // Setzen der Werte per DAC
@@ -163,8 +163,8 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
     // FAN 1
     HBy = techSetpointFan1 / 256;        //HIGH-Byte berechnen
     LBy = techSetpointFan1 - HBy * 256;  //LOW-Byte berechnen
-    Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
-    Wire.write(DAC_CHANNEL_FAN1);             // FAN 1 schreiben
+    Wire.beginTransmission(kwl_config::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
+    Wire.write(kwl_config::DacChannelFan1);             // FAN 1 schreiben
     Wire.write(LBy);                          // LOW-Byte schreiben
     Wire.write(HBy);                          // HIGH-Byte schreiben
     Wire.endTransmission();                   // Ende
@@ -172,8 +172,8 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
     // FAN 2
     HBy = techSetpointFan2 / 256;        //HIGH-Byte berechnen
     LBy = techSetpointFan2 - HBy * 256;  //LOW-Byte berechnen
-    Wire.beginTransmission(DAC_I2C_OUT_ADDR); // Start Übertragung zur ANALOG-OUT Karte
-    Wire.write(DAC_CHANNEL_FAN2);             // FAN 2 schreiben
+    Wire.beginTransmission(kwl_config::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
+    Wire.write(kwl_config::DacChannelFan2);             // FAN 2 schreiben
     Wire.write(LBy);                          // LOW-Byte schreiben
     Wire.write(HBy);                          // HIGH-Byte schreiben
     Wire.endTransmission();                   // Ende    

@@ -21,8 +21,6 @@
 
 #include <Arduino.h>
 
-extern HardwareSerial Serial;
-
 FanRPM::FanRPM() {
   // currently no additional initialization needed
 }

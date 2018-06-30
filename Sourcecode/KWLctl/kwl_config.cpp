@@ -25,5 +25,3 @@ IPAddressLiteral::operator IPAddress() const
 {
   return IPAddress(ip[0], ip[1], ip[2], ip[3]);
 }
-
-constexpr double kwl_default_config::StandardKwlModeFactor[MAX_FAN_MODE_CNT];

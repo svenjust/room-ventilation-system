@@ -105,10 +105,10 @@ boolean SetupMHZ14() {
   int ppm = 0;
   uint8_t response[9];
 
-  SerialMHZ14.begin(9600);
+  kwl_config::SerialMHZ14.begin(9600);
   delay(100);
-  SerialMHZ14.write(cmdReadGasPpm, 9);
-  if (SerialMHZ14.readBytes(response, 9) == 9) {
+  kwl_config::SerialMHZ14.write(cmdReadGasPpm, 9);
+  if (kwl_config::SerialMHZ14.readBytes(response, 9) == 9) {
     int responseHigh = (int) response[2];
     int responseLow = (int) response[3];
     int ppm = (256 * responseHigh) + responseLow;
@@ -131,8 +131,8 @@ void loopMHZ14Read() {
       previousMillisMHZ14Read = currentMillis;
 
       uint8_t response[9];
-      SerialMHZ14.write(cmdReadGasPpm, 9);
-      if (SerialMHZ14.readBytes(response, 9) == 9) {
+      kwl_config::SerialMHZ14.write(cmdReadGasPpm, 9);
+      if (kwl_config::SerialMHZ14.readBytes(response, 9) == 9) {
         int responseHigh = (int) response[2];
         int responseLow = (int) response[3];
         int ppm = (256 * responseHigh) + responseLow;
@@ -152,7 +152,7 @@ void loopMHZ14Read() {
 
 void MHZ14CalibrateZeroPoint() {
   if (MHZ14IsAvailable) {
-    SerialMHZ14.write(cmdCalZeroPoint, 9);
+    kwl_config::SerialMHZ14.write(cmdCalZeroPoint, 9);
   }
 }
 
@@ -217,7 +217,7 @@ void loopVocRead() {
     intervalTGS2600Read = 1000;
     if (currentMillis - previousMillisTGS2600Read >= intervalTGS2600Read) {
       previousMillisTGS2600Read = currentMillis;
-      int analogVal = analogRead(sensPinVoc);
+      int analogVal = analogRead(kwl_config::PinVocSensor);
       if (serialDebugSensor) {
         Serial.print(F("VOC analogVal: "));
         Serial.println(analogVal);
@@ -228,8 +228,8 @@ void loopVocRead() {
 }
 
 boolean SetupTGS2600() {
-  pinMode(sensPinVoc, INPUT_PULLUP);
-  int analogVal = analogRead(sensPinVoc);
+  pinMode(kwl_config::PinVocSensor, INPUT_PULLUP);
+  int analogVal = analogRead(kwl_config::PinVocSensor);
   if (serialDebugSensor) Serial.println(analogVal);
   if (analogVal < 1023) {
     TGS2600IsAvailable = true;
