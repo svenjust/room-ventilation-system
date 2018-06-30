@@ -65,7 +65,11 @@
 #include <Wire.h>
 #include <DHT.h>
 #include <DHT_U.h>
+
 #include "FanRPM.h"
+#include "Relay.h"
+
+#include "kwl_config.h"
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
 #define strVersion "v0.15"
@@ -84,10 +88,6 @@
 #define pwmPinPreheater         45  // Vorheizer
 #define tachoPinFan1            18  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
 #define tachoPinFan2            19  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
-#define relPinBypassPower       40  // Bypass Strom an/aus. Das BypassPower steuert, ob Strom am Bypass geschaltet ist, BypassDirection bestimmt Öffnen oder Schliessen
-#define relPinBypassDirection   41  // Bypass Richtung, Stromlos = Schliessen (Winterstellung), Strom = Öffnen (Sommerstellung)
-#define relPinFan1Power         42  // Stromversorgung Lüfter 1
-#define relPinFan2Power         43  // Stromversorgung Lüfter 2
 
 #define pinDHT1                 28  // Pin vom 1. DHT
 #define pinDHT2                 29  // Pin vom 2. DHT
@@ -154,16 +154,6 @@ int      kwlMode                            = 2;                            // S
 // Im Automatikbetrieb steuert diese Steuerung die Bypass-Klappe, im manuellen Betrieb wird die Bypass-Klappe durch mqtt-Kommandos gesteuert.
 #define  defStandardHeatingAppCombUse         0                             // 0 = NO, 1 = YES
 // **************************************E N D E *** W E R K S E I N S T E L L U N G E N **********************************************************************
-
-
-// ************************************** A N S T E U E R U N G   D E R    R E L A I S ************************************************************************
-// Für die Lüfter und den Sommer-Bypass können bis zu vier Relais verbaut sein.
-// Ohne Sommer-Bypass kann die Schaltung auch ohne Relais betrieben werden.
-// Da verschiedene Relais unterschiedlich geschaltet werden, kann hier die logische
-// Schaltung definiert werden.
-#define RELAY_ON   LOW
-#define RELAY_OFF  HIGH
-// ************************************** E N D E   A N S T E U E R U N G   D E R    R E L A I S ***************************************************************
 
 
 // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
@@ -281,6 +271,11 @@ const char *TOPICKwlDebugsetFan2PWM         = "d15/debugset/kwl/fan2/pwm";
 const char *TOPICKwlDebugsetFanPWMStore     = "d15/debugset/kwl/fan/pwm/store_IKNOWWHATIMDOING";
 // Ende Topics
 
+
+Relay relBypassPower(kwl_config::PinBypassPower);
+Relay relBypassDirection(kwl_config::PinBypassDirection);
+Relay relFan1Power(kwl_config::PinFan1Power);
+Relay relFan2Power(kwl_config::PinFan2Power);
 
 // Sind die folgenden Variablen auf true, werden beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
 // anschliessend wird die Variable wieder auf false gesetzt
@@ -1163,8 +1158,8 @@ void loopBypassSummerSetFlaps() {
           if (bypassFlapSetpoint == bypassFlapState_Close) {
 
             // Erst Richtung, dann Power
-            digitalWrite(relPinBypassDirection, RELAY_OFF);
-            digitalWrite(relPinBypassPower, RELAY_ON);
+            relBypassDirection.off();
+            relBypassPower.on();
 
             bypassFlapsRunning = true;
             bypassFlapStateDriveRunning = bypassFlapState_Close;
@@ -1172,8 +1167,8 @@ void loopBypassSummerSetFlaps() {
           } else if (bypassFlapSetpoint == bypassFlapState_Open) {
 
             // Erst Richtung, dann Power
-            digitalWrite(relPinBypassDirection, RELAY_ON);
-            digitalWrite(relPinBypassPower, RELAY_ON);
+            relBypassDirection.on();
+            relBypassPower.on();
 
             bypassFlapsRunning = true;
             bypassFlapStateDriveRunning = bypassFlapState_Open;
@@ -1186,8 +1181,8 @@ void loopBypassSummerSetFlaps() {
           // Klappe wurde gefahren, jetzt abschalten
           // Relais ausschalten
           // Erst Power, dann Richtung beim Ausschalten
-          digitalWrite(relPinBypassPower, RELAY_OFF);
-          digitalWrite(relPinBypassDirection, RELAY_OFF);
+          relBypassDirection.off();
+          relBypassPower.off();
 
           bypassFlapsRunning = false;
           bypassFlapState = bypassFlapStateDriveRunning;
@@ -1487,16 +1482,12 @@ void setup()
   Serial.println (digitalPinToInterrupt(tachoPinFan2));
 
   // Relais Ansteuerung Lüfter
-  pinMode(relPinFan1Power, OUTPUT);
-  digitalWrite(relPinFan1Power, RELAY_ON);
-  pinMode(relPinFan2Power, OUTPUT);
-  digitalWrite(relPinFan2Power, RELAY_ON);
+  relFan1Power.on();
+  relFan2Power.on();
 
   // Relais Ansteuerung Bypass
-  pinMode(relPinBypassPower, OUTPUT);
-  digitalWrite(relPinBypassPower, RELAY_OFF);
-  pinMode(relPinBypassDirection, OUTPUT);
-  digitalWrite(relPinBypassDirection, RELAY_OFF);
+  relBypassPower.off();
+  relBypassDirection.off();
 
   if (ControlFansDAC == 1) {
     Wire.begin();               // I2C-Pins definieren
