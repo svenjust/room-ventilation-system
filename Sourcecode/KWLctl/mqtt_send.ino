@@ -309,7 +309,9 @@ void loopNetworkConnection() {
       // KEIN NETZVERBINDUNG
       Serial.println(F("LAN not connected"));
       bLanOk = false;
-      Ethernet.begin(mac, ip, DnServer, gateway, subnet);
+      uint8_t mac[6];
+      kwl_config::mac.copy_to(mac);
+      Ethernet.begin(mac, kwl_config::ip, kwl_config::DnServer, kwl_config::gateway, kwl_config::subnet);
     } else {
       bLanOk = true;
     }

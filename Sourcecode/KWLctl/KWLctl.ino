@@ -66,6 +66,10 @@
 #include <DHT.h>
 #include <DHT_U.h>
 
+#include "Relay.h"
+
+#include "kwl_config.h"
+
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
 #define strVersion "v0.15"
 
@@ -83,10 +87,6 @@
 #define pwmPinPreheater         45  // Vorheizer
 #define tachoPinFan1            18  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
 #define tachoPinFan2            19  // Eingang mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt
-#define relPinBypassPower       40  // Bypass Strom an/aus. Das BypassPower steuert, ob Strom am Bypass geschaltet ist, BypassDirection bestimmt Öffnen oder Schliessen
-#define relPinBypassDirection   41  // Bypass Richtung, Stromlos = Schliessen (Winterstellung), Strom = Öffnen (Sommerstellung)
-#define relPinFan1Power         42  // Stromversorgung Lüfter 1
-#define relPinFan2Power         43  // Stromversorgung Lüfter 2
 
 #define pinDHT1                 28  // Pin vom 1. DHT
 #define pinDHT2                 29  // Pin vom 2. DHT
@@ -106,63 +106,6 @@
 // Serial2 nutzt beim Arduino Mega Pin 16 u 17
 #define SerialMHZ14              Serial2  // CO2 Sensor (Winsen MH-Z14) wird über die Zweite Serielle Schnittstelle (Serial2) angeschlossen
 // *******************************************E N D E ***  A N S C H L U S S E I N S T E L L U N G E N ***************************************************
-
-
-// ***************************************************  N E T Z W E R K E I N S T E L L U N G E N ********************************************************
-// Hier die IP Adresse für diese Steuerung und den MQTT Broker definieren.
-byte mac[] = {  0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };  // MAC Adresse des Ethernet Shields
-IPAddress    ip         (192, 168,  20, 201);          // IP Adresse für diese Gerät im eigenen Netz
-IPAddress    subnet     (255, 255, 255,   0);          // Subnet
-IPAddress    gateway    (192, 168,  20, 250);          // Gateway
-IPAddress    DnServer   (  8,   8,   8,   8);          // DNS Server, hier Google
-IPAddress    mqttbroker (192, 168,  20, 240);          // IP Adresse des MQTT Brokers
-// *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N *****************************************************
-
-
-// ******************************************* W E R K S E I N S T E L L U N G E N *************************************************************************
-// Definition der Werkeinstellungen.
-// Es können bis zu 10 Lüftungsstufen definiert werden. Im Allgemeinen sollten 4 oder 6 Stufen ausreichen.
-// Die Originalsteuerung stellt 3 Stufen zur Verfügung
-//
-// Eine Definition für 4 Stufen, ähnlich der Originalsteuerung wäre:
-// Stufe 0 = 0%, Stufe 1 = 70%, Stufe 2 = 100%, Stufe 3 = 130%. Stufe 0 ist hier zusätzlich.
-//
-// Ein mögliche Definition für 6 Stufen wäre bspw.:
-// Stufe 0 = 0%, Stufe 1 = 60%, Stufe 2 = 80%, Stufe 3 = 100%, Stufe 4 = 120%, Stufe 4 = 140%
-//
-// defStandardModeCnt definiert die Anzahl der Stufen
-//
-// FACTORY_RESET_EEPROM = true setzt alle Werte der Steuerung auf eine definierte Werte zurück. Dieses entspricht einem
-// Zurücksetzen auf den Werkzustand. Ein Factory-Reset kann auch per mqtt Befehl erreicht werden:
-//     mosquitto_pub -t d15/set/kwl/resetAll_IKNOWWHATIMDOING -m YES
-//
-#define  FACTORY_RESET_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
-
-#define  defStandardModeCnt 4
-double   defStandardKwlModeFactor[defStandardModeCnt] = {0, 0.7, 1, 1.3};   // Speichert die Solldrehzahlen in Relation zur Standardlüftungsstufe
-int      kwlMode                            = 2;                            // Standardlüftungsstufe
-#define  defStandardSpeedSetpointFan1      1550              // sju: 1450   // Drehzahlen für Standardlüftungsstufe
-#define  defStandardSpeedSetpointFan2      1550              // sju: 1100
-#define  defStandardNenndrehzahlFan        3200                             // Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min
-#define  defStandardBypassTempAbluftMin      24                             // Mindestablufttemperatur für die Öffnung des Bypasses im Automatik Betrieb
-#define  defStandardBypassTempAussenluftMin  13                             // Mindestaussenlufttemperatur für die Öffnung des Bypasses im Automatik Betrieb
-#define  defStandardBypassHystereseMinutes   60                             // Hystereszeit für eine Umstellung des Bypasses im Automatik Betrieb
-#define  defStandardBypassHystereseTemp       3                             // Hysteretemperatur für eine Umstellung des Bypasses im Automatik Betrieb
-#define  defStandardBypassManualSetpoint      1                             // 1 = Close, Stellung der Bypassklappen im manuellen Betrieb
-#define  defStandardBypassMode                0                             // 0 = Auto, Automatik oder manueller Betrieb der Bypassklappe. 
-// Im Automatikbetrieb steuert diese Steuerung die Bypass-Klappe, im manuellen Betrieb wird die Bypass-Klappe durch mqtt-Kommandos gesteuert.
-#define  defStandardHeatingAppCombUse         0                             // 0 = NO, 1 = YES
-// **************************************E N D E *** W E R K S E I N S T E L L U N G E N **********************************************************************
-
-
-// ************************************** A N S T E U E R U N G   D E R    R E L A I S ************************************************************************
-// Für die Lüfter und den Sommer-Bypass können bis zu vier Relais verbaut sein.
-// Ohne Sommer-Bypass kann die Schaltung auch ohne Relais betrieben werden.
-// Da verschiedene Relais unterschiedlich geschaltet werden, kann hier die logische
-// Schaltung definiert werden.
-#define RELAY_ON   LOW
-#define RELAY_OFF  HIGH
-// ************************************** E N D E   A N S T E U E R U N G   D E R    R E L A I S ***************************************************************
 
 
 // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
@@ -276,6 +219,11 @@ const char *TOPICKwlDebugsetTemperaturFortluft   = "d15/debugset/kwl/fortluft/te
 // Ende Topics
 
 
+Relay relBypassPower(kwl_config::PinBypassPower);
+Relay relBypassDirection(kwl_config::PinBypassDirection);
+Relay relFan1Power(kwl_config::PinFan1Power);
+Relay relFan2Power(kwl_config::PinFan2Power);
+
 // Sind die folgenden Variablen auf true, werden beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
 // anschliessend wird die Variable wieder auf false gesetzt
 boolean mqttCmdSendTemp                        = false;
@@ -317,24 +265,25 @@ unsigned long tachoFan2LastMillis     = 0;
 int cycleFan1Counter                  = 0;
 int cycleFan2Counter                  = 0;
 
-double StandardSpeedSetpointFan1      = defStandardSpeedSetpointFan1;      // Solldrehzahl im U/min für Zuluft bei kwlMode = 2 (Standardlüftungsstufe), Drehzahlen werden aus EEPROM gelesen.
-double StandardSpeedSetpointFan2      = defStandardSpeedSetpointFan2;      // Solldrehzahl im U/min für Abluft bei kwlMode = 2 (Standardlüftungsstufe)
+double StandardSpeedSetpointFan1      = kwl_config::StandardSpeedSetpointFan1;      // Solldrehzahl im U/min für Zuluft bei kwlMode = 2 (Standardlüftungsstufe), Drehzahlen werden aus EEPROM gelesen.
+double StandardSpeedSetpointFan2      = kwl_config::StandardSpeedSetpointFan2;      // Solldrehzahl im U/min für Abluft bei kwlMode = 2 (Standardlüftungsstufe)
 double speedSetpointFan1              = 0;                                 // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
 double speedSetpointFan2              = 0;                                 // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
 double techSetpointFan1               = 0;                                 // PWM oder Analogsignal 0..1000 für Zuluft
 double techSetpointFan2               = 0;                                 // PWM oder Analogsignal 0..1000 für Abluft
 // Ende Variablen für Lüfter
 
-int  PwmSetpointFan1[defStandardModeCnt];                                  // Speichert die pwm-Werte für die verschiedenen Drehzahlen
-int  PwmSetpointFan2[defStandardModeCnt];
+int  PwmSetpointFan1[kwl_config::StandardModeCnt];                                  // Speichert die pwm-Werte für die verschiedenen Drehzahlen
+int  PwmSetpointFan2[kwl_config::StandardModeCnt];
 
 #define FanMode_Normal                 0
 #define FanMode_Calibration            1
 int FanMode                           = FanMode_Normal;                   // Umschaltung zum Kalibrieren der PWM Signale zur Erreichung der Lüfterdrehzahlen für jede Stufe
 int actKwlMode = 0;
+int kwlMode = kwl_config::StandardKwlMode;
 
 // Start Definition für Heating Appliance (Feuerstätte)  //////////////////////////////////////////
-int            heatingAppCombUse                    = defStandardHeatingAppCombUse;
+int            heatingAppCombUse                    = kwl_config::StandardHeatingAppCombUse;
 unsigned long  heatingAppCombUseAntiFreezeInterval  = 14400000;   // 4 Stunden = 4 *60 * 60 * 1000
 unsigned long  heatingAppCombUseAntiFreezeStartTime = 0;
 // Ende  Definition für Heating Appliance (Feuerstätte)  //////////////////////////////////////////
@@ -362,14 +311,14 @@ unsigned long PreheaterStartMillis    = 0;        // Beginn der Vorheizung
 #define bypassFlapState_Close   1
 #define bypassFlapState_Open    2
 
-int  bypassManualSetpoint        = defStandardBypassManualSetpoint;   // Standardstellung Bypass
-int  bypassMode                  = defStandardBypassMode;             // Automatische oder Manuelle Steuerung der Bypass-Klappe
+int  bypassManualSetpoint        = kwl_config::StandardBypassManualSetpoint;   // Standardstellung Bypass
+int  bypassMode                  = kwl_config::StandardBypassMode;             // Automatische oder Manuelle Steuerung der Bypass-Klappe
 int  bypassFlapState             = bypassFlapState_Unknown;           // aktuelle Stellung der Bypass-Klappe
 int  bypassFlapStateDriveRunning = bypassFlapState_Unknown;
-int  bypassTempAbluftMin         = defStandardBypassTempAbluftMin;
-int  bypassTempAussenluftMin     = defStandardBypassTempAussenluftMin;
-int  bypassHystereseMinutes      = defStandardBypassHystereseMinutes;
-int  bypassFlapSetpoint          = defStandardBypassManualSetpoint;
+int  bypassTempAbluftMin         = kwl_config::StandardBypassTempAbluftMin;
+int  bypassTempAussenluftMin     = kwl_config::StandardBypassTempAussenluftMin;
+int  bypassHystereseMinutes      = kwl_config::StandardBypassHystereseMinutes;
+int  bypassFlapSetpoint          = kwl_config::StandardBypassManualSetpoint;
 
 unsigned long bypassLastChangeMillis   = 0;                       // Letzte Änderung für Hysterese
 long          bypassFlapsDriveTime = 120000; // 120 * 1000;       // Fahrzeit (ms) der Klappe zwischen den Stellungen Open und Close
@@ -575,7 +524,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
-    if (i <= defStandardModeCnt)  kwlMode = i;
+    if (i <= kwl_config::StandardModeCnt)  kwlMode = i;
     mqttCmdSendMode = true;
     // KWL Stufe
   }
@@ -739,8 +688,8 @@ void setSpeedToFan() {
   // max. Lüfterdrehzahl bei Pabstlüfter 3200 U/min
   // max. Drehzahl 2300 U/min bei Testaufbau (alte Prozessorlüfter)
 
-  speedSetpointFan1 = StandardSpeedSetpointFan1 * defStandardKwlModeFactor[kwlMode];
-  speedSetpointFan2 = StandardSpeedSetpointFan2 * defStandardKwlModeFactor[kwlMode];
+  speedSetpointFan1 = StandardSpeedSetpointFan1 * kwl_config::StandardKwlModeFactor[kwlMode];
+  speedSetpointFan2 = StandardSpeedSetpointFan2 * kwl_config::StandardKwlModeFactor[kwlMode];
 
   double gap1 = abs(speedSetpointFan1 - speedTachoFan1); //distance away from setpoint
   double gap2 = abs(speedSetpointFan2 - speedTachoFan2); //distance away from setpoint
@@ -1131,8 +1080,8 @@ void loopBypassSummerSetFlaps() {
           if (bypassFlapSetpoint == bypassFlapState_Close) {
 
             // Erst Richtung, dann Power
-            digitalWrite(relPinBypassDirection, RELAY_OFF);
-            digitalWrite(relPinBypassPower, RELAY_ON);
+            relBypassDirection.off();
+            relBypassPower.on();
 
             bypassFlapsRunning = true;
             bypassFlapStateDriveRunning = bypassFlapState_Close;
@@ -1140,8 +1089,8 @@ void loopBypassSummerSetFlaps() {
           } else if (bypassFlapSetpoint == bypassFlapState_Open) {
 
             // Erst Richtung, dann Power
-            digitalWrite(relPinBypassDirection, RELAY_ON);
-            digitalWrite(relPinBypassPower, RELAY_ON);
+            relBypassDirection.on();
+            relBypassPower.on();
 
             bypassFlapsRunning = true;
             bypassFlapStateDriveRunning = bypassFlapState_Open;
@@ -1154,8 +1103,8 @@ void loopBypassSummerSetFlaps() {
           // Klappe wurde gefahren, jetzt abschalten
           // Relais ausschalten
           // Erst Power, dann Richtung beim Ausschalten
-          digitalWrite(relPinBypassPower, RELAY_OFF);
-          digitalWrite(relPinBypassDirection, RELAY_OFF);
+          relBypassDirection.off();
+          relBypassPower.off();
 
           bypassFlapsRunning = false;
           bypassFlapState = bypassFlapStateDriveRunning;
@@ -1246,15 +1195,15 @@ void loopCheckForErrors() {
   if (currentMillis - previousMillisCheckForErrors > intervalCheckForErrors) {
     previousMillisCheckForErrors = currentMillis;
 
-    if (defStandardKwlModeFactor[kwlMode] != 0 && speedTachoFan1 < 10 && !antifreezeState && speedTachoFan2 < 10 ) {
+    if (kwl_config::StandardKwlModeFactor[kwlMode] != 0 && speedTachoFan1 < 10 && !antifreezeState && speedTachoFan2 < 10 ) {
       ErrorText = "Beide Luefter ausgefallen";
       return;
     }
-    else if (defStandardKwlModeFactor[kwlMode] != 0 && speedTachoFan1 < 10 && !antifreezeState ) {
+    else if (kwl_config::StandardKwlModeFactor[kwlMode] != 0 && speedTachoFan1 < 10 && !antifreezeState ) {
       ErrorText = "Zuluftluefter ausgefallen";
       return;
     }
-    else if (defStandardKwlModeFactor[kwlMode] != 0 && speedTachoFan2 < 10 ) {
+    else if (kwl_config::StandardKwlModeFactor[kwlMode] != 0 && speedTachoFan2 < 10 ) {
       ErrorText = "Abluftluefter ausgefallen";
       return;
     }
@@ -1350,10 +1299,10 @@ void initializeVariables()
   // PWM für max 10 Lüftungsstufen und zwei Lüfter und einem Integer
   // max 10 Werte * 2 Lüfter * 2 Byte
   // 20 bis 60
-  if (defStandardModeCnt > 10) {
+  if (kwl_config::StandardModeCnt > 10) {
     Serial.println(F("ERROR: ModeCnt zu groß"));
   }
-  for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
+  for (int i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
     eeprom_read_int (20 + (i * 4), &temp);
     PwmSetpointFan1[i] = temp;
     eeprom_read_int (22 + (i * 4), &temp);
@@ -1403,7 +1352,9 @@ void setup()
 
   Serial.print(F("Initialisierung Ethernet:"));
   tft.print(F("Initialisierung Ethernet:"));
-  Ethernet.begin(mac, ip, DnServer, gateway, subnet);
+  uint8_t mac[6];
+  kwl_config::mac.copy_to(mac);
+  Ethernet.begin(mac, kwl_config::ip, kwl_config::DnServer, kwl_config::gateway, kwl_config::subnet);
   delay(1500);    // Delay in Setup erlaubt
   lastMqttReconnectAttempt = 0;
   lastLanReconnectAttempt = 0;
@@ -1425,7 +1376,7 @@ void setup()
 
   Serial.println(F("Initialisierung Mqtt"));
   tft.println   (F("Initialisierung Mqtt"));
-  mqttClient.setServer(mqttbroker, 1883);
+  mqttClient.setServer(kwl_config::mqttbroker, 1883);
   mqttClient.setCallback(mqttReceiveMsg);
 
   Serial.println(F("Initialisierung Temperatursensoren"));
@@ -1470,16 +1421,12 @@ void setup()
   Serial.println (digitalPinToInterrupt(tachoPinFan2));
 
   // Relais Ansteuerung Lüfter
-  pinMode(relPinFan1Power, OUTPUT);
-  digitalWrite(relPinFan1Power, RELAY_ON);
-  pinMode(relPinFan2Power, OUTPUT);
-  digitalWrite(relPinFan2Power, RELAY_ON);
+  relFan1Power.on();
+  relFan2Power.on();
 
   // Relais Ansteuerung Bypass
-  pinMode(relPinBypassPower, OUTPUT);
-  digitalWrite(relPinBypassPower, RELAY_OFF);
-  pinMode(relPinBypassDirection, OUTPUT);
-  digitalWrite(relPinBypassDirection, RELAY_OFF);
+  relBypassPower.off();
+  relBypassDirection.off();
 
   if (ControlFansDAC == 1) {
     Wire.begin();               // I2C-Pins definieren
