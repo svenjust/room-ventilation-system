@@ -65,6 +65,7 @@
 #include <Wire.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#include "FanRPM.h"
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
 #define strVersion "v0.15"
@@ -273,6 +274,11 @@ const char *TOPICKwlDebugsetTemperaturAussenluft = "d15/debugset/kwl/aussenluft/
 const char *TOPICKwlDebugsetTemperaturZuluft     = "d15/debugset/kwl/zuluft/temperatur";
 const char *TOPICKwlDebugsetTemperaturAbluft     = "d15/debugset/kwl/abluft/temperatur";
 const char *TOPICKwlDebugsetTemperaturFortluft   = "d15/debugset/kwl/fortluft/temperatur";
+
+// Die folgenden Topics sind nur für die SW-Entwicklung, um Kalibrierung explizit zu setzen
+const char *TOPICKwlDebugsetFan1PWM         = "d15/debugset/kwl/fan1/pwm";
+const char *TOPICKwlDebugsetFan2PWM         = "d15/debugset/kwl/fan2/pwm";
+const char *TOPICKwlDebugsetFanPWMStore     = "d15/debugset/kwl/fan/pwm/store_IKNOWWHATIMDOING";
 // Ende Topics
 
 
@@ -307,15 +313,9 @@ double speedTachoFan1                 = 0;    // Zuluft U/min
 double speedTachoFan2                 = 0;    // Abluft U/min
 double SendMqttSpeedTachoFan1         = 0;
 double SendMqttSpeedTachoFan2         = 0;
-volatile long tachoFan1TimeSum        = 0;
-volatile long tachoFan2TimeSum        = 0;
-volatile byte tachoFan1CountSum       = 0;
-volatile byte tachoFan2CountSum       = 0;
-unsigned long tachoFan1LastMillis     = 0;
-unsigned long tachoFan2LastMillis     = 0;
 
-int cycleFan1Counter                  = 0;
-int cycleFan2Counter                  = 0;
+FanRPM fan1speed;
+FanRPM fan2speed;
 
 double StandardSpeedSetpointFan1      = defStandardSpeedSetpointFan1;      // Solldrehzahl im U/min für Zuluft bei kwlMode = 2 (Standardlüftungsstufe), Drehzahlen werden aus EEPROM gelesen.
 double StandardSpeedSetpointFan2      = defStandardSpeedSetpointFan2;      // Solldrehzahl im U/min für Abluft bei kwlMode = 2 (Standardlüftungsstufe)
@@ -712,6 +712,40 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       mqttCmdSendAlwaysDebugFan2 = false;
     }
   }
+  if (topicStr == TOPICKwlDebugsetFan1PWM) {
+    // update PWM value for the current state
+    payload[length] = '\0';
+    if (kwlMode != 0) {
+      int value = String((char*)payload).toInt();
+      if (value < 0)
+        value = 0;
+      if (value > 1000)
+        value = 1000;
+      PwmSetpointFan1[kwlMode] = value;
+      setSpeedToFan();
+    }
+  }
+  if (topicStr == TOPICKwlDebugsetFan2PWM) {
+    // update PWM value for the current state
+    payload[length] = '\0';
+    if (kwlMode != 0) {
+      int value = String((char*)payload).toInt();
+      if (value < 0)
+        value = 0;
+      if (value > 1000)
+        value = 1000;
+      PwmSetpointFan2[kwlMode] = value;
+      setSpeedToFan();
+    }
+  }
+  if (topicStr == TOPICKwlDebugsetFanPWMStore) {
+    // store calibration data in EEPROM
+    for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
+      eeprom_write_int(20 + (i * 4), PwmSetpointFan1[i]);
+      eeprom_write_int(22 + (i * 4), PwmSetpointFan2[i]);
+    }
+  }
+
   // Debug Messages, bis hier auskommentieren
 
 }
@@ -761,7 +795,7 @@ void setSpeedToFan() {
     PidFan2.Compute();
 
   } else if (FansCalculateSpeed == CalculateSpeed_PROP) {
-    techSetpointFan1 = PwmSetpointFan1[kwlMode] ;
+    techSetpointFan1 = PwmSetpointFan1[kwlMode];
     techSetpointFan2 = PwmSetpointFan2[kwlMode];
   }
 
@@ -799,6 +833,7 @@ void setSpeedToFan() {
     Serial.print (techSetpointFan1);
     Serial.print (F("\tspeedSetpointFan1: "));
     Serial.println(speedSetpointFan1);
+    fan1speed.dump();
 
     Serial.print (F("Fan 2: "));
     Serial.print (F("\tGap: "));
@@ -809,6 +844,7 @@ void setSpeedToFan() {
     Serial.print (techSetpointFan2);
     Serial.print (F("\tspeedSetpointFan2: "));
     Serial.println(speedSetpointFan2);
+    fan2speed.dump();
   }
   // Setzen per PWM
   analogWrite(pwmPinFan1, techSetpointFan1 / 4);
@@ -876,14 +912,10 @@ void SetPreheater() {
 }
 
 void countUpFan1() {
-  cycleFan1Counter++;
-  tachoFan1TimeSum += millis() - tachoFan1LastMillis;
-  tachoFan1LastMillis = millis();
+  fan1speed.interrupt();
 }
 void countUpFan2() {
-  cycleFan2Counter++;
-  tachoFan2TimeSum += millis() - tachoFan2LastMillis;
-  tachoFan2LastMillis = millis();
+  fan2speed.interrupt();
 }
 
 void loopTemperaturRequest() {
@@ -1177,39 +1209,24 @@ void loopBypassSummerSetFlaps() {
 }
 
 void loopTachoFan() {
-  // Die Geschindigkeit der beiden Lüfter wird bestimmt. Die eigentliche Zählung der Tachoimpulse
+  // Die Geschwindigkeit der beiden Lüfter wird bestimmt. Die eigentliche Zählung der Tachoimpulse
   // geschieht per Interrupt in countUpFan1 und countUpFan2
   currentMillis = millis();
   if (currentMillis - previousMillisFan >= intervalTachoFan) {
 
-    byte _cycleFan1Counter;
-    byte _cycleFan2Counter;
-    unsigned long _tachoFan1TimeSum;
-    unsigned long _tachoFan2TimeSum;
-
     noInterrupts();
-    // Variablen umkopieren
-    _cycleFan1Counter = cycleFan1Counter;
-    _cycleFan2Counter = cycleFan2Counter;
-    _tachoFan1TimeSum = tachoFan1TimeSum;
-    _tachoFan2TimeSum = tachoFan2TimeSum;
-    cycleFan1Counter = 0;
-    cycleFan2Counter = 0;
-    tachoFan1TimeSum = 0;
-    tachoFan2TimeSum = 0;
+    // Variablen umkopieren und resetten
+    fan1speed.capture();
+    fan2speed.capture();
     interrupts();
 
-    //Serial.println (_tachoFan1TimeSum);
-    //Serial.println (_cycleFan1Counter);
-    if (_tachoFan1TimeSum != 0) {
-      speedTachoFan1 = _cycleFan1Counter * 60000 / _tachoFan1TimeSum;  // Umdrehungen pro Minute
-    } else {
-      speedTachoFan1 = 0;
-    }
-    if (_tachoFan2TimeSum != 0) {
-      speedTachoFan2 = _cycleFan2Counter * 60000 / _tachoFan2TimeSum;  // Umdrehungen pro Minute
-    } else {
-      speedTachoFan2 = 0;
+    speedTachoFan1 = fan1speed.get_speed();
+    speedTachoFan2 = fan2speed.get_speed();
+    if (serialDebugFan == 1) {
+      Serial.print(F("Speed fan1: "));
+      Serial.print(speedTachoFan1);
+      Serial.print(F(", fan2: "));
+      Serial.println(speedTachoFan2);
     }
     previousMillisFan = currentMillis;
   }
@@ -1454,7 +1471,7 @@ void setup()
 
   // Lüfter Tacho Interrupt
   pinMode(tachoPinFan1, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(tachoPinFan1), countUpFan1, FALLING );
+  attachInterrupt(digitalPinToInterrupt(tachoPinFan1), countUpFan1, RISING );
 
   Serial.print (F("Pin und Interrupt: "));
   Serial.print (tachoPinFan1);
@@ -1462,7 +1479,7 @@ void setup()
   Serial.println (digitalPinToInterrupt(tachoPinFan1));
 
   pinMode(tachoPinFan2, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(tachoPinFan2), countUpFan2, FALLING );
+  attachInterrupt(digitalPinToInterrupt(tachoPinFan2), countUpFan2, RISING );
 
   Serial.print (F("Pin und Interrupt: "));
   Serial.print (tachoPinFan2);
