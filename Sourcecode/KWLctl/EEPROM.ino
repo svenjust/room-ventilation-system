@@ -184,51 +184,51 @@ void initializeEEPROM(boolean EraseMemory)
     eeprom_write_string(0, eeprombuffer);
 
     // Normdrehzahl Lüfter 1
-    eeprom_write_int(2, defStandardSpeedSetpointFan1);
+    eeprom_write_int(2, kwl_config::StandardSpeedSetpointFan1);
     
     // Normdrehzahl Lüfter 2
-    eeprom_write_int(4, defStandardSpeedSetpointFan2);
+    eeprom_write_int(4, kwl_config::StandardSpeedSetpointFan2);
 
     // bypassTempAbluftMin
-    eeprom_write_int(6, defStandardBypassTempAbluftMin);
+    eeprom_write_int(6, kwl_config::StandardBypassTempAbluftMin);
 
     // bypassTempAussenluftMin
-    eeprom_write_int(8, defStandardBypassTempAussenluftMin);
+    eeprom_write_int(8, kwl_config::StandardBypassTempAussenluftMin);
 
     // bypassHystereseMinutes
-    eeprom_write_int(10, defStandardBypassHystereseMinutes);
+    eeprom_write_int(10, kwl_config::StandardBypassHystereseMinutes);
 
     // antifreezeHyst 3
-    eeprom_write_int(12, defStandardBypassHystereseTemp);
+    eeprom_write_int(12, kwl_config::StandardBypassHystereseTemp);
 
     // bypassManualSetpoint
-    eeprom_write_int(14, defStandardBypassManualSetpoint);
+    eeprom_write_int(14, kwl_config::StandardBypassManualSetpoint);
 
     // bypassMode
-    eeprom_write_int(16, defStandardBypassMode);
+    eeprom_write_int(16, kwl_config::StandardBypassMode);
 
     // PWM für max 10 Lüftungsstufen und zwei Lüfter und einem Integer
     // max 10 Werte * 2 Lüfter * 2 Byte
     // 20 bis 60
     
-    if (defStandardModeCnt > 10) {
+    if (kwl_config::StandardModeCnt > 10) {
       Serial.println("ERROR: ModeCnt zu groß");
     }
-    for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
+    for (int i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
      /* Serial.print (F("Berechnung fuer Stufe: "));
       Serial.println (i);
       Serial.print("Wert Fan 1: ");
-      Serial.println((int)(defStandardSpeedSetpointFan1 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
+      Serial.println((int)(kwl_config::StandardSpeedSetpointFan1 * kwl_config::StandardKwlModeFactor[i] * 1000 / kwl_config::StandardNenndrehzahlFan));
       Serial.print("Wert Fan 2: ");
-      Serial.println((int)(defStandardSpeedSetpointFan2 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
+      Serial.println((int)(kwl_config::StandardSpeedSetpointFan2 * kwl_config::StandardKwlModeFactor[i] * 1000 / kwl_config::StandardNenndrehzahlFan));
       */
-      eeprom_write_int(20 + (i * 4), (int)(defStandardSpeedSetpointFan1 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
-      eeprom_write_int(22 + (i * 4), (int)(defStandardSpeedSetpointFan2 * defStandardKwlModeFactor[i] * 1000 / defStandardNenndrehzahlFan));
+      eeprom_write_int(20 + (i * 4), (int)(kwl_config::StandardSpeedSetpointFan1 * kwl_config::StandardKwlModeFactor[i] * 1000 / kwl_config::StandardNenndrehzahlFan));
+      eeprom_write_int(22 + (i * 4), (int)(kwl_config::StandardSpeedSetpointFan2 * kwl_config::StandardKwlModeFactor[i] * 1000 / kwl_config::StandardNenndrehzahlFan));
     }
     // ENDE PWM für max 10 Lüftungsstufen
 
     // heatingAppCombUse
-    eeprom_write_int(60, defStandardHeatingAppCombUse);
+    eeprom_write_int(60, kwl_config::StandardHeatingAppCombUse);
     
     // Weiter geht es ab Speicherplatz 62dez ff
     

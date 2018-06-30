@@ -46,8 +46,8 @@ boolean       CalibrationPwmStufeStartet      = false;
 unsigned long CalibrationPwmStufeStartMillis  = 0;
 unsigned long timeoutPwmStufeCalibration      = 300000;   // max 5 Minuten pro Stufe
 
-int  tempPwmSetpointFan1[defStandardModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
-int  tempPwmSetpointFan2[defStandardModeCnt];
+int  tempPwmSetpointFan1[kwl_config::StandardModeCnt];                                    // Speichert die pwm-Werte für die verschiedenen Drehzahlen
+int  tempPwmSetpointFan2[kwl_config::StandardModeCnt];
 
 #define goodPwmsCnt 30
 int  goodPwmsFan1[goodPwmsCnt];
@@ -65,7 +65,7 @@ void SpeedCalibrationStart() {
 
 boolean SpeedCalibrationPwmStufe(int actKwlMode) {
 
-  if (defStandardKwlModeFactor[actKwlMode] == 0) {
+  if (kwl_config::StandardKwlModeFactor[actKwlMode] == 0) {
     // Faktor Null ist einfach
     tempPwmSetpointFan1[actKwlMode] = 0;
     tempPwmSetpointFan2[actKwlMode] = 0;
@@ -73,8 +73,8 @@ boolean SpeedCalibrationPwmStufe(int actKwlMode) {
 
   } else {
     // Faktor ungleich 0
-    speedSetpointFan1 = StandardSpeedSetpointFan1 * defStandardKwlModeFactor[actKwlMode];
-    speedSetpointFan2 = StandardSpeedSetpointFan2 * defStandardKwlModeFactor[actKwlMode];
+    speedSetpointFan1 = StandardSpeedSetpointFan1 * kwl_config::StandardKwlModeFactor[actKwlMode];
+    speedSetpointFan2 = StandardSpeedSetpointFan2 * kwl_config::StandardKwlModeFactor[actKwlMode];
 
     double gap1 = abs(speedSetpointFan1 - speedTachoFan1); //distance away from setpoint
     double gap2 = abs(speedSetpointFan2 - speedTachoFan2); //distance away from setpoint
@@ -214,10 +214,10 @@ void SpeedCalibrationPwm() {
       // Einzelne Stufen kalibrieren
       if (SpeedCalibrationPwmStufe(actKwlMode)) {
         // true = Kalibrierung der Lüftungsstufe beendet
-        if (actKwlMode == defStandardModeCnt - 1) {
+        if (actKwlMode == kwl_config::StandardModeCnt - 1) {
           // fertig mit allen Stufen!!!
           // Speichern in EEProm und Variablen
-          for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
+          for (int i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
             PwmSetpointFan1[i] = tempPwmSetpointFan1[i];
             PwmSetpointFan2[i] = tempPwmSetpointFan2[i];
             eeprom_write_int(20 + (i * 4), PwmSetpointFan1[i]);
