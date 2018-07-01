@@ -48,12 +48,12 @@ void loopMqttSendFan() {
 
       itoa(speedTachoFan1, buffer, 10); //(integer, yourBuffer, base)
       mqttClient.publish(TOPICFan1Speed, buffer);
-      if (serialDebug == 1) {
+      if (kwl_config::serialDebug == 1) {
         Serial.println("speedTachoFan1: " + String(speedTachoFan1));
       }
       itoa(speedTachoFan2, buffer, 10); //(integer, yourBuffer, base)
       mqttClient.publish(TOPICFan2Speed, buffer);
-      if (serialDebug == 1) {
+      if (kwl_config::serialDebug == 1) {
         Serial.println("speedTachoFan2: " + String(speedTachoFan2));
       }
     }
@@ -96,19 +96,19 @@ void loopMqttSendBypass() {
 
       case bypassFlapState_Open:
         mqttClient.publish(TOPICKwlBypassState, "open");
-        if (serialDebug == 1) {
+        if (kwl_config::serialDebug == 1) {
           Serial.println(F("TOPICKwlBypassState: open"));
         }
         break;
       case bypassFlapState_Close:
         mqttClient.publish(TOPICKwlBypassState, "closed");
-        if (serialDebug == 1) {
+        if (kwl_config::serialDebug == 1) {
           Serial.println(F("TOPICKwlBypassState: closed"));
         }
         break;
       case bypassFlapState_Unknown:
         mqttClient.publish(TOPICKwlBypassState, "unknown");
-        if (serialDebug == 1) {
+        if (kwl_config::serialDebug == 1) {
           Serial.println(F("TOPICKwlBypassState: unknown"));
         }
         break;
@@ -128,28 +128,28 @@ void MqttSendBypassAllValues() {
 
     if (bypassMode == bypassMode_Auto) {
       mqttClient.publish(TOPICKwlBypassMode, "auto");
-      if (serialDebug == 1) {
+      if (kwl_config::serialDebug == 1) {
         Serial.println(F("TOPICKwlBypassMode: auto"));
       }
     } else if (bypassMode == bypassMode_Manual) {
       mqttClient.publish(TOPICKwlBypassMode, "manual");
-      if (serialDebug == 1) {
+      if (kwl_config::serialDebug == 1) {
         Serial.println(F("TOPICKwlBypassMode: manual"));
       }
     }
     itoa(bypassTempAbluftMin, buffer, 10);
     mqttClient.publish(TOPICKwlBypassTempAbluftMin, buffer);
-    if (serialDebug == 1) {
+    if (kwl_config::serialDebug == 1) {
       Serial.println("TOPICKwlBypassTempAbluftMin: " + String(bypassTempAbluftMin));
     }
     itoa(bypassTempAussenluftMin, buffer, 10);
     mqttClient.publish(TOPICKwlBypassTempAussenluftMin, buffer);
-    if (serialDebug == 1) {
+    if (kwl_config::serialDebug == 1) {
       Serial.println("TOPICKwlBypassTempAussenluftMin: " + String(bypassTempAussenluftMin));
     }
     itoa(bypassHystereseMinutes, buffer, 10);
     mqttClient.publish(TOPICKwlBypassHystereseMinutes, buffer);
-    if (serialDebug == 1) {
+    if (kwl_config::serialDebug == 1) {
       Serial.println("TOPICKwlBypassHystereseMinutes: " + String(bypassHystereseMinutes));
     }
   }
@@ -180,25 +180,25 @@ void loopMqttSendDHT() {
       if (DHT1IsAvailable) {
         dtostrf(DHT1Temp, 6, 2, buffer);
         mqttClient.publish(TOPICKwlDHT1Temperatur, buffer);
-        if (serialDebug == 1) {
+        if (kwl_config::serialDebug == 1) {
           Serial.println("TOPICKwlDHT1Temperatur: " + String(DHT1Temp));
         }
         dtostrf(DHT1Hum, 6, 2, buffer);
         mqttClient.publish(TOPICKwlDHT1Humidity, buffer);
-        if (serialDebug == 1) {
+        if (kwl_config::serialDebug == 1) {
           Serial.println("TOPICKwlDHT1Humidity: " + String(DHT1Hum));
         }
       }
       if (DHT2IsAvailable) {
         dtostrf(DHT2Temp, 6, 2, buffer);
         mqttClient.publish(TOPICKwlDHT2Temperatur, buffer);
-        if (serialDebug == 1) {
+        if (kwl_config::serialDebug == 1) {
           Serial.println("TOPICKwlDHT2Temperatur: " + String(DHT2Temp));
         }
 
         dtostrf(DHT2Hum, 6, 2, buffer);
         mqttClient.publish(TOPICKwlDHT2Humidity, buffer);
-        if (serialDebug == 1) {
+        if (kwl_config::serialDebug == 1) {
           Serial.println("TOPICKwlDHT2Humidity: " + String(DHT2Hum));
         }
       }
@@ -226,7 +226,7 @@ void loopMqttSendCo2() {
       if (MHZ14IsAvailable) {
         dtostrf(MHZ14_CO2_ppm, 6, 0, buffer);
         mqttClient.publish(TOPICKwlCO2Abluft, buffer);
-        if (serialDebug == 1) {
+        if (kwl_config::serialDebug == 1) {
           Serial.println("TOPICKwlCO2Abluft: " + String(MHZ14_CO2_ppm));
         }
       }
@@ -258,27 +258,27 @@ void loopMqttSendTemp() {
 
       dtostrf(TEMP1_Aussenluft, 6, 2, buffer);
       mqttClient.publish(TOPICKwlTemperaturAussenluft, buffer);
-      if (serialDebug == 1) {
+      if (kwl_config::serialDebug == 1) {
         Serial.println("TOPICKwlTemperaturAussenluft: " + String(TEMP1_Aussenluft));
       }
       dtostrf(TEMP2_Zuluft, 6, 2, buffer);
       mqttClient.publish(TOPICKwlTemperaturZuluft, buffer);
-      if (serialDebug == 1) {
+      if (kwl_config::serialDebug == 1) {
         Serial.println("TOPICKwlTemperaturZuluft: " + String(TEMP2_Zuluft));
       }
       dtostrf(TEMP3_Abluft, 6, 2, buffer);
       mqttClient.publish(TOPICKwlTemperaturAbluft, buffer);
-      if (serialDebug == 1) {
+      if (kwl_config::serialDebug == 1) {
         Serial.println("TOPICKwlTemperaturAbluft: " + String(TEMP3_Abluft));
       }
       dtostrf(TEMP4_Fortluft, 6, 2, buffer);
       mqttClient.publish(TOPICKwlTemperaturFortluft, buffer);
-      if (serialDebug == 1) {
+      if (kwl_config::serialDebug == 1) {
         Serial.println("TOPICKwlTemperaturFortluft: " + String(TEMP4_Fortluft));
       }
       itoa(EffiencyKwl, buffer, 10);
       mqttClient.publish(TOPICKwlEffiency, buffer);
-      if (serialDebug == 1) {
+      if (kwl_config::serialDebug == 1) {
         Serial.println("TOPICKwlEffiency: " + String(EffiencyKwl));
       }
       if (antifreezeState) {
@@ -322,7 +322,7 @@ void loopNetworkConnection() {
   if (!mqttClient.connected()) {
     long now = millis();
     if (now - lastMqttReconnectAttempt > 5000) {
-      //if (serialDebug == 1) {
+      //if (kwl_config::serialDebug == 1) {
       Serial.println(F("Mqtt Client not connected"));
       bMqttOk = false;
       //}

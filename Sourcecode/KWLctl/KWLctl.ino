@@ -65,8 +65,8 @@
 #include <Wire.h>
 #include <DHT.h>
 #include <DHT_U.h>
-#include "FanRPM.h"
 
+#include "FanRPM.h"
 #include "Relay.h"
 
 #include "kwl_config.h"
@@ -78,16 +78,6 @@
 // ***************************************************  A N S T E U E R U N G   P W M oder D A C   ***************************************************
 #define  ControlFansDAC         1 // 1 = zusätzliche Ansteuerung durch DAC über SDA und SLC (und PWM)
 // ****************************************** E N D E   A N S T E U E R U N G   P W M oder D A C   ***************************************************
-
-
-// ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
-#define serialDebug              1 // 1 = Allgemeine Debugausgaben auf der seriellen Schnittstelle aktiviert
-#define serialDebugFan           1 // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
-#define serialDebugAntifreeze    0 // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
-#define serialDebugSummerbypass  0 // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
-#define serialDebugDisplay       0 // 1 = Debugausgaben für die Displayanzeige
-#define serialDebugSensor        0 // 1 = Debugausgaben für die Sensoren
-// *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 
 
 // ***************************************************  T T F   U N D   T O U C H  ********************************************************
@@ -741,7 +731,7 @@ void setSpeedToFan() {
     mqtt_debug_fan2();
   }
 
-  if (serialDebugFan == 1) {
+  if (kwl_config::serialDebugFan == 1) {
     Serial.print (F("Timestamp: "));
     Serial.println ((long)millis());
     Serial.print (F("Fan 1: "));
@@ -802,7 +792,7 @@ void SetPreheater() {
   // Wenn der Zuluftventilator unter einer Schwelle des Tachosignals liegt, wird das Vorheizregister IMMER ausgeschaltet (SICHERHEIT)
   // Schwelle: 1000 U/min
 
-  if (serialDebugAntifreeze == 1) {
+  if (kwl_config::serialDebugAntifreeze == 1) {
     Serial.println (F("SetPreheater start"));
   }
 
@@ -885,7 +875,7 @@ void DoActionAntiFreezeState() {
 
     case antifreezeZuluftOff:
       // Zuluft aus
-      if (serialDebugAntifreeze == 1) Serial.println (F("fan1 = 0"));
+      if (kwl_config::serialDebugAntifreeze == 1) Serial.println (F("fan1 = 0"));
       techSetpointFan1 = 0;
       techSetpointPreheater = 0;
       break;
@@ -893,7 +883,7 @@ void DoActionAntiFreezeState() {
     case  antifreezeFireplace:
       // Feuerstättenmodus
       // beide Lüfter aus
-      if (serialDebugAntifreeze == 1) {
+      if (kwl_config::serialDebugAntifreeze == 1) {
         Serial.println (F("fan1 = 0"));
         Serial.println (F("fan2 = 0"));
       }
@@ -915,7 +905,7 @@ void loopAntiFreezeCheck() {
 
   currentMillis = millis();
   if (currentMillis - previousMillisAntifreeze >= intervalAntifreezeCheck) {
-    if (serialDebugAntifreeze == 1)  Serial.println (F("loopAntiFreezeCheck start"));
+    if (kwl_config::serialDebugAntifreeze == 1)  Serial.println (F("loopAntiFreezeCheck start"));
     previousMillisAntifreeze = currentMillis;
 
     // antifreezeState = aktueller Status der AntiFrostSchaltung
@@ -952,7 +942,7 @@ void loopAntiFreezeCheck() {
             (TEMP4_Fortluft <= antifreezeTemp) && (TEMP1_Aussenluft < 0.0)
             && (TEMP4_Fortluft > -127.0) && (TEMP1_Aussenluft > -127.0)) {
           // 10 Minuten vergangen seit antifreezeState == antifreezePreheater und Temperatur immer noch unter antifreezeTemp
-          if (serialDebugAntifreeze == 1) Serial.println (F("10 Minuten vergangen seit antifreezeState == antifreezePreheater"));
+          if (kwl_config::serialDebugAntifreeze == 1) Serial.println (F("10 Minuten vergangen seit antifreezeState == antifreezePreheater"));
 
           switch (heatingAppCombUse) {
             case 0:
@@ -989,7 +979,7 @@ void loopAntiFreezeCheck() {
           break;
         }
 
-        if (serialDebugAntifreeze == 1) {
+        if (kwl_config::serialDebugAntifreeze == 1) {
           Serial.print (F("millis: "));
           Serial.println (millis());
           Serial.print (F("antifreezeState: "));
@@ -1003,19 +993,19 @@ void loopBypassSummerCheck() {
   // Bedingungen für Sommer Bypass überprüfen und Variable ggfs setzen
   currentMillis = millis();
   if (currentMillis - previousMillisBypassSummerCheck >= intervalBypassSummerCheck) {
-    if (serialDebugSummerbypass == 1) {
+    if (kwl_config::serialDebugSummerbypass == 1) {
       Serial.println(F("BypassSummerCheck"));
     }
     previousMillisBypassSummerCheck = currentMillis;
     // Auto oder Manual?
     if (bypassMode == bypassMode_Auto) {
-      if (serialDebugSummerbypass == 1) {
+      if (kwl_config::serialDebugSummerbypass == 1) {
         Serial.println(F("bypassMode_Auto"));
       }
       // Automatic
       // Hysterese überprüfen
       if (currentMillis - bypassLastChangeMillis >= (bypassHystereseMinutes * 60L * 1000L)) {
-        if (serialDebugSummerbypass == 1) {
+        if (kwl_config::serialDebugSummerbypass == 1) {
           Serial.println(F("Time to Check"));
           Serial.print(F("TEMP1_Aussenluft       : "));
           Serial.println(TEMP1_Aussenluft);
@@ -1032,7 +1022,7 @@ void loopBypassSummerCheck() {
               && (TEMP1_Aussenluft > bypassTempAussenluftMin)) {
             //ok, dann Klappe öffen
             if (bypassFlapSetpoint != bypassFlapState_Open) {
-              if (serialDebugSummerbypass == 1) {
+              if (kwl_config::serialDebugSummerbypass == 1) {
                 Serial.println(F("Klappe öffen"));
               }
               bypassFlapSetpoint = bypassFlapState_Open;
@@ -1041,7 +1031,7 @@ void loopBypassSummerCheck() {
           } else {
             //ok, dann Klappe schliessen
             if (bypassFlapSetpoint != bypassFlapState_Close) {
-              if (serialDebugSummerbypass == 1) {
+              if (kwl_config::serialDebugSummerbypass == 1) {
                 Serial.println(F("Klappe schliessen"));
               }
               bypassFlapSetpoint = bypassFlapState_Close;
@@ -1063,7 +1053,7 @@ void loopBypassSummerSetFlaps() {
   // Klappe gemäß bypassFlapSetpoint setzen
   currentMillis = millis();
   if (currentMillis - previousMillisBypassSummerSetFlaps >= intervalBypassSummerSetFlaps) {
-    if (serialDebugSummerbypass == 1) {
+    if (kwl_config::serialDebugSummerbypass == 1) {
       Serial.println(F("loopBypassSummerSetFlaps"));
       Serial.print(F("bypassFlapSetpoint: "));
       Serial.println(bypassFlapSetpoint);
@@ -1076,7 +1066,7 @@ void loopBypassSummerSetFlaps() {
     if (bypassFlapSetpoint != bypassFlapState) {    // bypassFlapState wird NACH erfolgter Fahrt gesetzt
       if ((bypassFlapsStartTime == 0)  || (millis() - bypassFlapsStartTime > bypassFlapsDriveTime)) {
         if (!bypassFlapsRunning) {
-          if (serialDebugSummerbypass == 1) {
+          if (kwl_config::serialDebugSummerbypass == 1) {
             Serial.println(F("Jetzt werden die Relais angesteuert"));
           }
           // Jetzt werden die Relais angesteuert
@@ -1100,7 +1090,7 @@ void loopBypassSummerSetFlaps() {
             bypassFlapsStartTime = millis();
           }
         } else {
-          if (serialDebugSummerbypass == 1) {
+          if (kwl_config::serialDebugSummerbypass == 1) {
             Serial.println(F("Klappe wurde gefahren, jetzt abschalten"));
           }
           // Klappe wurde gefahren, jetzt abschalten
@@ -1142,7 +1132,7 @@ void loopTachoFan() {
 
     speedTachoFan1 = fan1speed.get_speed();
     speedTachoFan2 = fan2speed.get_speed();
-    if (serialDebugFan == 1) {
+    if (kwl_config::serialDebugFan == 1) {
       Serial.print(F("Speed fan1: "));
       Serial.print(speedTachoFan1);
       Serial.print(F(", fan2: "));

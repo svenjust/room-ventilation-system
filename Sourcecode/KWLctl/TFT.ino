@@ -767,7 +767,7 @@ void loopDisplayUpdate() {
   currentMillis = millis();
 
   if ((currentMillis - previousMillisDisplayUpdate >= intervalDisplayUpdate) || updateDisplayNow) {
-    if (serialDebugDisplay == 1) {
+    if (kwl_config::serialDebugDisplay == 1) {
       Serial.println(F("loopDisplayUpdate"));
     }
 
@@ -797,7 +797,7 @@ void loopDisplayUpdate() {
     }
 
     // Einzelseiten
-    if (serialDebugDisplay == 1) {
+    if (kwl_config::serialDebugDisplay == 1) {
       Serial.print ("loopDisplayUpdate: menuScreen: ");
       Serial.println(menuScreen);
     }
@@ -866,7 +866,7 @@ void loopDisplayUpdate() {
 
 void SetupBackgroundScreen() {
 
-  if (serialDebugDisplay == 1) {
+  if (kwl_config::serialDebugDisplay == 1) {
     Serial.println(F("SetupBackgroundScreen"));
   }
   tft.fillRect(0, 30, 480 - touchBtnWidth, 290, colBackColor);
@@ -965,7 +965,7 @@ void ShowMenu() {
 
 
 void DoMenuAction() {
-  if (serialDebugDisplay) {
+  if (kwl_config::serialDebugDisplay) {
     Serial.print (F("DoMenuAction "));
     Serial.println(menuScreen);
   }
@@ -1091,7 +1091,7 @@ void loopTouch()
 
       LastMillisTouch = millis();
 
-      if (serialDebugDisplay) {
+      if (kwl_config::serialDebugDisplay) {
         Serial.print("Touch (xpos / ypos): ");
         Serial.print(xpos);
         Serial.print(" / ");
@@ -1159,7 +1159,7 @@ void loopIsDisplayTouched() {
 
 // *** TFT starten
 void SetupTftScreen() {
-  if (serialDebugDisplay == 1) {
+  if (kwl_config::serialDebugDisplay == 1) {
     Serial.println(F("start_tft"));
   }
   ID = tft.readID();  // you must detect the correct controller
