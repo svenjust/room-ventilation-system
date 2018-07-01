@@ -60,8 +60,6 @@
 #include <Ethernet.h>
 #include <PubSubClient.h>       // mqtt Client
 #include <PID_v1.h>             // PID-Regler für die Drehzahlregelung
-#include <OneWire.h>            // OneWire Temperatursensoren
-#include <DallasTemperature.h>  // https://www.milesburton.com/Dallas_Temperature_Control_Library
 #include <Wire.h>
 #include <DHT.h>
 #include <DHT_U.h>
@@ -70,9 +68,12 @@
 #include "MultiPrint.h"
 #include "MQTTClient.h"
 #include "Relay.h"
+#include "Scheduler.h"
+#include "TempSensors.h"
 
 #include "kwl_config.h"
 #include "MQTTTopic.hpp"
+
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
 #define strVersion "v0.15"
@@ -129,7 +130,6 @@ Relay relFan2Power(kwl_config::PinFan2Power);
 
 // Sind die folgenden Variablen auf true, werden beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
 // anschliessend wird die Variable wieder auf false gesetzt
-boolean mqttCmdSendTemp                        = false;
 boolean mqttCmdSendDht                         = false;
 boolean mqttCmdSendMHZ14                       = false;
 boolean mqttCmdSendFans                        = false;
@@ -141,8 +141,6 @@ boolean mqttCmdSendConfig                      = false;
 boolean mqttCmdSendAlwaysDebugFan1             = true;
 boolean mqttCmdSendAlwaysDebugFan2             = true;
 boolean mqttCmdSendAlwaysDebugPreheater        = true;
-
-boolean EffiencyCalcNow = false;
 
 char   TEMPChar[10];            // Hilfsvariable zu Konvertierung
 char   buffer[7];               // the ASCII of the integer will be stored in this char array
@@ -227,9 +225,7 @@ unsigned long bypassFlapsStartTime = 0;                           // Startzeit f
 // Definitionen für das Scheduling
 unsigned long intervalTachoFan               = 950;
 unsigned long intervalSetFan                 = 1000;
-unsigned long intervalTempRead               = 5000;    // Abfrage Temperatur, muss größer als 1000 sein
 
-unsigned long intervalEffiencyCalc           = 5000;    // Berechnung Wirkungsgrad
 unsigned long intervalAntifreezeCheck        = 60000;   //  60000 = 60 * 1000         // Frostschutzprüfung je Minute
 unsigned long intervalAntiFreezeAlarmCheck   = 600000;  // 600000 = 10 * 60 * 1000;   // 10 Min Zeitraum zur Überprüfung, ob Vorheizregister die Temperatur erhöhen kann,
 unsigned long intervalBypassSummerCheck      = 60000;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
@@ -250,7 +246,6 @@ unsigned long intervalMqttBypassState        = 900000; //15 * 60 * 1000; 15 Minu
 
 unsigned long previousMillisFan                   = 0;
 unsigned long previousMillisSetFan                = 0;
-unsigned long previousMillisEffiencyCalc          = 0;
 unsigned long previousMillisAntifreeze            = 0;
 unsigned long previousMillisBypassSummerCheck     = 0;
 unsigned long previousMillisBypassSummerSetFlaps  = 0;
@@ -298,16 +293,12 @@ static Scheduler scheduler;
 // TODO move all MQTT service handling into the client
 static MQTTClient mqttClientWrapper(mqttClient);
 /// Set of temperature sensors
-static TempSensors tempSensors(scheduler, mqttClient, initTracer);
+static TempSensors tempSensors(scheduler, initTracer);
+/// Fan control.
+static FanControl fanControl(scheduler, mqttClient, initTracer)
 
 unsigned long lastMqttReconnectAttempt    = 0;
 unsigned long lastLanReconnectAttempt = 0;
-
-double TEMP1_Aussenluft = -127.0;    // Temperatur Außenluft
-double TEMP2_Zuluft     = -127.0;    // Temperatur Zuluft
-double TEMP3_Abluft     = -127.0;    // Temperatur Abluft
-double TEMP4_Fortluft   = -127.0;    // Temperatur Fortluft
-int    EffiencyKwl      =  100 ;     // Wirkungsgrad auf Differenzberechnung der Temps
 
 // PID REGLER
 // Define the aggressive and conservative Tuning Parameters
@@ -319,26 +310,10 @@ double heaterKp = 50, heaterKi = 0.1, heaterKd = 0.025;
 //Specify the links and initial tuning parameters
 PID PidFan1(&speedTachoFan1, &techSetpointFan1, &speedSetpointFan1, consKp, consKi, consKd, P_ON_M, DIRECT );
 PID PidFan2(&speedTachoFan2, &techSetpointFan2, &speedSetpointFan2, consKp, consKi, consKd, P_ON_M, DIRECT );
-PID PidPreheater(&TEMP4_Fortluft, &techSetpointPreheater, &antifreezeTempUpperLimit, heaterKp, heaterKi, heaterKd, P_ON_M, DIRECT);
+PID PidPreheater(&tempSensors.get_t4_exhaust(), &techSetpointPreheater, &antifreezeTempUpperLimit, heaterKp, heaterKi, heaterKd, P_ON_M, DIRECT);
 ///////////////////////
 
-// Temperatur Sensoren, Pinbelegung steht oben
-#define TEMPERATURE_PRECISION 0x1F            // Genauigkeit der Temperatursensoren 9_BIT, Standard sind 12_BIT
-OneWire Temp1OneWire(kwl_config::PinTemp1OneWireBus);     // Einrichten des OneWire Bus um die Daten der Temperaturfühler abzurufen
-OneWire Temp2OneWire(kwl_config::PinTemp2OneWireBus);
-OneWire Temp3OneWire(kwl_config::PinTemp3OneWireBus);
-OneWire Temp4OneWire(kwl_config::PinTemp4OneWireBus);
-DallasTemperature Temp1Sensor(&Temp1OneWire); // Bindung der Sensoren an den OneWire Bus
-DallasTemperature Temp2Sensor(&Temp2OneWire);
-DallasTemperature Temp3Sensor(&Temp3OneWire);
-DallasTemperature Temp4Sensor(&Temp4OneWire);
-
 //
-float SendMqttTEMP1 = 0;    // Temperatur Außenluft, gesendet per Mqtt
-float SendMqttTEMP2 = 0;    // Temperatur Zuluft
-float SendMqttTEMP3 = 0;    // Temperatur Abluft
-float SendMqttTEMP4 = 0;    // Temperatur Fortluft
-
 float SendMqttDHT1Temp = 0;    // Temperatur Außenluft, gesendet per Mqtt
 float SendMqttDHT1Hum  = 0;    // Temperatur Zuluft
 float SendMqttDHT2Temp = 0;    // Temperatur Abluft
@@ -482,23 +457,18 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       int i = 1;
       heatingAppCombUse = i;
       eeprom_write_int(60, i);
-      mqttCmdSendTemp = true;
+      tempSensors.forceSend();
     }
     if (s == "NO")   {
       Serial.println(F("Feuerstättenmodus wird DEAKTIVIERT und gespeichert"));
       int i = 0;
       heatingAppCombUse = i;
       eeprom_write_int(60, i);
-      mqttCmdSendTemp = true;
+      tempSensors.forceSend();
     }
   }
 
   // Get Commands
-  else if (topicStr == MQTTTopic::CmdGetTemp) {
-    payload[length] = '\0';
-    String s = String((char*)payload);
-    mqttCmdSendTemp = true;
-  }
   else if (topicStr == MQTTTopic::CmdGetSpeed) {
     payload[length] = '\0';
     String s = String((char*)payload);
@@ -513,7 +483,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // Alle Values
     payload[length] = '\0';
     String s = String((char*)payload);
-    mqttCmdSendTemp            = true;
+    tempSensors.forceSend();
     mqttCmdSendDht             = true;
     mqttCmdSendFans            = true;
     mqttCmdSendBypassAllValues = true;
@@ -523,80 +493,23 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   // Debug Messages, den folgenden Block in der produktiven Version auskommentieren
   else if (topicStr == MQTTTopic::KwlDebugsetTemperaturAussenluft) {
     payload[length] = '\0';
-    TEMP1_Aussenluft = String((char*)payload).toFloat();
-    EffiencyCalcNow = true;
-    mqttCmdSendTemp = true;
+    tempSensors.get_t1_outside() = String((char*)payload).toFloat();
+    tempSensors.forceSend();
   }
   else if (topicStr == MQTTTopic::KwlDebugsetTemperaturZuluft) {
     payload[length] = '\0';
-    TEMP2_Zuluft = String((char*)payload).toFloat();
-    EffiencyCalcNow = true;
-    mqttCmdSendTemp = true;
+    tempSensors.get_t2_inlet() = String((char*)payload).toFloat();
+    tempSensors.forceSend();
   }
   else if (topicStr == MQTTTopic::KwlDebugsetTemperaturAbluft) {
     payload[length] = '\0';
-    TEMP3_Abluft = String((char*)payload).toFloat();
-    EffiencyCalcNow = true;
-    mqttCmdSendTemp = true;
+    tempSensors.get_t3_outlet() = String((char*)payload).toFloat();
+    tempSensors.forceSend();
   }
   else if (topicStr == MQTTTopic::KwlDebugsetTemperaturFortluft) {
     payload[length] = '\0';
-    TEMP4_Fortluft = String((char*)payload).toFloat();
-    EffiencyCalcNow = true;
-    mqttCmdSendTemp = true;
-  }
-  else if (topicStr == MQTTTopic::KwlDebugsetFan1Getvalues) {
-    payload[length] = '\0';
-    String s = String((char*)payload);
-    if (s == "on")   {
-      mqttCmdSendAlwaysDebugFan1 = true;
-    }
-    if (s == "off")  {
-      mqttCmdSendAlwaysDebugFan1 = false;
-    }
-  }
-  else if (topicStr == MQTTTopic::KwlDebugsetFan2Getvalues) {
-    payload[length] = '\0';
-    String s = String((char*)payload);
-    if (s == "on")   {
-      mqttCmdSendAlwaysDebugFan2 = true;
-    }
-    if (s == "off")  {
-      mqttCmdSendAlwaysDebugFan2 = false;
-    }
-  }
-  else if (topicStr == MQTTTopic::KwlDebugsetFan1PWM) {
-    // update PWM value for the current state
-    payload[length] = '\0';
-    if (kwlMode != 0) {
-      int value = String((char*)payload).toInt();
-      if (value < 0)
-        value = 0;
-      if (value > 1000)
-        value = 1000;
-      PwmSetpointFan1[kwlMode] = value;
-      setSpeedToFan();
-    }
-  }
-  else if (topicStr == MQTTTopic::KwlDebugsetFan2PWM) {
-    // update PWM value for the current state
-    payload[length] = '\0';
-    if (kwlMode != 0) {
-      int value = String((char*)payload).toInt();
-      if (value < 0)
-        value = 0;
-      if (value > 1000)
-        value = 1000;
-      PwmSetpointFan2[kwlMode] = value;
-      setSpeedToFan();
-    }
-  }
-  else if (topicStr == MQTTTopic::KwlDebugsetFanPWMStore) {
-    // store calibration data in EEPROM
-    for (int i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
-      eeprom_write_int(20 + (i * 4), PwmSetpointFan1[i]);
-      eeprom_write_int(22 + (i * 4), PwmSetpointFan2[i]);
-    }
+    tempSensors.get_t4_exhaust() = String((char*)payload).toFloat();
+    tempSensors.forceSend();
   }
   // Debug Messages, bis hier auskommentieren
   else {
@@ -774,44 +687,10 @@ void countUpFan2() {
   fan2speed.interrupt();
 }
 
-void loopTemperaturRequest() {
-  // Diese Routine startet den Request  bei OneWire Sensoren
-  // Dies geschieht 1000mS vor der Abfrage der Temperaturen
-  // in loopTemperaturRead. loopTemperaturRead setzt auch
-  // previousMillisTemp neu.
-  currentMillis = millis();
-  if (currentMillis - previousMillisTemp >= intervalTempRead - 1000) {
-    Temp1Sensor.requestTemperatures();
-    Temp2Sensor.requestTemperatures();
-    Temp3Sensor.requestTemperatures();
-    Temp4Sensor.requestTemperatures();
-  }
-}
-
-void loopTemperaturRead() {
-  currentMillis = millis();
-  if (currentMillis - previousMillisTemp >= intervalTempRead) {
-    previousMillisTemp = currentMillis;
-    float t;
-    t = Temp1Sensor.getTempCByIndex(0); if (t > -127.0) {
-      TEMP1_Aussenluft = t;
-    }
-    t = Temp2Sensor.getTempCByIndex(0); if (t > -127.0) {
-      TEMP2_Zuluft = t;
-    }
-    t = Temp3Sensor.getTempCByIndex(0); if (t > -127.0) {
-      TEMP3_Abluft = t;
-    }
-    t = Temp4Sensor.getTempCByIndex(0); if (t > -127.0) {
-      TEMP4_Fortluft = t;
-    }
-  }
-}
-
 void DoActionAntiFreezeState() {
   // Funktion wird ausgeführt, um AntiFreeze (Frostschutz) zu erreichen.
 
-  mqttCmdSendTemp = true;
+  tempSensors.forceSend();
 
   switch (antifreezeState) {
 
@@ -862,8 +741,8 @@ void loopAntiFreezeCheck() {
     switch (antifreezeState) {
 
       case antifreezeOff:  // antifreezeState = 0
-        if ((TEMP4_Fortluft <= antifreezeTemp) && (TEMP1_Aussenluft < 0.0)
-            && (TEMP4_Fortluft > -127.0) && (TEMP1_Aussenluft > -127.0))         // Wenn Sensoren fehlen, ist der Wert -127
+        if ((tempSensors.get_t4_exhaust() <= antifreezeTemp) && (tempSensors.get_t1_outside() < 0.0)
+            && (tempSensors.get_t4_exhaust() > TempSensors::INVALID) && (tempSensors.get_t1_outside() > TempSensors::INVALID))         // Wenn Sensoren fehlen, ist der Wert INVALID
         {
           // Neuer Status: antifreezePreheater
           antifreezeState = antifreezePreheater;
@@ -878,15 +757,15 @@ void loopAntiFreezeCheck() {
       // Vorheizregister ist an
       case  antifreezePreheater:  // antifreezeState = 1
 
-        if (TEMP4_Fortluft > antifreezeTemp + antifreezeHyst) {
+        if (tempSensors.get_t4_exhaust() > antifreezeTemp + antifreezeHyst) {
           // Neuer Status: antifreezeOff
           antifreezeState = antifreezeOff;
           PidPreheater.SetMode(MANUAL);
         }
 
         if ((currentMillis - PreheaterStartMillis > intervalAntiFreezeAlarmCheck) &&
-            (TEMP4_Fortluft <= antifreezeTemp) && (TEMP1_Aussenluft < 0.0)
-            && (TEMP4_Fortluft > -127.0) && (TEMP1_Aussenluft > -127.0)) {
+            (tempSensors.get_t4_exhaust() <= antifreezeTemp) && (tempSensors.get_t1_outside() < 0.0)
+            && (tempSensors.get_t4_exhaust() > TempSensors::INVALID) && (tempSensors.get_t1_outside() > TempSensors::INVALID)) {
           // 10 Minuten vergangen seit antifreezeState == antifreezePreheater und Temperatur immer noch unter antifreezeTemp
           if (kwl_config::serialDebugAntifreeze == 1) Serial.println (F("10 Minuten vergangen seit antifreezeState == antifreezePreheater"));
 
@@ -908,7 +787,7 @@ void loopAntiFreezeCheck() {
 
         // Zuluftventilator ist aus, kein KAMIN angeschlossen
         case antifreezeZuluftOff:  // antifreezeState = 2
-          if (TEMP4_Fortluft > antifreezeTemp + antifreezeHyst) {
+          if (tempSensors.get_t4_exhaust() > antifreezeTemp + antifreezeHyst) {
             // Neuer Status: antifreezeOff
             antifreezeState = antifreezeOff;
             PidPreheater.SetMode(MANUAL);
@@ -954,18 +833,18 @@ void loopBypassSummerCheck() {
         if (kwl_config::serialDebugSummerbypass == 1) {
           Serial.println(F("Time to Check"));
           Serial.print(F("TEMP1_Aussenluft       : "));
-          Serial.println(TEMP1_Aussenluft);
+          Serial.println(tempSensors.get_t1_outside());
           Serial.print(F("TEMP3_Abluft           : "));
-          Serial.println(TEMP3_Abluft);
+          Serial.println(tempSensors.get_t3_outlet());
           Serial.print(F("bypassTempAbluftMin    : "));
           Serial.println(bypassTempAbluftMin);
           Serial.print(F("bypassTempAussenluftMin: "));
           Serial.println(bypassTempAussenluftMin);
         }
-        if ((TEMP1_Aussenluft > -127.0) && (TEMP3_Abluft > -127.0)) {
-          if ((TEMP1_Aussenluft    < TEMP3_Abluft - 2)
-              && (TEMP3_Abluft     > bypassTempAbluftMin)
-              && (TEMP1_Aussenluft > bypassTempAussenluftMin)) {
+        if ((tempSensors.get_t1_outside() > TempSensors::INVALID) && (tempSensors.get_t3_outlet() > TempSensors::INVALID)) {
+          if ((tempSensors.get_t1_outside()    < tempSensors.get_t3_outlet() - 2)
+              && (tempSensors.get_t3_outlet()     > bypassTempAbluftMin)
+              && (tempSensors.get_t1_outside() > bypassTempAussenluftMin)) {
             //ok, dann Klappe öffen
             if (bypassFlapSetpoint != bypassFlapState_Open) {
               if (kwl_config::serialDebugSummerbypass == 1) {
@@ -1101,17 +980,6 @@ void loopSetFan() {
   }
 }
 
-void loopEffiencyCalc() {
-  // Berechnung des Wirkungsgrades
-  currentMillis = millis();
-  if ((currentMillis - previousMillisEffiencyCalc > intervalEffiencyCalc) || EffiencyCalcNow) {
-    previousMillisEffiencyCalc = currentMillis;
-    if (TEMP3_Abluft - TEMP1_Aussenluft != 0 ) {
-      EffiencyKwl = (int) (100 * (TEMP2_Zuluft - TEMP1_Aussenluft) / (TEMP3_Abluft - TEMP1_Aussenluft));
-    }
-  }
-}
-
 void loopCheckForErrors() {
   // In dieser Funktion wird auf verschiedene Fehler getestet und der gravierenste Fehler wird in die Variable ErrorText geschrieben
   // ErrorText wird auf das Display geschrieben.
@@ -1131,12 +999,12 @@ void loopCheckForErrors() {
       ErrorText = "Abluftluefter ausgefallen";
       return;
     }
-    else if (TEMP1_Aussenluft == -127.0 || TEMP2_Zuluft == -127.0 || TEMP3_Abluft == -127.0 || TEMP4_Fortluft == -127.0) {
+    else if (tempSensors.get_t1_outside() == TempSensors::INVALID || tempSensors.get_t2_inlet() == TempSensors::INVALID || tempSensors.get_t3_outlet() == TempSensors::INVALID || tempSensors.get_t4_exhaust() == TempSensors::INVALID) {
       ErrorText = "Temperatursensor(en) ausgefallen: ";
-      if (TEMP1_Aussenluft == -127.0) ErrorText += "T1 ";
-      if (TEMP2_Zuluft == -127.0) ErrorText += "T2 ";
-      if (TEMP3_Abluft == -127.0) ErrorText += "T3 ";
-      if (TEMP4_Fortluft == -127.0) ErrorText += "T4 ";
+      if (tempSensors.get_t1_outside() == TempSensors::INVALID) ErrorText += "T1 ";
+      if (tempSensors.get_t2_inlet() == TempSensors::INVALID) ErrorText += "T2 ";
+      if (tempSensors.get_t3_outlet() == TempSensors::INVALID) ErrorText += "T3 ";
+      if (tempSensors.get_t4_exhaust() == TempSensors::INVALID) ErrorText += "T4 ";
     }
     else
     {
@@ -1295,22 +1163,6 @@ void setup()
   mqttClient.setServer(kwl_config::mqttbroker, 1883);
   mqttClient.setCallback(mqttReceiveMsg);
 
-  Serial.println(F("Initialisierung Temperatursensoren"));
-  tft.println   (F("Initialisierung Temperatursensoren"));
-  // Temperatursensoren
-  Temp1Sensor.begin();
-  Temp1Sensor.setResolution(TEMPERATURE_PRECISION);
-  Temp1Sensor.setWaitForConversion(false);
-  Temp2Sensor.begin();
-  Temp2Sensor.setResolution(TEMPERATURE_PRECISION);
-  Temp2Sensor.setWaitForConversion(false);
-  Temp3Sensor.begin();
-  Temp3Sensor.setResolution(TEMPERATURE_PRECISION);
-  Temp3Sensor.setWaitForConversion(false);
-  Temp4Sensor.begin();
-  Temp4Sensor.setResolution(TEMPERATURE_PRECISION);
-  Temp4Sensor.setWaitForConversion(false);
-
   Serial.println(F("Initialisierung Ventilatoren"));
   tft.println(F("Initialisierung Ventilatoren"));
   // Lüfter Speed
@@ -1339,7 +1191,6 @@ void setup()
   // Relais Ansteuerung Lüfter
   relFan1Power.on();
   relFan2Power.on();
-
   // Relais Ansteuerung Bypass
   relBypassPower.off();
   relBypassDirection.off();
@@ -1416,6 +1267,7 @@ void setup()
 // *** LOOP START ***
 void loop()
 {
+  scheduler.loop();
   //loopWrite100Millis();
 
   loopTachoFan();
@@ -1423,17 +1275,13 @@ void loop()
   loopAntiFreezeCheck();
   loopBypassSummerCheck();
   loopBypassSummerSetFlaps();
-  loopTemperaturRequest();
-  loopTemperaturRead();
   loopDHTRead();
   loopMHZ14Read();
   loopVocRead();
-  loopEffiencyCalc();
   loopCheckForErrors();
 
   loopMqttSendMode();
   loopMqttSendFan();
-  loopMqttSendTemp();
   loopMqttSendDHT();
   loopMqttSendBypass();
 

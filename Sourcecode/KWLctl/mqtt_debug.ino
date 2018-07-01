@@ -61,7 +61,7 @@ void mqtt_debug_Preheater() {
   out =  "Preheater - M: ";
   out += millis();
   out += ", Gap: ";
-  out += abs(antifreezeTempUpperLimit - TEMP4_Fortluft);
+  out += abs(antifreezeTempUpperLimit - tempSensors.get_t4_exhaust());
   out += ", techSetpointPreheater: ";
   out += techSetpointPreheater;
   char _buffer[out.length()];

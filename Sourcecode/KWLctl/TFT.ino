@@ -193,46 +193,46 @@ void loopDisplayUpdateScreen0() {
     tft.print(strPrint);
   }
   // T1
-  if (abs(LastDisplayT1 - TEMP1_Aussenluft) > 0.5 || updateDisplayNow) {
-    LastDisplayT1 = TEMP1_Aussenluft;
+  if (abs(LastDisplayT1 - tempSensors.get_t1_outside()) > 0.5 || updateDisplayNow) {
+    LastDisplayT1 = tempSensors.get_t1_outside();
     tft.fillRect(160, 166, 80, numberfieldheight, colBackColor);
-    dtostrf(TEMP1_Aussenluft, 5, 1, strPrint);
+    dtostrf(tempSensors.get_t1_outside(), 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 166 + baselineMiddle);
     tft.print(strPrint);
   }
   // T2
-  if (abs(LastDisplayT2 - TEMP2_Zuluft) > 0.5 || updateDisplayNow) {
-    LastDisplayT2 = TEMP2_Zuluft;
+  if (abs(LastDisplayT2 - tempSensors.get_t2_inlet()) > 0.5 || updateDisplayNow) {
+    LastDisplayT2 = tempSensors.get_t2_inlet();
     tft.fillRect(160, 192, 80, numberfieldheight, colBackColor);
-    dtostrf(TEMP2_Zuluft, 5, 1, strPrint);
+    dtostrf(tempSensors.get_t2_inlet(), 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 192 + baselineMiddle);
     tft.print(strPrint);
   }
   // T3
-  if (abs(LastDisplayT3 - TEMP3_Abluft) > 0.5 || updateDisplayNow) {
-    LastDisplayT3 = TEMP3_Abluft;
+  if (abs(LastDisplayT3 - tempSensors.get_t3_outlet()) > 0.5 || updateDisplayNow) {
+    LastDisplayT3 = tempSensors.get_t3_outlet();
     tft.fillRect(160, 218, 80, numberfieldheight, colBackColor);
-    dtostrf(TEMP3_Abluft, 5, 1, strPrint);
+    dtostrf(tempSensors.get_t3_outlet(), 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 218 + baselineMiddle);
     tft.print(strPrint);
   }
   // T4
-  if (abs(LastDisplayT4 - TEMP4_Fortluft) > 0.5 || updateDisplayNow) {
-    LastDisplayT4 = TEMP4_Fortluft;
+  if (abs(LastDisplayT4 - tempSensors.get_t4_exhaust()) > 0.5 || updateDisplayNow) {
+    LastDisplayT4 = tempSensors.get_t4_exhaust();
     tft.fillRect(160, 244, 80, numberfieldheight, colBackColor);
-    dtostrf(TEMP4_Fortluft, 5, 1, strPrint);
+    dtostrf(tempSensors.get_t4_exhaust(), 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 244 + baselineMiddle);
     tft.print(strPrint);
   }
   // Etha Wirkungsgrad
-  if (abs(LastEffiencyKwl - EffiencyKwl) > 1 || updateDisplayNow) {
-    LastEffiencyKwl = EffiencyKwl;
+  if (abs(LastEffiencyKwl - tempSensors.getEfficiency()) > 1 || updateDisplayNow) {
+    LastEffiencyKwl = tempSensors.getEfficiency();
     tft.fillRect(160, 270, 80, numberfieldheight, colBackColor);
-    sprintf(strPrint, "%5d %%", (int)EffiencyKwl);
+    sprintf(strPrint, "%5d %%", (int)tempSensors.getEfficiency());
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 270 + baselineMiddle);
     tft.print(strPrint);
