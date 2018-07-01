@@ -70,6 +70,7 @@
 #include "Relay.h"
 
 #include "kwl_config.h"
+#include "MQTTTopic.hpp"
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
 #define strVersion "v0.15"
@@ -117,73 +118,6 @@ TSPoint tp;
 #define MAXPRESSURE 1000
 #define SWAP(a, b) {uint16_t tmp = a; a = b; b = tmp;}
 // ***************************************************  E N D E   T T F   U N D   T O U C H  ********************************************************
-
-
-// MQTT Topics für die Kommunikation zwischen dieser Steuerung und einem mqtt Broker
-// Die Topics sind in https://github.com/svenjust/room-ventilation-system/blob/master/Docs/mqtt%20topics/mqtt_topics.ods erläutert.
-
-const char *TOPICCommand                    = "d15/set/#";
-const char *TOPICCommandDebug               = "d15/debugset/#";
-const char *TOPICCmdResetAll                = "d15/set/kwl/resetAll_IKNOWWHATIMDOING";
-const char *TOPICCmdCalibrateFans           = "d15/set/kwl/calibratefans";
-const char *TOPICCmdFansCalculateSpeedMode  = "d15/set/kwl/fans/calculatespeed";
-const char *TOPICCmdFan1Speed               = "d15/set/kwl/fan1/standardspeed";
-const char *TOPICCmdFan2Speed               = "d15/set/kwl/fan2/standardspeed";
-const char *TOPICCmdGetSpeed                = "d15/set/kwl/fans/getspeed";
-const char *TOPICCmdGetTemp                 = "d15/set/kwl/temperatur/gettemp";
-const char *TOPICCmdGetvalues               = "d15/set/kwl/getvalues";
-const char *TOPICCmdMode                    = "d15/set/kwl/lueftungsstufe";
-const char *TOPICCmdAntiFreezeHyst          = "d15/set/kwl/antifreeze/hysterese";
-const char *TOPICCmdBypassGetValues         = "d15/set/kwl/summerbypass/getvalues";
-const char *TOPICCmdBypassManualFlap        = "d15/set/kwl/summerbypass/flap";
-const char *TOPICCmdBypassMode              = "d15/set/kwl/summerbypass/mode";
-const char *TOPICCmdBypassHystereseMinutes  = "d15/set/kwl/summerbypass/HystereseMinutes";
-const char *TOPICCmdHeatingAppCombUse       = "d15/set/kwl/heatingapp/combinedUse";
-
-const char *TOPICHeartbeat                  = "d15/state/kwl/heartbeat";
-const char *TOPICFan1Speed                  = "d15/state/kwl/fan1/speed";
-const char *TOPICFan2Speed                  = "d15/state/kwl/fan2/speed";
-const char *TOPICKwlOnline                  = "d15/state/kwl/heartbeat";
-const char *TOPICStateKwlMode               = "d15/state/kwl/lueftungsstufe";
-const char *TOPICKwlTemperaturAussenluft    = "d15/state/kwl/aussenluft/temperatur";
-const char *TOPICKwlTemperaturZuluft        = "d15/state/kwl/zuluft/temperatur";
-const char *TOPICKwlTemperaturAbluft        = "d15/state/kwl/abluft/temperatur";
-const char *TOPICKwlTemperaturFortluft      = "d15/state/kwl/fortluft/temperatur";
-const char *TOPICKwlEffiency                = "d15/state/kwl/effiencyKwl";
-const char *TOPICKwlAntifreeze              = "d15/state/kwl/antifreeze";
-const char *TOPICKwlBypassState             = "d15/state/kwl/summerbypass/flap";
-const char *TOPICKwlBypassMode              = "d15/state/kwl/summerbypass/mode";
-const char *TOPICKwlBypassTempAbluftMin     = "d15/state/kwl/summerbypass/TempAbluftMin";
-const char *TOPICKwlBypassTempAussenluftMin = "d15/state/kwl/summerbypass/TempAussenluftMin";
-const char *TOPICKwlBypassHystereseMinutes  = "d15/state/kwl/summerbypass/HystereseMinutes";
-const char *TOPICKwlHeatingAppCombUse       = "d15/state/kwl/heatingapp/combinedUse";
-
-const char *TOPICKwlDHT1Temperatur          = "d15/state/kwl/dht1/temperatur";
-const char *TOPICKwlDHT2Temperatur          = "d15/state/kwl/dht2/temperatur";
-const char *TOPICKwlDHT1Humidity            = "d15/state/kwl/dht1/humidity";
-const char *TOPICKwlDHT2Humidity            = "d15/state/kwl/dht2/humidity";
-const char *TOPICKwlCO2Abluft               = "d15/state/kwl/abluft/co2";
-const char *TOPICKwlVOCAbluft               = "d15/state/kwl/abluft/voc";
-
-
-// Die folgenden Topics sind nur für die SW-Entwicklung, und schalten Debugausgaben per mqtt ein und aus
-const char *TOPICKwlDebugsetFan1Getvalues   = "d15/debugset/kwl/fan1/getvalues";
-const char *TOPICKwlDebugsetFan2Getvalues   = "d15/debugset/kwl/fan2/getvalues";
-const char *TOPICKwlDebugstateFan1          = "d15/debugstate/kwl/fan1";
-const char *TOPICKwlDebugstateFan2          = "d15/debugstate/kwl/fan2";
-const char *TOPICKwlDebugstatePreheater     = "d15/debugstate/kwl/preheater";
-
-// Die folgenden Topics sind nur für die SW-Entwicklung, es werden Messwerte überschrieben, es kann damit der Sommer-Bypass und die Frostschutzschaltung getestet werden
-const char *TOPICKwlDebugsetTemperaturAussenluft = "d15/debugset/kwl/aussenluft/temperatur";
-const char *TOPICKwlDebugsetTemperaturZuluft     = "d15/debugset/kwl/zuluft/temperatur";
-const char *TOPICKwlDebugsetTemperaturAbluft     = "d15/debugset/kwl/abluft/temperatur";
-const char *TOPICKwlDebugsetTemperaturFortluft   = "d15/debugset/kwl/fortluft/temperatur";
-
-// Die folgenden Topics sind nur für die SW-Entwicklung, um Kalibrierung explizit zu setzen
-const char *TOPICKwlDebugsetFan1PWM         = "d15/debugset/kwl/fan1/pwm";
-const char *TOPICKwlDebugsetFan2PWM         = "d15/debugset/kwl/fan2/pwm";
-const char *TOPICKwlDebugsetFanPWMStore     = "d15/debugset/kwl/fan/pwm/store_IKNOWWHATIMDOING";
-// Ende Topics
 
 
 Relay relBypassPower(kwl_config::PinBypassPower);
@@ -435,7 +369,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   String topicStr = topic;
 
   // Set Values
-  if (topicStr == TOPICCmdFansCalculateSpeedMode) {
+  if (topicStr == MQTTTopic::CmdFansCalculateSpeedMode) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "PROP")  {
@@ -445,7 +379,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       FansCalculateSpeed = CalculateSpeed_PID;
     }
   }
-  if (topicStr == TOPICCmdCalibrateFans) {
+  if (topicStr == MQTTTopic::CmdCalibrateFans) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "YES")   {
@@ -453,7 +387,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       SpeedCalibrationStart();
     }
   }
-  if (topicStr == TOPICCmdResetAll) {
+  if (topicStr == MQTTTopic::CmdResetAll) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "YES")   {
@@ -465,7 +399,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       asm volatile ("jmp 0");
     }
   }
-  if (topicStr == TOPICCmdFan1Speed) {
+  if (topicStr == MQTTTopic::CmdFan1Speed) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -473,7 +407,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // Drehzahl Lüfter 1
     eeprom_write_int(2, i);
   }
-  if (topicStr == TOPICCmdFan2Speed) {
+  if (topicStr == MQTTTopic::CmdFan2Speed) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -481,7 +415,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // Drehzahl Lüfter 1
     eeprom_write_int(4, i);
   }
-  if (topicStr == TOPICCmdMode) {
+  if (topicStr == MQTTTopic::CmdMode) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -489,7 +423,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     mqttCmdSendMode = true;
     // KWL Stufe
   }
-  if (topicStr == TOPICCmdAntiFreezeHyst) {
+  if (topicStr == MQTTTopic::CmdAntiFreezeHyst) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -498,7 +432,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // AntiFreezeHysterese
     eeprom_write_int(12, i);
   }
-  if (topicStr == TOPICCmdBypassHystereseMinutes) {
+  if (topicStr == MQTTTopic::CmdBypassHystereseMinutes) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -506,7 +440,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // BypassHystereseMinutes
     eeprom_write_int(10, i);
   }
-  if (topicStr == TOPICCmdBypassManualFlap) {
+  if (topicStr == MQTTTopic::CmdBypassManualFlap) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "open")  {
@@ -517,7 +451,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     }
     // Stellung Bypassklappe bei manuellem Modus
   }
-  if (topicStr == TOPICCmdBypassMode) {
+  if (topicStr == MQTTTopic::CmdBypassMode) {
     // Auto oder manueller Modus
     payload[length] = '\0';
     String s = String((char*)payload);
@@ -530,7 +464,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       mqttCmdSendBypassState = true;
     }
   }
-  if (topicStr == TOPICCmdHeatingAppCombUse) {
+  if (topicStr == MQTTTopic::CmdHeatingAppCombUse) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "YES")   {
@@ -550,22 +484,22 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   }
 
   // Get Commands
-  if (topicStr == TOPICCmdGetTemp) {
+  if (topicStr == MQTTTopic::CmdGetTemp) {
     payload[length] = '\0';
     String s = String((char*)payload);
     mqttCmdSendTemp = true;
   }
-  if (topicStr == TOPICCmdGetSpeed) {
+  if (topicStr == MQTTTopic::CmdGetSpeed) {
     payload[length] = '\0';
     String s = String((char*)payload);
     mqttCmdSendFans = true;
   }
-  if (topicStr == TOPICCmdBypassGetValues) {
+  if (topicStr == MQTTTopic::CmdBypassGetValues) {
     payload[length] = '\0';
     String s = String((char*)payload);
     mqttCmdSendBypassAllValues = true;
   }
-  if (topicStr == TOPICCmdGetvalues) {
+  if (topicStr == MQTTTopic::CmdGetvalues) {
     // Alle Values
     payload[length] = '\0';
     String s = String((char*)payload);
@@ -577,32 +511,32 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   }
 
   // Debug Messages, den folgenden Block in der produktiven Version auskommentieren
-  if (topicStr == TOPICKwlDebugsetTemperaturAussenluft) {
+  if (topicStr == MQTTTopic::KwlDebugsetTemperaturAussenluft) {
     payload[length] = '\0';
     TEMP1_Aussenluft = String((char*)payload).toFloat();
     EffiencyCalcNow = true;
     mqttCmdSendTemp = true;
   }
-  if (topicStr == TOPICKwlDebugsetTemperaturZuluft) {
+  if (topicStr == MQTTTopic::KwlDebugsetTemperaturZuluft) {
     payload[length] = '\0';
     TEMP2_Zuluft = String((char*)payload).toFloat();
     EffiencyCalcNow = true;
     mqttCmdSendTemp = true;
   }
-  if (topicStr == TOPICKwlDebugsetTemperaturAbluft) {
+  if (topicStr == MQTTTopic::KwlDebugsetTemperaturAbluft) {
     payload[length] = '\0';
     TEMP3_Abluft = String((char*)payload).toFloat();
     EffiencyCalcNow = true;
     mqttCmdSendTemp = true;
   }
-  if (topicStr == TOPICKwlDebugsetTemperaturFortluft) {
+  if (topicStr == MQTTTopic::KwlDebugsetTemperaturFortluft) {
     payload[length] = '\0';
     TEMP4_Fortluft = String((char*)payload).toFloat();
     EffiencyCalcNow = true;
     mqttCmdSendTemp = true;
   }
 
-  if (topicStr == TOPICKwlDebugsetFan1Getvalues) {
+  if (topicStr == MQTTTopic::KwlDebugsetFan1Getvalues) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "on")   {
@@ -612,7 +546,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       mqttCmdSendAlwaysDebugFan1 = false;
     }
   }
-  if (topicStr == TOPICKwlDebugsetFan2Getvalues) {
+  if (topicStr == MQTTTopic::KwlDebugsetFan2Getvalues) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "on")   {
@@ -622,7 +556,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       mqttCmdSendAlwaysDebugFan2 = false;
     }
   }
-  if (topicStr == TOPICKwlDebugsetFan1PWM) {
+  if (topicStr == MQTTTopic::KwlDebugsetFan1PWM) {
     // update PWM value for the current state
     payload[length] = '\0';
     if (kwlMode != 0) {
@@ -635,7 +569,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       setSpeedToFan();
     }
   }
-  if (topicStr == TOPICKwlDebugsetFan2PWM) {
+  if (topicStr == MQTTTopic::KwlDebugsetFan2PWM) {
     // update PWM value for the current state
     payload[length] = '\0';
     if (kwlMode != 0) {
@@ -648,7 +582,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       setSpeedToFan();
     }
   }
-  if (topicStr == TOPICKwlDebugsetFanPWMStore) {
+  if (topicStr == MQTTTopic::KwlDebugsetFanPWMStore) {
     // store calibration data in EEPROM
     for (int i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
       eeprom_write_int(20 + (i * 4), PwmSetpointFan1[i]);
@@ -663,12 +597,12 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
 boolean mqttReconnect() {
   Serial.println (F("reconnect start"));
   Serial.println ((long)currentMillis);
-  if (mqttClient.connect("arduinoClientKwl", TOPICHeartbeat, 0, true, "offline")) {
+  if (mqttClient.connect("arduinoClientKwl", MQTTTopic::Heartbeat, 0, true, "offline")) {
     // Once connected, publish an announcement...
-    mqttClient.publish(TOPICHeartbeat, "online");
+    mqttClient.publish(MQTTTopic::Heartbeat, "online");
     // ... and resubscribe
-    mqttClient.subscribe(TOPICCommand);
-    mqttClient.subscribe(TOPICCommandDebug);
+    mqttClient.subscribe(MQTTTopic::Command);
+    mqttClient.subscribe(MQTTTopic::CommandDebug);
   }
   Serial.println (F("reconnect end"));
   Serial.println ((long)currentMillis);

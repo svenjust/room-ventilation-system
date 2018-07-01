@@ -38,7 +38,7 @@ void mqtt_debug_fan1() {
   out += speedSetpointFan1;
   char _buffer[out.length()];
   out.toCharArray(_buffer,out.length()); 
-  mqttClient.publish(TOPICKwlDebugstateFan1, _buffer);
+  mqttClient.publish(MQTTTopic::KwlDebugstateFan1, _buffer);
 }
 
 void mqtt_debug_fan2() {
@@ -53,7 +53,7 @@ void mqtt_debug_fan2() {
   out += speedSetpointFan2;
   char _buffer[out.length()];
   out.toCharArray(_buffer,out.length()); 
-  mqttClient.publish(TOPICKwlDebugstateFan2, _buffer);
+  mqttClient.publish(MQTTTopic::KwlDebugstateFan2, _buffer);
 }
 
 void mqtt_debug_Preheater() {
@@ -66,5 +66,5 @@ void mqtt_debug_Preheater() {
   out += techSetpointPreheater;
   char _buffer[out.length()];
   out.toCharArray(_buffer,out.length()); 
-  mqttClient.publish(TOPICKwlDebugstatePreheater, _buffer);
+  mqttClient.publish(MQTTTopic::KwlDebugstatePreheater, _buffer);
 }
