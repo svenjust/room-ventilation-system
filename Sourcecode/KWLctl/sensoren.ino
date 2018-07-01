@@ -112,7 +112,7 @@ boolean SetupMHZ14() {
     int responseHigh = (int) response[2];
     int responseLow = (int) response[3];
     int ppm = (256 * responseHigh) + responseLow;
-    if (serialDebugSensor) {
+    if (kwl_config::serialDebugSensor) {
       Serial.print(F("CO2 ppm: "));
       Serial.println(ppm);
     }
@@ -137,7 +137,7 @@ void loopMHZ14Read() {
         int responseLow = (int) response[3];
         int ppm = (256 * responseHigh) + responseLow;
 
-        if (serialDebugSensor) {
+        if (kwl_config::serialDebugSensor) {
           Serial.print(F("CO2 ppm: "));
           Serial.println(ppm);
         }
@@ -183,7 +183,7 @@ float calcSensor_VOC(int valr)
     //convert to ppm (using default ro)
     val_voc = TGS2600_getppm(val, TGS2600_DEFAULTRO);
   }
-  if (serialDebugSensor) {
+  if (kwl_config::serialDebugSensor) {
     Serial.print ( F("Vrl / Rs / ratio:"));
     Serial.print ( val);
     Serial.print ( F(" / "));
@@ -218,7 +218,7 @@ void loopVocRead() {
     if (currentMillis - previousMillisTGS2600Read >= intervalTGS2600Read) {
       previousMillisTGS2600Read = currentMillis;
       int analogVal = analogRead(kwl_config::PinVocSensor);
-      if (serialDebugSensor) {
+      if (kwl_config::serialDebugSensor) {
         Serial.print(F("VOC analogVal: "));
         Serial.println(analogVal);
       }
@@ -230,7 +230,7 @@ void loopVocRead() {
 boolean SetupTGS2600() {
   pinMode(kwl_config::PinVocSensor, INPUT_PULLUP);
   int analogVal = analogRead(kwl_config::PinVocSensor);
-  if (serialDebugSensor) Serial.println(analogVal);
+  if (kwl_config::serialDebugSensor) Serial.println(analogVal);
   if (analogVal < 1023) {
     TGS2600IsAvailable = true;
   } else {

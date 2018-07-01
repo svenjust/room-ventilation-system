@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2018 Sven Just (sven@familie-just.de)
  * Copyright (C) 2018 Ivan Schréter (schreter@gmx.net)
  *
  * This program is free software: you can redistribute it and/or modify
@@ -41,6 +42,8 @@
  * CONFIGURE_OBJ(ip, (192, 168, 42, 201))
  * CONFIGURE_OBJ(mac, (0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF))
  * @endcode
+ *
+ * You can also define DEBUG macro in user_config.h to enable debugging MQTT messages.
  */
 
 #pragma once
@@ -74,6 +77,9 @@ private:
 
 /// Maximum # of fan mode settings. Not configurable.
 static constexpr unsigned MAX_FAN_MODE_CNT = 10;
+
+/// Do not build debug mode. Define in user_config.h if desired.
+#undef DEBUG
 
 /// Default configuration, which can be overridden by the user configuration below.
 template<typename final_config>
@@ -228,6 +234,20 @@ public:
 
   // ************************************** E N D E   A N S T E U E R U N G   D E R    R E L A I S ******************************************************
 
+  // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
+  // Allgemeine Debugausgaben auf der seriellen Schnittstelle aktiviert.
+  static constexpr bool serialDebug = false;
+  // Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert.
+  static constexpr bool serialDebugFan = false;
+  // Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert.
+  static constexpr bool serialDebugAntifreeze = false;
+  // Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert.
+  static constexpr bool serialDebugSummerbypass = false;
+  // Debugausgaben für die Displayanzeige.
+  static constexpr bool serialDebugDisplay = false;
+  // Debugausgaben für die Sensoren.
+  static constexpr bool serialDebugSensor = false;
+  // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 };
 
 /*!
