@@ -234,67 +234,6 @@ void loopMqttSendCo2() {
   }
 }
 
-void loopMqttSendTemp() {
-  // Senden der Temperaturen per Mqtt
-  // Bedingung: a) alle x Sekunden, wenn Differenz Temperatur > 0.5
-  //            b) alle intervalMqttTempOversampling/1000 Sekunden (Standard 5 Minuten)
-  //            c) mqttCmdSendTemp == true
-  currentMillis = millis();
-  if ((currentMillis - previousMillisMqttTemp > intervalMqttTemp) || mqttCmdSendTemp) {
-    previousMillisMqttTemp = currentMillis;
-    if ((abs(TEMP1_Aussenluft - SendMqttTEMP1) > 0.5)
-        || (abs(TEMP2_Zuluft - SendMqttTEMP2) > 0.5)
-        || (abs(TEMP3_Abluft - SendMqttTEMP3) > 0.5)
-        || (abs(TEMP4_Fortluft - SendMqttTEMP4) > 0.5)
-        || (currentMillis - previousMillisMqttTempOversampling > intervalMqttTempOversampling)
-        || mqttCmdSendTemp)  {
-
-      mqttCmdSendTemp = false;
-      SendMqttTEMP1 = TEMP1_Aussenluft;
-      SendMqttTEMP2 = TEMP2_Zuluft;
-      SendMqttTEMP3 = TEMP3_Abluft;
-      SendMqttTEMP4 = TEMP4_Fortluft;
-      previousMillisMqttTempOversampling = currentMillis;
-
-      dtostrf(TEMP1_Aussenluft, 6, 2, buffer);
-      mqttClient.publish(MQTTTopic::KwlTemperaturAussenluft, buffer);
-      if (kwl_config::serialDebug == 1) {
-        Serial.println("MQTTTopic::KwlTemperaturAussenluft: " + String(TEMP1_Aussenluft));
-      }
-      dtostrf(TEMP2_Zuluft, 6, 2, buffer);
-      mqttClient.publish(MQTTTopic::KwlTemperaturZuluft, buffer);
-      if (kwl_config::serialDebug == 1) {
-        Serial.println("MQTTTopic::KwlTemperaturZuluft: " + String(TEMP2_Zuluft));
-      }
-      dtostrf(TEMP3_Abluft, 6, 2, buffer);
-      mqttClient.publish(MQTTTopic::KwlTemperaturAbluft, buffer);
-      if (kwl_config::serialDebug == 1) {
-        Serial.println("MQTTTopic::KwlTemperaturAbluft: " + String(TEMP3_Abluft));
-      }
-      dtostrf(TEMP4_Fortluft, 6, 2, buffer);
-      mqttClient.publish(MQTTTopic::KwlTemperaturFortluft, buffer);
-      if (kwl_config::serialDebug == 1) {
-        Serial.println("MQTTTopic::KwlTemperaturFortluft: " + String(TEMP4_Fortluft));
-      }
-      itoa(EffiencyKwl, buffer, 10);
-      mqttClient.publish(MQTTTopic::KwlEffiency, buffer);
-      if (kwl_config::serialDebug == 1) {
-        Serial.println("MQTTTopic::KwlEffiency: " + String(EffiencyKwl));
-      }
-      if (antifreezeState) {
-        mqttClient.publish(MQTTTopic::KwlAntifreeze, "on");
-      } else {
-        mqttClient.publish(MQTTTopic::KwlAntifreeze, "off");
-      }
-      if (heatingAppCombUse == 1) {
-        mqttClient.publish(MQTTTopic::KwlHeatingAppCombUse, "YES");
-      } else {
-        mqttClient.publish(MQTTTopic::KwlHeatingAppCombUse, "NO");
-      }
-    }
-  }
-}
-
 void loopMqttHeartbeat() {
   if (millis() - previousMillisMqttHeartbeat > 30000) {
     previousMillisMqttHeartbeat = millis();

@@ -112,6 +112,9 @@ public:
   /// IP Adresse des MQTT Brokers.
   static constexpr IPAddressLiteral mqttbroker = {192, 168,  20, 240};
 
+  /// Retain last temperature reading in the MQTT broker.
+  static constexpr bool RetainTemperature = true;
+
   // *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N **************************************************
 
 
@@ -233,6 +236,18 @@ public:
   static constexpr int8_t RelayOFF = HIGH;
 
   // ************************************** E N D E   A N S T E U E R U N G   D E R    R E L A I S ******************************************************
+
+  // ************************************** M Q T T   R E P O R T I N G *********************************************************************************
+
+  /// At most how often to send temperature messages via MQTT, in seconds.
+  static constexpr uint8_t MinIntervalMqttTemp = 2;
+  /// At least how often to send temperature messages via MQTT, in seconds.
+  static constexpr uint8_t MaxIntervalMqttTemp = 60;
+  /// Minimum change in temperature to report per MQTT.
+  static constexpr double MinDiffMqttTemp = 0.1;
+
+
+  // ************************************** E N D E   M Q T T   R E P O R T I N G ***********************************************************************
 
   // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
   // Allgemeine Debugausgaben auf der seriellen Schnittstelle aktiviert.
