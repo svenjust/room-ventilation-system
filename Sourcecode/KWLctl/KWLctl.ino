@@ -67,6 +67,7 @@
 #include <DHT_U.h>
 
 #include "FanRPM.h"
+#include "MultiPrint.h"
 #include "Relay.h"
 
 #include "kwl_config.h"
@@ -288,6 +289,11 @@ PubSubClient mqttClient(ethClient);
 boolean bLanOk     = false;
 boolean bMqttOk    = false;
 
+/// Init tracer which prints to both TFT and Serial.
+static MultiPrint initTracer(Serial, tft);
+/// Task scheduler
+static Scheduler scheduler;
+
 unsigned long lastMqttReconnectAttempt    = 0;
 unsigned long lastLanReconnectAttempt = 0;
 
@@ -362,9 +368,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   Serial.print(F("Message arrived ["));
   Serial.print(topic);
   Serial.print(F("] "));
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
+  Serial.write(payload, length);
   Serial.println();
   String topicStr = topic;
 
@@ -1253,41 +1257,33 @@ void setup()
   initializeVariables();
 
   Serial.println();
-  Serial.println(F("Booting... "));
   SetCursor(0, 30);
-  tft.println   (F("Booting... "));
+  initTracer.println(F("Booting... "));
 
   if (heatingAppCombUse == 1) {
-    Serial.println(F("...System mit Feuerstaettenbetrieb"));
-    tft.println   (F("...System mit Feuerstaettenbetrieb"));
+    initTracer.println(F("...System mit Feuerstaettenbetrieb"));
   }
 
-  Serial.print(F("Initialisierung Ethernet:"));
-  tft.print(F("Initialisierung Ethernet:"));
+  initTracer.print(F("Initialisierung Ethernet:"));
   uint8_t mac[6];
   kwl_config::mac.copy_to(mac);
   Ethernet.begin(mac, kwl_config::ip, kwl_config::DnServer, kwl_config::gateway, kwl_config::subnet);
   delay(1500);    // Delay in Setup erlaubt
   lastMqttReconnectAttempt = 0;
   lastLanReconnectAttempt = 0;
-  Serial.print(F(" IP Adresse: "));
-  Serial.println(Ethernet.localIP());
-  tft.print(F(" IP Adresse: "));
-  tft.println(Ethernet.localIP());
+  initTracer.print(F(" IP Adresse: "));
+  initTracer.println(Ethernet.localIP());
   bLanOk = true;
 
   if (Ethernet.localIP()[0] == 0) {
-    Serial.println();
-    tft.println();
-    Serial.println(F("...FEHLER: KEINE LAN VERBINDUNG, WARTEN 15 Sek."));
-    tft.println   (F("...FEHLER: KEINE LAN VERBINDUNG, WARTEN 15 Sek."));
+    initTracer.println();
+    initTracer.println(F("...FEHLER: KEINE LAN VERBINDUNG, WARTEN 15 Sek."));
     bLanOk = false;
     delay(15000);
     // 30 Sekunden Pause
   }
 
-  Serial.println(F("Initialisierung Mqtt"));
-  tft.println   (F("Initialisierung Mqtt"));
+  initTracer.println(F("Initialisierung Mqtt"));
   mqttClient.setServer(kwl_config::mqttbroker, 1883);
   mqttClient.setCallback(mqttReceiveMsg);
 
@@ -1350,49 +1346,39 @@ void setup()
   dht1.begin();
   dht2.begin();
   delay(1500);
-  Serial.println(F("Initialisierung Sensoren"));
-  tft.println   (F("Initialisierung Sensoren"));
+  initTracer.println(F("Initialisierung Sensoren"));
   sensors_event_t event;
   dht1.temperature().getEvent(&event);
   if (!isnan(event.temperature)) {
     DHT1IsAvailable = true;
-    Serial.println(F("...gefunden: DHT1"));
-    tft.println   (F("...gefunden: DHT1"));
+    initTracer.println(F("...gefunden: DHT1"));
   } else {
-    Serial.println(F("...NICHT gefunden: DHT1"));
-    tft.println   (F("...NICHT gefunden: DHT1"));
+    initTracer.println(F("...NICHT gefunden: DHT1"));
   }
   dht2.temperature().getEvent(&event);
   if (!isnan(event.temperature)) {
     DHT2IsAvailable = true;
-    Serial.println(F("...gefunden: DHT2"));
-    tft.println   (F("...gefunden: DHT2"));
+    initTracer.println(F("...gefunden: DHT2"));
   } else {
-    Serial.println(F("...NICHT gefunden: DHT2"));
-    tft.println   (F("...NICHT gefunden: DHT2"));
+    initTracer.println(F("...NICHT gefunden: DHT2"));
   }
 
   // MH-Z14 CO2 Sensor
   if (SetupMHZ14()) {
-    Serial.println(F("...gefunden: CO2 Sensor MH-Z14"));
-    tft.println   (F("...gefunden: CO2 Sensor MH-Z14"));
+    initTracer.println(F("...gefunden: CO2 Sensor MH-Z14"));
   } else {
-    Serial.println(F("...NICHT gefunden: CO2 Sensor MH-Z14"));
-    tft.println   (F("...NICHT gefunden: CO2 Sensor MH-Z14"));
+    initTracer.println(F("...NICHT gefunden: CO2 Sensor MH-Z14"));
   }
 
   // TGS2600 VOC Sensor
   if (SetupTGS2600()) {
-    Serial.println(F("...gefunden: VOC Sensor TGS2600"));
-    tft.println   (F("...gefunden: VOC Sensor TGS2600"));
+    initTracer.println(F("...gefunden: VOC Sensor TGS2600"));
   } else {
-    Serial.println(F("...NICHT gefunden: VOC Sensor TGS2600"));
-    tft.println   (F("...NICHT gefunden: VOC Sensor TGS2600"));
+    initTracer.println(F("...NICHT gefunden: VOC Sensor TGS2600"));
   }
 
   // Setup fertig
-  Serial.println(F("Setup completed..."));
-  tft.println   (F("Setup completed..."));
+  initTracer.println(F("Setup completed..."));
 
   // 4 Sekunden Pause für die TFT Anzeige, damit man sie auch lesen kann
   delay (4000);
