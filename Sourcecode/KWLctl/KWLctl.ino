@@ -68,6 +68,7 @@
 
 #include "FanRPM.h"
 #include "MultiPrint.h"
+#include "MQTTClient.h"
 #include "Relay.h"
 
 #include "kwl_config.h"
@@ -293,6 +294,11 @@ boolean bMqttOk    = false;
 static MultiPrint initTracer(Serial, tft);
 /// Task scheduler
 static Scheduler scheduler;
+/// Global MQTT client.
+// TODO move all MQTT service handling into the client
+static MQTTClient mqttClientWrapper(mqttClient);
+/// Set of temperature sensors
+static TempSensors tempSensors(scheduler, mqttClient, initTracer);
 
 unsigned long lastMqttReconnectAttempt    = 0;
 unsigned long lastLanReconnectAttempt = 0;
@@ -391,7 +397,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       SpeedCalibrationStart();
     }
   }
-  if (topicStr == MQTTTopic::CmdResetAll) {
+  else if (topicStr == MQTTTopic::CmdResetAll) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "YES")   {
@@ -403,7 +409,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       asm volatile ("jmp 0");
     }
   }
-  if (topicStr == MQTTTopic::CmdFan1Speed) {
+  else if (topicStr == MQTTTopic::CmdFan1Speed) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -411,7 +417,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // Drehzahl Lüfter 1
     eeprom_write_int(2, i);
   }
-  if (topicStr == MQTTTopic::CmdFan2Speed) {
+  else if (topicStr == MQTTTopic::CmdFan2Speed) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -419,7 +425,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // Drehzahl Lüfter 1
     eeprom_write_int(4, i);
   }
-  if (topicStr == MQTTTopic::CmdMode) {
+  else if (topicStr == MQTTTopic::CmdMode) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -427,7 +433,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     mqttCmdSendMode = true;
     // KWL Stufe
   }
-  if (topicStr == MQTTTopic::CmdAntiFreezeHyst) {
+  else if (topicStr == MQTTTopic::CmdAntiFreezeHyst) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -436,7 +442,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // AntiFreezeHysterese
     eeprom_write_int(12, i);
   }
-  if (topicStr == MQTTTopic::CmdBypassHystereseMinutes) {
+  else if (topicStr == MQTTTopic::CmdBypassHystereseMinutes) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
@@ -444,7 +450,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     // BypassHystereseMinutes
     eeprom_write_int(10, i);
   }
-  if (topicStr == MQTTTopic::CmdBypassManualFlap) {
+  else if (topicStr == MQTTTopic::CmdBypassManualFlap) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "open")  {
@@ -455,7 +461,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     }
     // Stellung Bypassklappe bei manuellem Modus
   }
-  if (topicStr == MQTTTopic::CmdBypassMode) {
+  else if (topicStr == MQTTTopic::CmdBypassMode) {
     // Auto oder manueller Modus
     payload[length] = '\0';
     String s = String((char*)payload);
@@ -468,7 +474,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       mqttCmdSendBypassState = true;
     }
   }
-  if (topicStr == MQTTTopic::CmdHeatingAppCombUse) {
+  else if (topicStr == MQTTTopic::CmdHeatingAppCombUse) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "YES")   {
@@ -488,22 +494,22 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   }
 
   // Get Commands
-  if (topicStr == MQTTTopic::CmdGetTemp) {
+  else if (topicStr == MQTTTopic::CmdGetTemp) {
     payload[length] = '\0';
     String s = String((char*)payload);
     mqttCmdSendTemp = true;
   }
-  if (topicStr == MQTTTopic::CmdGetSpeed) {
+  else if (topicStr == MQTTTopic::CmdGetSpeed) {
     payload[length] = '\0';
     String s = String((char*)payload);
     mqttCmdSendFans = true;
   }
-  if (topicStr == MQTTTopic::CmdBypassGetValues) {
+  else if (topicStr == MQTTTopic::CmdBypassGetValues) {
     payload[length] = '\0';
     String s = String((char*)payload);
     mqttCmdSendBypassAllValues = true;
   }
-  if (topicStr == MQTTTopic::CmdGetvalues) {
+  else if (topicStr == MQTTTopic::CmdGetvalues) {
     // Alle Values
     payload[length] = '\0';
     String s = String((char*)payload);
@@ -515,32 +521,31 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   }
 
   // Debug Messages, den folgenden Block in der produktiven Version auskommentieren
-  if (topicStr == MQTTTopic::KwlDebugsetTemperaturAussenluft) {
+  else if (topicStr == MQTTTopic::KwlDebugsetTemperaturAussenluft) {
     payload[length] = '\0';
     TEMP1_Aussenluft = String((char*)payload).toFloat();
     EffiencyCalcNow = true;
     mqttCmdSendTemp = true;
   }
-  if (topicStr == MQTTTopic::KwlDebugsetTemperaturZuluft) {
+  else if (topicStr == MQTTTopic::KwlDebugsetTemperaturZuluft) {
     payload[length] = '\0';
     TEMP2_Zuluft = String((char*)payload).toFloat();
     EffiencyCalcNow = true;
     mqttCmdSendTemp = true;
   }
-  if (topicStr == MQTTTopic::KwlDebugsetTemperaturAbluft) {
+  else if (topicStr == MQTTTopic::KwlDebugsetTemperaturAbluft) {
     payload[length] = '\0';
     TEMP3_Abluft = String((char*)payload).toFloat();
     EffiencyCalcNow = true;
     mqttCmdSendTemp = true;
   }
-  if (topicStr == MQTTTopic::KwlDebugsetTemperaturFortluft) {
+  else if (topicStr == MQTTTopic::KwlDebugsetTemperaturFortluft) {
     payload[length] = '\0';
     TEMP4_Fortluft = String((char*)payload).toFloat();
     EffiencyCalcNow = true;
     mqttCmdSendTemp = true;
   }
-
-  if (topicStr == MQTTTopic::KwlDebugsetFan1Getvalues) {
+  else if (topicStr == MQTTTopic::KwlDebugsetFan1Getvalues) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "on")   {
@@ -550,7 +555,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       mqttCmdSendAlwaysDebugFan1 = false;
     }
   }
-  if (topicStr == MQTTTopic::KwlDebugsetFan2Getvalues) {
+  else if (topicStr == MQTTTopic::KwlDebugsetFan2Getvalues) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "on")   {
@@ -560,7 +565,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       mqttCmdSendAlwaysDebugFan2 = false;
     }
   }
-  if (topicStr == MQTTTopic::KwlDebugsetFan1PWM) {
+  else if (topicStr == MQTTTopic::KwlDebugsetFan1PWM) {
     // update PWM value for the current state
     payload[length] = '\0';
     if (kwlMode != 0) {
@@ -573,7 +578,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       setSpeedToFan();
     }
   }
-  if (topicStr == MQTTTopic::KwlDebugsetFan2PWM) {
+  else if (topicStr == MQTTTopic::KwlDebugsetFan2PWM) {
     // update PWM value for the current state
     payload[length] = '\0';
     if (kwlMode != 0) {
@@ -586,15 +591,18 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       setSpeedToFan();
     }
   }
-  if (topicStr == MQTTTopic::KwlDebugsetFanPWMStore) {
+  else if (topicStr == MQTTTopic::KwlDebugsetFanPWMStore) {
     // store calibration data in EEPROM
     for (int i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
       eeprom_write_int(20 + (i * 4), PwmSetpointFan1[i]);
       eeprom_write_int(22 + (i * 4), PwmSetpointFan2[i]);
     }
   }
-
   // Debug Messages, bis hier auskommentieren
+  else {
+    // forward to new MQTT handler
+    mqttClientWrapper.mqttReceiveMsg(topic, payload, length);
+  }
 
 }
 
