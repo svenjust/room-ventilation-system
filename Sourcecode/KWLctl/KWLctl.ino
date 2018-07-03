@@ -689,7 +689,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   }
   if (topicStr == TOPICKwlDebugsetFanPWMStore) {
     // store calibration data in EEPROM
-    for (int i = 0; ((i < defStandardModeCnt) && (i < 10)); i++) {
+    for (int i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
       eeprom_write_int(20 + (i * 4), PwmSetpointFan1[i]);
       eeprom_write_int(22 + (i * 4), PwmSetpointFan2[i]);
     }
