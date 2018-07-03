@@ -257,7 +257,7 @@ void DoMenuActionScreen0() {
       break;
     case 3:
       previousMillisDisplayUpdate = 0;
-      if (kwlMode < defStandardModeCnt - 1)  kwlMode = kwlMode + 1;
+      if (kwlMode < kwl_config::StandardModeCnt - 1)  kwlMode = kwlMode + 1;
       break;
     case 4:
       previousMillisDisplayUpdate = 0;
