@@ -64,12 +64,12 @@
 #include <DHT.h>
 #include <DHT_U.h>
 
-#include "FanRPM.h"
 #include "MultiPrint.h"
 #include "MQTTClient.h"
 #include "Relay.h"
 #include "Scheduler.h"
 #include "TempSensors.h"
+#include "FanControl.h"
 
 #include "kwl_config.h"
 #include "MQTTTopic.hpp"
@@ -77,11 +77,6 @@
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
 #define strVersion "v0.15"
-
-
-// ***************************************************  A N S T E U E R U N G   P W M oder D A C   ***************************************************
-#define  ControlFansDAC         1 // 1 = zusätzliche Ansteuerung durch DAC über SDA und SLC (und PWM)
-// ****************************************** E N D E   A N S T E U E R U N G   P W M oder D A C   ***************************************************
 
 
 // ***************************************************  T T F   U N D   T O U C H  ********************************************************
@@ -125,8 +120,6 @@ TSPoint tp;
 
 Relay relBypassPower(kwl_config::PinBypassPower);
 Relay relBypassDirection(kwl_config::PinBypassDirection);
-Relay relFan1Power(kwl_config::PinFan1Power);
-Relay relFan2Power(kwl_config::PinFan2Power);
 
 // Sind die folgenden Variablen auf true, werden beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
 // anschliessend wird die Variable wieder auf false gesetzt
@@ -138,44 +131,13 @@ boolean mqttCmdSendBypassAllValues             = false;
 boolean mqttCmdSendMode                        = false;
 boolean mqttCmdSendConfig                      = false;
 // mqttDebug Messages
-boolean mqttCmdSendAlwaysDebugFan1             = true;
-boolean mqttCmdSendAlwaysDebugFan2             = true;
-boolean mqttCmdSendAlwaysDebugPreheater        = true;
+boolean mqttCmdSendAlwaysDebugPreheater        = false;
 
 char   TEMPChar[10];            // Hilfsvariable zu Konvertierung
 char   buffer[7];               // the ASCII of the integer will be stored in this char array
 String TEMPAsString;            // Ausgelesene Wert als String
 String ErrorText;               // Textvariable für Fehlermeldung
 String InfoText;                // Textvariable für Infomeldung
-
-// Variablen für Lüfter Tacho
-#define CalculateSpeed_PID             1
-#define CalculateSpeed_PROP            0
-int FansCalculateSpeed                = CalculateSpeed_PROP;   // 0 = Berechne das PWM Signal Proportional zur Nenndrehzahl der Lüfter; 1=PID-Regler verwenden
-double speedTachoFan1                 = 0;    // Zuluft U/min
-double speedTachoFan2                 = 0;    // Abluft U/min
-double SendMqttSpeedTachoFan1         = 0;
-double SendMqttSpeedTachoFan2         = 0;
-
-FanRPM fan1speed;
-FanRPM fan2speed;
-
-double StandardSpeedSetpointFan1      = kwl_config::StandardSpeedSetpointFan1;      // Solldrehzahl im U/min für Zuluft bei kwlMode = 2 (Standardlüftungsstufe), Drehzahlen werden aus EEPROM gelesen.
-double StandardSpeedSetpointFan2      = kwl_config::StandardSpeedSetpointFan2;      // Solldrehzahl im U/min für Abluft bei kwlMode = 2 (Standardlüftungsstufe)
-double speedSetpointFan1              = 0;                                 // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
-double speedSetpointFan2              = 0;                                 // Solldrehzahl im U/min für Zuluft bei Berücksichtungs der Lüftungsstufe
-double techSetpointFan1               = 0;                                 // PWM oder Analogsignal 0..1000 für Zuluft
-double techSetpointFan2               = 0;                                 // PWM oder Analogsignal 0..1000 für Abluft
-// Ende Variablen für Lüfter
-
-int  PwmSetpointFan1[kwl_config::StandardModeCnt];                                  // Speichert die pwm-Werte für die verschiedenen Drehzahlen
-int  PwmSetpointFan2[kwl_config::StandardModeCnt];
-
-#define FanMode_Normal                 0
-#define FanMode_Calibration            1
-int FanMode                           = FanMode_Normal;                   // Umschaltung zum Kalibrieren der PWM Signale zur Erreichung der Lüfterdrehzahlen für jede Stufe
-int actKwlMode = 0;
-int kwlMode = kwl_config::StandardKwlMode;
 
 // Start Definition für Heating Appliance (Feuerstätte)  //////////////////////////////////////////
 int            heatingAppCombUse                    = kwl_config::StandardHeatingAppCombUse;
@@ -223,9 +185,6 @@ unsigned long bypassFlapsStartTime = 0;                           // Startzeit f
 
 
 // Definitionen für das Scheduling
-unsigned long intervalTachoFan               = 950;
-unsigned long intervalSetFan                 = 1000;
-
 unsigned long intervalAntifreezeCheck        = 60000;   //  60000 = 60 * 1000         // Frostschutzprüfung je Minute
 unsigned long intervalAntiFreezeAlarmCheck   = 600000;  // 600000 = 10 * 60 * 1000;   // 10 Min Zeitraum zur Überprüfung, ob Vorheizregister die Temperatur erhöhen kann,
 unsigned long intervalBypassSummerCheck      = 60000;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
@@ -235,12 +194,9 @@ unsigned long intervalDHTRead                = 10000;
 unsigned long intervalMHZ14Read              = 10000;
 unsigned long intervalTGS2600Read            = 30000;
 
-unsigned long intervalMqttFan                = 5000;
-unsigned long intervalMqttMode               = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttTemp               = 5000;
 unsigned long intervalMqttMHZ14              = 60000;
 unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minuten
-unsigned long intervalMqttFanOversampling    = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttMHZ14Oversampling  = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttBypassState        = 900000; //15 * 60 * 1000; 15 Minuten
 
@@ -255,9 +211,6 @@ unsigned long previousMillisMHZ14Read             = 0;
 unsigned long previousMillisTGS2600Read           = 0;
 
 unsigned long previousMillisMqttHeartbeat         = 0;
-unsigned long previousMillisMqttFan               = 0;
-unsigned long previousMillisMqttMode              = 0;
-unsigned long previousMillisMqttFanOversampling   = 0;
 unsigned long previousMillisMqttTemp              = 0;
 unsigned long previousMillisMqttTempOversampling  = 0;
 unsigned long previousMillisMqttDht               = 0;
@@ -280,6 +233,10 @@ const int  EEPROM_MAX_ADDR = 1023;
 // Ende EEPROM
 
 
+// forwards:
+void DoActionAntiFreezeState();
+void SetPreheater();
+
 EthernetClient ethClient;
 PubSubClient mqttClient(ethClient);
 boolean bLanOk     = false;
@@ -295,21 +252,21 @@ static MQTTClient mqttClientWrapper(mqttClient);
 /// Set of temperature sensors
 static TempSensors tempSensors(scheduler, initTracer);
 /// Fan control.
-static FanControl fanControl(scheduler, mqttClient, initTracer)
+static FanControl fanControl(scheduler,
+    []() {
+      // this callback is called after computing new PWM tech points
+      // and before setting fan speed via PWM
+      DoActionAntiFreezeState();
+      SetPreheater();
+    }, initTracer);
 
 unsigned long lastMqttReconnectAttempt    = 0;
 unsigned long lastLanReconnectAttempt = 0;
 
 // PID REGLER
-// Define the aggressive and conservative Tuning Parameters
-// Nenndrehzahl Lüfter 3200, Stellwert 0..1000 entspricht 0-10V
-double aggKp  = 0.5,  aggKi = 0.1, aggKd  = 0.001;
-double consKp = 0.1, consKi = 0.1, consKd = 0.001;
 double heaterKp = 50, heaterKi = 0.1, heaterKd = 0.025;
 
 //Specify the links and initial tuning parameters
-PID PidFan1(&speedTachoFan1, &techSetpointFan1, &speedSetpointFan1, consKp, consKi, consKd, P_ON_M, DIRECT );
-PID PidFan2(&speedTachoFan2, &techSetpointFan2, &speedSetpointFan2, consKp, consKi, consKd, P_ON_M, DIRECT );
 PID PidPreheater(&tempSensors.get_t4_exhaust(), &techSetpointPreheater, &antifreezeTempUpperLimit, heaterKp, heaterKi, heaterKd, P_ON_M, DIRECT);
 ///////////////////////
 
@@ -358,18 +315,17 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "PROP")  {
-      FansCalculateSpeed = CalculateSpeed_PROP;
+      fanControl.setCalculateSpeedMode(FanCalculateSpeedMode::PROP);
     }
     if (s == "PID") {
-      FansCalculateSpeed = CalculateSpeed_PID;
+      fanControl.setCalculateSpeedMode(FanCalculateSpeedMode::PID);
     }
   }
-  if (topicStr == MQTTTopic::CmdCalibrateFans) {
+  else if (topicStr == MQTTTopic::CmdCalibrateFans) {
     payload[length] = '\0';
     String s = String((char*)payload);
     if (s == "YES")   {
-      Serial.println(F("Kalibrierung Lüfter wird gestartet"));
-      SpeedCalibrationStart();
+      fanControl.speedCalibrationStart();
     }
   }
   else if (topicStr == MQTTTopic::CmdResetAll) {
@@ -383,30 +339,6 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       delay (1000);
       asm volatile ("jmp 0");
     }
-  }
-  else if (topicStr == MQTTTopic::CmdFan1Speed) {
-    payload[length] = '\0';
-    String s = String((char*)payload);
-    int i = s.toInt();
-    StandardSpeedSetpointFan1 = i;
-    // Drehzahl Lüfter 1
-    eeprom_write_int(2, i);
-  }
-  else if (topicStr == MQTTTopic::CmdFan2Speed) {
-    payload[length] = '\0';
-    String s = String((char*)payload);
-    int i = s.toInt();
-    StandardSpeedSetpointFan2 = i;
-    // Drehzahl Lüfter 1
-    eeprom_write_int(4, i);
-  }
-  else if (topicStr == MQTTTopic::CmdMode) {
-    payload[length] = '\0';
-    String s = String((char*)payload);
-    int i = s.toInt();
-    if (i <= kwl_config::StandardModeCnt)  kwlMode = i;
-    mqttCmdSendMode = true;
-    // KWL Stufe
   }
   else if (topicStr == MQTTTopic::CmdAntiFreezeHyst) {
     payload[length] = '\0';
@@ -491,26 +423,6 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
   }
 
   // Debug Messages, den folgenden Block in der produktiven Version auskommentieren
-  else if (topicStr == MQTTTopic::KwlDebugsetTemperaturAussenluft) {
-    payload[length] = '\0';
-    tempSensors.get_t1_outside() = String((char*)payload).toFloat();
-    tempSensors.forceSend();
-  }
-  else if (topicStr == MQTTTopic::KwlDebugsetTemperaturZuluft) {
-    payload[length] = '\0';
-    tempSensors.get_t2_inlet() = String((char*)payload).toFloat();
-    tempSensors.forceSend();
-  }
-  else if (topicStr == MQTTTopic::KwlDebugsetTemperaturAbluft) {
-    payload[length] = '\0';
-    tempSensors.get_t3_outlet() = String((char*)payload).toFloat();
-    tempSensors.forceSend();
-  }
-  else if (topicStr == MQTTTopic::KwlDebugsetTemperaturFortluft) {
-    payload[length] = '\0';
-    tempSensors.get_t4_exhaust() = String((char*)payload).toFloat();
-    tempSensors.forceSend();
-  }
   // Debug Messages, bis hier auskommentieren
   else {
     // forward to new MQTT handler
@@ -536,114 +448,6 @@ boolean mqttReconnect() {
   return mqttClient.connected();
 }
 
-void setSpeedToFan() {
-  // Ausgabewert für Lüftersteuerung darf zwischen 0-10V liegen, dies entspricht 0..1023, vereinfacht 0..1000
-  // 0..1000 muss umgerechnet werden auf 0..255 also durch 4 geteilt werden
-  // max. Lüfterdrehzahl bei Pabstlüfter 3200 U/min
-  // max. Drehzahl 2300 U/min bei Testaufbau (alte Prozessorlüfter)
-
-  speedSetpointFan1 = StandardSpeedSetpointFan1 * kwl_config::StandardKwlModeFactor[kwlMode];
-  speedSetpointFan2 = StandardSpeedSetpointFan2 * kwl_config::StandardKwlModeFactor[kwlMode];
-
-  double gap1 = abs(speedSetpointFan1 - speedTachoFan1); //distance away from setpoint
-  double gap2 = abs(speedSetpointFan2 - speedTachoFan2); //distance away from setpoint
-
-  // Das PWM-Signal kann entweder per PID-Regler oder unten per Dreisatz berechnen werden.
-  if (FansCalculateSpeed == CalculateSpeed_PID) {
-    if (gap1 < 1000) {
-      PidFan1.SetTunings(consKp, consKi, consKd);
-    }  else   {
-      PidFan1.SetTunings(aggKp, aggKi, aggKd);
-    }
-    if (gap2 < 1000) {
-      PidFan2.SetTunings(consKp, consKi, consKd);
-    }  else   {
-      PidFan2.SetTunings(aggKp, aggKi, aggKd);
-    }
-    PidFan1.Compute();
-    PidFan2.Compute();
-
-  } else if (FansCalculateSpeed == CalculateSpeed_PROP) {
-    techSetpointFan1 = PwmSetpointFan1[kwlMode];
-    techSetpointFan2 = PwmSetpointFan2[kwlMode];
-  }
-
-  if (kwlMode == 0)               {
-    techSetpointFan1 = 0 ;  // Lüfungsstufe 0 alles ausschalten
-    techSetpointFan2 = 0;
-  }
-
-  DoActionAntiFreezeState();
-  SetPreheater();
-
-  // Grenzwertbehandlung: Max- / Min-Werte
-  if (techSetpointFan1 < 0)    techSetpointFan1 = 0;
-  if (techSetpointFan2 < 0)    techSetpointFan2 = 0;
-  if (techSetpointFan1 > 1000) techSetpointFan1 = 1000;
-  if (techSetpointFan2 > 1000) techSetpointFan2 = 1000;
-
-
-  if (mqttCmdSendAlwaysDebugFan1) {
-    mqtt_debug_fan1();
-  }
-  if (mqttCmdSendAlwaysDebugFan2) {
-    mqtt_debug_fan2();
-  }
-
-  if (kwl_config::serialDebugFan == 1) {
-    Serial.print (F("Timestamp: "));
-    Serial.println ((long)millis());
-    Serial.print (F("Fan 1: "));
-    Serial.print (F("\tGap: "));
-    Serial.print (speedTachoFan1 - speedSetpointFan1);
-    Serial.print (F("\tspeedTachoFan1: "));
-    Serial.print (speedTachoFan1);
-    Serial.print (F("\ttechSetpointFan1: "));
-    Serial.print (techSetpointFan1);
-    Serial.print (F("\tspeedSetpointFan1: "));
-    Serial.println(speedSetpointFan1);
-    fan1speed.dump();
-
-    Serial.print (F("Fan 2: "));
-    Serial.print (F("\tGap: "));
-    Serial.print (speedTachoFan2 - speedSetpointFan2);
-    Serial.print (F("\tspeedTachoFan2: "));
-    Serial.print (speedTachoFan2);
-    Serial.print (F("\ttechSetpointFan2: "));
-    Serial.print (techSetpointFan2);
-    Serial.print (F("\tspeedSetpointFan2: "));
-    Serial.println(speedSetpointFan2);
-    fan2speed.dump();
-  }
-  // Setzen per PWM
-  analogWrite(kwl_config::PinFan1PWM, techSetpointFan1 / 4);
-  analogWrite(kwl_config::PinFan2PWM, techSetpointFan2 / 4);
-
-  // Setzen der Werte per DAC
-  if (ControlFansDAC == 1) {
-    byte HBy;
-    byte LBy;
-
-    // FAN 1
-    HBy = techSetpointFan1 / 256;        //HIGH-Byte berechnen
-    LBy = techSetpointFan1 - HBy * 256;  //LOW-Byte berechnen
-    Wire.beginTransmission(kwl_config::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
-    Wire.write(kwl_config::DacChannelFan1);             // FAN 1 schreiben
-    Wire.write(LBy);                          // LOW-Byte schreiben
-    Wire.write(HBy);                          // HIGH-Byte schreiben
-    Wire.endTransmission();                   // Ende
-
-    // FAN 2
-    HBy = techSetpointFan2 / 256;        //HIGH-Byte berechnen
-    LBy = techSetpointFan2 - HBy * 256;  //LOW-Byte berechnen
-    Wire.beginTransmission(kwl_config::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
-    Wire.write(kwl_config::DacChannelFan2);             // FAN 2 schreiben
-    Wire.write(LBy);                          // LOW-Byte schreiben
-    Wire.write(HBy);                          // HIGH-Byte schreiben
-    Wire.endTransmission();                   // Ende
-  }
-
-}
 
 void SetPreheater() {
   // Das Vorheizregister wird durch ein PID geregelt
@@ -656,8 +460,8 @@ void SetPreheater() {
   }
 
   // Sicherheitsabfrage
-  if (speedTachoFan1 < 600 || (techSetpointFan1 == 0) )
-  { // Sicherheitsabschaltung Vorheizer unter 600 Umdrehungen Zuluftventilator
+  if (fanControl.getFan1().getSpeed() < 600 || fanControl.getFan1().isOff()) {
+    // Sicherheitsabschaltung Vorheizer unter 600 Umdrehungen Zuluftventilator
     techSetpointPreheater = 0;
   }
   if (mqttCmdSendAlwaysDebugPreheater) {
@@ -680,13 +484,6 @@ void SetPreheater() {
   Wire.endTransmission();                   // Ende
 }
 
-void countUpFan1() {
-  fan1speed.interrupt();
-}
-void countUpFan2() {
-  fan2speed.interrupt();
-}
-
 void DoActionAntiFreezeState() {
   // Funktion wird ausgeführt, um AntiFreeze (Frostschutz) zu erreichen.
 
@@ -700,20 +497,21 @@ void DoActionAntiFreezeState() {
 
     case antifreezeZuluftOff:
       // Zuluft aus
-      if (kwl_config::serialDebugAntifreeze == 1) Serial.println (F("fan1 = 0"));
-      techSetpointFan1 = 0;
+      if (kwl_config::serialDebugAntifreeze == 1)
+        Serial.println (F("fan1 = 0"));
+      fanControl.getFan1().off();
       techSetpointPreheater = 0;
       break;
 
-    case  antifreezeFireplace:
+    case antifreezeFireplace:
       // Feuerstättenmodus
       // beide Lüfter aus
       if (kwl_config::serialDebugAntifreeze == 1) {
         Serial.println (F("fan1 = 0"));
         Serial.println (F("fan2 = 0"));
       }
-      techSetpointFan1 = 0;
-      techSetpointFan2 = 0;
+      fanControl.getFan1().off();
+      fanControl.getFan2().off();
       techSetpointPreheater = 0;
       break;
 
@@ -943,43 +741,6 @@ void loopBypassSummerSetFlaps() {
   }
 }
 
-void loopTachoFan() {
-  // Die Geschwindigkeit der beiden Lüfter wird bestimmt. Die eigentliche Zählung der Tachoimpulse
-  // geschieht per Interrupt in countUpFan1 und countUpFan2
-  currentMillis = millis();
-  if (currentMillis - previousMillisFan >= intervalTachoFan) {
-
-    noInterrupts();
-    // Variablen umkopieren und resetten
-    fan1speed.capture();
-    fan2speed.capture();
-    interrupts();
-
-    speedTachoFan1 = fan1speed.get_speed();
-    speedTachoFan2 = fan2speed.get_speed();
-    if (kwl_config::serialDebugFan == 1) {
-      Serial.print(F("Speed fan1: "));
-      Serial.print(speedTachoFan1);
-      Serial.print(F(", fan2: "));
-      Serial.println(speedTachoFan2);
-    }
-    previousMillisFan = currentMillis;
-  }
-}
-
-void loopSetFan() {
-  currentMillis = millis();
-  if (currentMillis - previousMillisSetFan > intervalSetFan) {
-    //Serial.println ("loopSetFan");
-    previousMillisSetFan = currentMillis;
-    if (FanMode == FanMode_Normal) {
-      setSpeedToFan();
-    } else if (FanMode == FanMode_Calibration) {
-      SpeedCalibrationPwm();
-    }
-  }
-}
-
 void loopCheckForErrors() {
   // In dieser Funktion wird auf verschiedene Fehler getestet und der gravierenste Fehler wird in die Variable ErrorText geschrieben
   // ErrorText wird auf das Display geschrieben.
@@ -987,15 +748,15 @@ void loopCheckForErrors() {
   if (currentMillis - previousMillisCheckForErrors > intervalCheckForErrors) {
     previousMillisCheckForErrors = currentMillis;
 
-    if (kwl_config::StandardKwlModeFactor[kwlMode] != 0 && speedTachoFan1 < 10 && !antifreezeState && speedTachoFan2 < 10 ) {
+    if (kwl_config::StandardKwlModeFactor[fanControl.getVentilationMode()] != 0 && fanControl.getFan1().getSpeed() < 10 && !antifreezeState && fanControl.getFan2().getSpeed() < 10 ) {
       ErrorText = "Beide Luefter ausgefallen";
       return;
     }
-    else if (kwl_config::StandardKwlModeFactor[kwlMode] != 0 && speedTachoFan1 < 10 && !antifreezeState ) {
+    else if (kwl_config::StandardKwlModeFactor[fanControl.getVentilationMode()] != 0 && fanControl.getFan1().getSpeed() < 10 && !antifreezeState ) {
       ErrorText = "Zuluftluefter ausgefallen";
       return;
     }
-    else if (kwl_config::StandardKwlModeFactor[kwlMode] != 0 && speedTachoFan2 < 10 ) {
+    else if (kwl_config::StandardKwlModeFactor[fanControl.getVentilationMode()] != 0 && fanControl.getFan2().getSpeed() < 10 ) {
       ErrorText = "Abluftluefter ausgefallen";
       return;
     }
@@ -1012,9 +773,9 @@ void loopCheckForErrors() {
     }
 
     // InfoText
-    if (FanMode == FanMode_Calibration) {
+    if (fanControl.getMode() == FanMode::Calibration) {
       InfoText = "Luefter werden kalibriert fuer Stufe ";
-      InfoText += actKwlMode;
+      InfoText += fanControl.getVentilationCalibrationMode();
       InfoText += ".   Bitte warten...";
     }
     else if (antifreezeState == antifreezePreheater) {
@@ -1057,11 +818,11 @@ void initializeVariables()
 
   // Normdrehzahl Lüfter 1
   eeprom_read_int (2, &temp);
-  StandardSpeedSetpointFan1 = temp;
+  fanControl.getFan1().setStandardSpeed(unsigned(temp));
 
   // Normdrehzahl Lüfter 2
   eeprom_read_int (4, &temp);
-  StandardSpeedSetpointFan2 = temp;
+  fanControl.getFan2().setStandardSpeed(unsigned(temp));
 
   // bypassTempAbluftMin
   eeprom_read_int (6, &temp);
@@ -1096,9 +857,9 @@ void initializeVariables()
   }
   for (int i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
     eeprom_read_int (20 + (i * 4), &temp);
-    PwmSetpointFan1[i] = temp;
+    fanControl.getFan1().initPWM(i, temp);
     eeprom_read_int (22 + (i * 4), &temp);
-    PwmSetpointFan2[i] = temp;
+    fanControl.getFan2().initPWM(i, temp);
   }
   // ENDE PWM für max 10 Lüftungsstufen
 
@@ -1163,42 +924,13 @@ void setup()
   mqttClient.setServer(kwl_config::mqttbroker, 1883);
   mqttClient.setCallback(mqttReceiveMsg);
 
-  Serial.println(F("Initialisierung Ventilatoren"));
-  tft.println(F("Initialisierung Ventilatoren"));
-  // Lüfter Speed
-  pinMode(kwl_config::PinFan1PWM, OUTPUT);
-  digitalWrite(kwl_config::PinFan1PWM, LOW);
-  pinMode(kwl_config::PinFan2PWM, OUTPUT);
-  digitalWrite(kwl_config::PinFan2PWM, LOW);
-
-  // Lüfter Tacho Interrupt
-  pinMode(kwl_config::PinFan1Tacho, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(kwl_config::PinFan1Tacho), countUpFan1, RISING );
-
-  Serial.print (F("Pin und Interrupt: "));
-  Serial.print (kwl_config::PinFan1Tacho);
-  Serial.print (F("\t"));
-  Serial.println (digitalPinToInterrupt(kwl_config::PinFan1Tacho));
-
-  pinMode(kwl_config::PinFan2Tacho, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(kwl_config::PinFan2Tacho), countUpFan2, RISING );
-
-  Serial.print (F("Pin und Interrupt: "));
-  Serial.print (kwl_config::PinFan2Tacho);
-  Serial.print (F("\t"));
-  Serial.println (digitalPinToInterrupt(kwl_config::PinFan2Tacho));
-
-  // Relais Ansteuerung Lüfter
-  relFan1Power.on();
-  relFan2Power.on();
   // Relais Ansteuerung Bypass
   relBypassPower.off();
   relBypassDirection.off();
 
-  if (ControlFansDAC == 1) {
+  if (kwl_config::ControlFansDAC) {
     Wire.begin();               // I2C-Pins definieren
-    Serial.println(F("Initialisierung DAC"));
-    tft.println   (F("Initialisierung DAC"));
+    initTracer.println(F("Initialisierung DAC"));
   }
 
   // DHT Sensoren
@@ -1244,20 +976,9 @@ void setup()
 
   SetupBackgroundScreen();   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
 
-  //PID
-  //turn the PID on
-  // ab hier keine delays mehr verwenden, der Zeitnehmer für die PID-Regler laufen
-  PidFan1.SetOutputLimits(0, 1000);
-  PidFan1.SetMode(AUTOMATIC);
-  PidFan1.SetSampleTime(intervalSetFan);
-
-  PidFan2.SetOutputLimits(0, 1000);
-  PidFan2.SetMode(AUTOMATIC);
-  PidFan2.SetSampleTime(intervalSetFan);
-
   PidPreheater.SetOutputLimits(100, 1000);
   PidPreheater.SetMode(MANUAL);
-  PidPreheater.SetSampleTime(intervalSetFan);  // SetFan ruft Preheater auf, deswegen hier intervalSetFan
+  PidPreheater.SetSampleTime(1000 /* TODO use constant intervalSetFan */);  // SetFan ruft Preheater auf, deswegen hier intervalSetFan
 
   previousMillisTemp = millis();
 
@@ -1270,8 +991,6 @@ void loop()
   scheduler.loop();
   //loopWrite100Millis();
 
-  loopTachoFan();
-  loopSetFan();
   loopAntiFreezeCheck();
   loopBypassSummerCheck();
   loopBypassSummerSetFlaps();
@@ -1280,8 +999,6 @@ void loop()
   loopVocRead();
   loopCheckForErrors();
 
-  loopMqttSendMode();
-  loopMqttSendFan();
   loopMqttSendDHT();
   loopMqttSendBypass();
 

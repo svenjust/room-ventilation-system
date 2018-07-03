@@ -70,11 +70,11 @@ void FanRPM::interrupt() {
   last_ = measurement;
 }
 
-unsigned long FanRPM::get_speed()
+int FanRPM::getSpeed()
 {
   // Captured value is effectively sum of MAX_MEASUREMENT measurements, return average.
   if (captured_valid_ && captured_sum_)
-    return (60000000UL * MAX_MEASUREMENTS) / captured_sum_;
+    return int((60000000UL * MAX_MEASUREMENTS) / captured_sum_);
   else
     return 0;
 }
