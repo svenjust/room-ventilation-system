@@ -28,51 +28,6 @@
 
 // loopMqtt... senden Werte an den mqtt-Server.
 
-void loopMqttSendFan() {
-  // Senden der Drehzahlen per Mqtt
-  // Bedingung: a) alle x Sekunden, wenn Differenz Geschwindigkeit > 100
-  //            b) alle intervalMqttFanOversampling/1000 Sekunden (Standard 5 Minuten)
-  //            c) mqttCmdSendFans == true
-  currentMillis = millis();
-  if ((currentMillis - previousMillisMqttFan > intervalMqttFan) || mqttCmdSendFans) {
-    previousMillisMqttFan = currentMillis;
-    if ((abs(speedTachoFan1 - SendMqttSpeedTachoFan1) > 100)
-        || (abs(speedTachoFan2 - SendMqttSpeedTachoFan2) > 100)
-        || (currentMillis - previousMillisMqttFanOversampling > intervalMqttFanOversampling)
-        || mqttCmdSendFans)  {
-
-      mqttCmdSendFans = false;
-      SendMqttSpeedTachoFan1 = speedTachoFan1;
-      SendMqttSpeedTachoFan2 = speedTachoFan2;
-      previousMillisMqttFanOversampling = currentMillis;
-
-      itoa(speedTachoFan1, buffer, 10); //(integer, yourBuffer, base)
-      mqttClient.publish(MQTTTopic::Fan1Speed, buffer);
-      if (kwl_config::serialDebug == 1) {
-        Serial.println("speedTachoFan1: " + String(speedTachoFan1));
-      }
-      itoa(speedTachoFan2, buffer, 10); //(integer, yourBuffer, base)
-      mqttClient.publish(MQTTTopic::Fan2Speed, buffer);
-      if (kwl_config::serialDebug == 1) {
-        Serial.println("speedTachoFan2: " + String(speedTachoFan2));
-      }
-    }
-  }
-}
-
-void loopMqttSendMode() {
-  // Senden der Lüftungsstufe
-  // Bedingung: a) alle x Sekunden (Standard 5 Minuten)
-  //            b) mqttCmdSendMode == true
-  currentMillis = millis();
-  if ((currentMillis - previousMillisMqttMode > intervalMqttMode) || mqttCmdSendMode) {
-    previousMillisMqttMode = currentMillis;
-    mqttCmdSendMode = false;
-    itoa(kwlMode, buffer, 10);
-    mqttClient.publish(MQTTTopic::StateKwlMode, buffer);
-  }
-}
-
 void loopMqttSendConfig() {
   // Senden der aktuellen Konfiguration, die im EEPROM gespeichert wird.
   // Bedingung: a)  mqttCmdSendConfig == true

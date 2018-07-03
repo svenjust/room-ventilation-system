@@ -113,8 +113,8 @@ unsigned long intervalMenuBtn             = 500;
 unsigned long intervalLastMillisTouch     = 60000; // eine Minute
 unsigned long LastMillisTouch             = 0;
 
-int inputStandardSpeedSetpointFan1 = 0;
-int inputStandardSpeedSetpointFan2 = 0;
+unsigned inputStandardSpeedSetpointFan1 = 0;
+unsigned inputStandardSpeedSetpointFan2 = 0;
 
 /******************************************* Seitenverwaltung ********************************************
   Für jeden Screen müssen die folgenden Funktionen implementiert werden:
@@ -156,35 +156,37 @@ void SetupBackgroundScreen0() {
 
 void loopDisplayUpdateScreen0() {
   // Menu Screen 0
-  if (LastDisplaykwlMode != kwlMode || updateDisplayNow) {
+  if (LastDisplaykwlMode != fanControl.getVentilationMode() || updateDisplayNow) {
     // KWL Mode
     tft.setFont(&FreeSansBold24pt7b);
     tft.setTextColor(colFontColor, colBackColor);
     tft.setTextSize(2);
 
     tft.setCursor(200, 55 + 2 * baselineBigNumber);
-    sprintf(strPrint, "%-1i", (int)kwlMode);
+    sprintf(strPrint, "%-1i", (int)fanControl.getVentilationMode());
     tft.fillRect(200, 55, 60, 80, colBackColor);
     tft.print(strPrint);
-    LastDisplaykwlMode = kwlMode;
+    LastDisplaykwlMode = fanControl.getVentilationMode();
     tft.setTextSize(1);
   }
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(colFontColor, colBackColor);
 
   // Speed Fan1
-  if (abs(LastDisplaySpeedTachoFan1 - speedTachoFan1) > 10 || updateDisplayNow) {
-    LastDisplaySpeedTachoFan1 = speedTachoFan1;
+  int speed1 = fanControl.getFan1().getSpeed();
+  if (abs(LastDisplaySpeedTachoFan1 - speed1) > 10 || updateDisplayNow) {
+    LastDisplaySpeedTachoFan1 = speed1;
     tft.fillRect(280, 192, 80, numberfieldheight, colBackColor);
-    sprintf(strPrint, "%5i", (int)speedTachoFan1);
+    sprintf(strPrint, "%5i", speed1);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(340 - w, 192 + baselineMiddle);
     tft.print(strPrint);
   }
   // Speed Fan2
-  if (abs(LastDisplaySpeedTachoFan2 - speedTachoFan2) > 10 || updateDisplayNow) {
-    LastDisplaySpeedTachoFan2 = speedTachoFan2;
-    sprintf(strPrint, "%5i", (int)speedTachoFan2);
+  int speed2 = fanControl.getFan2().getSpeed();
+  if (abs(LastDisplaySpeedTachoFan2 - speed2) > 10 || updateDisplayNow) {
+    LastDisplaySpeedTachoFan2 = speed2;
+    sprintf(strPrint, "%5i", speed2);
     // Debug einkommentieren
     // tft.fillRect(280, 218, 60, numberfieldheight, colWindowTitle);
     tft.fillRect(280, 218, 80, numberfieldheight, colBackColor);
@@ -257,11 +259,11 @@ void DoMenuActionScreen0() {
       break;
     case 3:
       previousMillisDisplayUpdate = 0;
-      if (kwlMode < kwl_config::StandardModeCnt - 1)  kwlMode = kwlMode + 1;
+      if (fanControl.getVentilationMode() < kwl_config::StandardModeCnt - 1)  fanControl.setVentilationMode(fanControl.getVentilationMode() + 1);
       break;
     case 4:
       previousMillisDisplayUpdate = 0;
-      if (kwlMode > 0)  kwlMode = kwlMode - 1;
+      if (fanControl.getVentilationMode() > 0)  fanControl.setVentilationMode(fanControl.getVentilationMode() - 1);
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -431,7 +433,7 @@ void DoMenuActionScreen2() {
 
 // ****************************************** Screen 3: EINSTELLUNG NORMDREHZAHL L1 *************************
 void SetupScreen3() {
-  inputStandardSpeedSetpointFan1 = StandardSpeedSetpointFan1;
+  inputStandardSpeedSetpointFan1 = fanControl.getFan1().getStandardSpeed();
 }
 
 void SetupBackgroundScreen3() {
@@ -442,7 +444,7 @@ void SetupBackgroundScreen3() {
   tft.print (F("Mit dem Button 'OK' wird der Wert gespeichert."));
   tft.setCursor(18, 100 + baselineMiddle);
   tft.print (F("Der aktueller Wert betraegt: "));
-  tft.print (int(StandardSpeedSetpointFan1));
+  tft.print (int(fanControl.getFan1().getStandardSpeed()));
   tft.println(" U / min");
   tft.setCursor(18, 150 + baselineMiddle);
   tft.print (F("Neuer Wert: "));
@@ -478,13 +480,15 @@ void DoMenuActionScreen3() {
       break;
     case 4:
       previousMillisDisplayUpdate = 0;
-      inputStandardSpeedSetpointFan1 = inputStandardSpeedSetpointFan1 - 10;
-      if (inputStandardSpeedSetpointFan1 < 0) inputStandardSpeedSetpointFan1 = 0;
+      if (inputStandardSpeedSetpointFan1 > 10)
+        inputStandardSpeedSetpointFan1 = inputStandardSpeedSetpointFan1 - 10;
+      else
+        inputStandardSpeedSetpointFan1 = 0;
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
-      StandardSpeedSetpointFan1 = inputStandardSpeedSetpointFan1;
       // Drehzahl Lüfter 1
+      fanControl.getFan1().setStandardSpeed(inputStandardSpeedSetpointFan1);
       eeprom_write_int(2, inputStandardSpeedSetpointFan1);
       tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
@@ -502,7 +506,7 @@ void DoMenuActionScreen3() {
 
 // ****************************************** Screen 4: EINSTELLUNG NORMDREHZAHL L2 *************************
 void SetupScreen4() {
-  inputStandardSpeedSetpointFan2 = StandardSpeedSetpointFan2;
+  inputStandardSpeedSetpointFan2 = fanControl.getFan2().getStandardSpeed();
 }
 
 void SetupBackgroundScreen4() {
@@ -513,7 +517,7 @@ void SetupBackgroundScreen4() {
   tft.print (F("Mit dem Button 'OK' wird der Wert gespeichert."));
   tft.setCursor(18, 100 + baselineMiddle);
   tft.print (F("Der aktueller Wert betraegt: "));
-  tft.print (int(StandardSpeedSetpointFan2));
+  tft.print (int(fanControl.getFan2().getStandardSpeed()));
   tft.println(" U / min");
   tft.setCursor(18, 150 + baselineMiddle);
   tft.print (F("Neuer Wert: "));
@@ -549,13 +553,15 @@ void DoMenuActionScreen4() {
       break;
     case 4:
       previousMillisDisplayUpdate = 0;
-      inputStandardSpeedSetpointFan2 = inputStandardSpeedSetpointFan2 - 10;
-      if (inputStandardSpeedSetpointFan2 < 0) inputStandardSpeedSetpointFan2 = 0;
+      if (inputStandardSpeedSetpointFan2 > 10)
+        inputStandardSpeedSetpointFan2 = inputStandardSpeedSetpointFan2 - 10;
+      else
+        inputStandardSpeedSetpointFan2 = 0;
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
-      StandardSpeedSetpointFan2 = inputStandardSpeedSetpointFan2;
       // Drehzahl Lüfter 1
+      fanControl.getFan2().setStandardSpeed(inputStandardSpeedSetpointFan2);
       eeprom_write_int(4, inputStandardSpeedSetpointFan2);
       tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
@@ -605,8 +611,7 @@ void DoMenuActionScreen5() {
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
-      Serial.println(F("Kalibrierung Lüfter ist gestartet"));
-      SpeedCalibrationStart();
+      fanControl.speedCalibrationStart();
       tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 211 + baselineMiddle);
@@ -679,10 +684,10 @@ void DoMenuActionScreen6() {
 // ************************************ ENDE: Screen 6  *****************************************************
 
 // ****************************************** Screen 7: REGELUNG VENTILATOREN **********************************
-byte tmpInput = -1;
+FanCalculateSpeedMode tmpInput = FanCalculateSpeedMode::UNSET;
 
 void SetupScreen7() {
-  tmpInput = -1;
+  tmpInput = FanCalculateSpeedMode::UNSET;
 }
 
 void SetupBackgroundScreen7() {
@@ -698,7 +703,7 @@ void SetupBackgroundScreen7() {
   tft.print (F("oder dynamisch per PID-Regler geregelt"));
   tft.setCursor(18, 125 + baselineMiddle);
   tft.print(F("werden. Aktuelle Einstellung: "));
-  if (FansCalculateSpeed == CalculateSpeed_PROP) {
+  if (fanControl.getCalculateSpeedMode() == FanCalculateSpeedMode::PROP) {
     tft.print(F("PWM Wert"));
   } else {
     tft.print(F("PID-Regler"));
@@ -719,8 +724,8 @@ void loopDisplayUpdateScreen7() {
   tft.setTextColor(colFontColor, colBackColor);
   tft.fillRect(18, 200, 130, numberfieldheight, colBackColor);
   tft.setCursor(18, 200 + baselineMiddle);
-  if (tmpInput == CalculateSpeed_PROP) tft.print (F("PWM Wert"));
-  if (tmpInput == CalculateSpeed_PID) tft.print (F("PID-Regler"));
+  if (tmpInput == FanCalculateSpeedMode::PROP) tft.print (F("PWM Wert"));
+  if (tmpInput == FanCalculateSpeedMode::PID) tft.print (F("PID-Regler"));
 }
 
 void DoMenuActionScreen7() {
@@ -731,16 +736,16 @@ void DoMenuActionScreen7() {
       break;
     case 3:
       previousMillisDisplayUpdate = 0;
-      tmpInput = CalculateSpeed_PROP;
+      tmpInput = FanCalculateSpeedMode::PROP;
       break;
     case 4:
       previousMillisDisplayUpdate = 0;
-      tmpInput = CalculateSpeed_PID;
+      tmpInput = FanCalculateSpeedMode::PID;
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
-      if ((tmpInput == CalculateSpeed_PROP || tmpInput == CalculateSpeed_PID) && tmpInput != FansCalculateSpeed) {
-        FansCalculateSpeed = tmpInput;
+      if ((tmpInput == FanCalculateSpeedMode::PROP || tmpInput == FanCalculateSpeedMode::PID) && tmpInput != fanControl.getCalculateSpeedMode()) {
+        fanControl.setCalculateSpeedMode(tmpInput);
         tft.setFont(&FreeSans9pt7b);
         tft.setTextColor(colFontColor, colBackColor);
         tft.fillRect(18, 250, 200, numberfieldheight, colBackColor);

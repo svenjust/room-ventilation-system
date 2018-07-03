@@ -69,7 +69,7 @@ public:
    * Before calling this method, call capture() under interrupts disabled
    * to transfer volatile state.
    */
-  unsigned long get_speed();
+  int getSpeed();
 
   /// Dump the internal state to the serial console (unsynchronized read).
   void dump();

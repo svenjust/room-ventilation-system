@@ -112,8 +112,20 @@ public:
   /// IP Adresse des MQTT Brokers.
   static constexpr IPAddressLiteral mqttbroker = {192, 168,  20, 240};
 
+
+  // MQTT retain settings:
+
+  /// Default for retain last measurements reading in the MQTT broker.
+  static constexpr bool RetainMeasurements = true;
+
   /// Retain last temperature reading in the MQTT broker.
-  static constexpr bool RetainTemperature = true;
+  static const bool RetainTemperature;
+
+  /// Retain last fan mode reading in the MQTT broker.
+  static const bool RetainFanMode;
+
+  /// Retain last fan speed reading in the MQTT broker.
+  static const bool RetainFanSpeed;
 
   // *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N **************************************************
 
@@ -200,6 +212,8 @@ public:
   static constexpr uint8_t DacChannelFan2      = 1;
   /// Kanal 3 des DAC für Vorheizregister.
   static constexpr uint8_t DacChannelPreheater = 2;
+  /// Zusätzliche Ansteuerung durch DAC über SDA und SLC (und PWM)
+  static constexpr bool ControlFansDAC = true;
 
   /// Pin vom 1. DHT Sensor.
   static constexpr uint8_t PinDHTSensor1       = 28;
@@ -264,6 +278,13 @@ public:
   static constexpr bool serialDebugSensor = false;
   // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 };
+
+template<typename final_config>
+const bool kwl_default_config<final_config>::RetainTemperature = final_config::RetainMeasurements;
+template<typename final_config>
+const bool kwl_default_config<final_config>::RetainFanMode = final_config::RetainMeasurements;
+template<typename final_config>
+const bool kwl_default_config<final_config>::RetainFanSpeed = final_config::RetainMeasurements;
 
 /*!
  * @brief Helper macro to add configuration for simple parameters in user_config.h.
