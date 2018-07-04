@@ -82,6 +82,8 @@ namespace MQTTTopic
   constexpr const char* KwlDebugstateFan1          = "d15/debugstate/kwl/fan1";
   constexpr const char* KwlDebugstateFan2          = "d15/debugstate/kwl/fan2";
   constexpr const char* KwlDebugstatePreheater     = "d15/debugstate/kwl/preheater";
+  constexpr const char* KwlDebugsetSchedulerGetvalues   = "d15/debugset/kwl/scheduler/getvalues";
+  constexpr const char* KwlDebugstateScheduler    = "d15/debugstate/kwl/scheduler";
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, es werden Messwerte überschrieben, es kann damit der Sommer-Bypass und die Frostschutzschaltung getestet werden
   constexpr const char* KwlDebugsetTemperaturAussenluft = "d15/debugset/kwl/aussenluft/temperatur";

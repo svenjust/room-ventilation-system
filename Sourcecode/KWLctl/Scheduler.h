@@ -23,6 +23,8 @@
  */
 #pragma once
 
+#include "MQTTClient.h"
+
 class Scheduler;
 
 /*!
@@ -31,7 +33,7 @@ class Scheduler;
 class Task
 {
 public:
-  Task() {}
+  Task(const char* name);
 
   virtual ~Task() {}
 
@@ -61,6 +63,12 @@ protected:
 private:
   friend class Scheduler;
 
+  /// Add one runtime measurement.
+  void addRuntime(unsigned long runtime);
+
+  /// Get average runtime of this task.
+  unsigned long getAvgRuntime() const;
+
   /// Next time at which to react to this task.
   unsigned long next_time_ = 0;
   /// Interval with which to schedule this task.
@@ -69,6 +77,20 @@ private:
   Task* next_ = nullptr;
   /// Set to true, if the task is already in scheduler's list.
   bool is_in_list_ = false;
+
+  /// Task name.
+  const char* name_;
+  /// Next registered task in global list. Maintained by constructor.
+  Task* next_registered_ = nullptr;
+
+  /// Maximum run time of this task in microseconds.
+  unsigned long max_runtime_ = 0;
+  /// Sum of runtimes of this task in microseconds.
+  unsigned long sum_runtime_ = 0;
+  /// Count of runtime measurements for this task.
+  unsigned long count_runtime_ = 0;
+  /// Count of runtime measurements "eaten out" to keep measurements in range.
+  unsigned long adjust_count_runtime_ = 0;
 };
 
 /*!
@@ -93,7 +115,7 @@ private:
  * This misbehaving task will run only at most twice per scheduler loop and other
  * tasks will get their chance to run.
  */
-class Scheduler
+class Scheduler : private MessageHandler
 {
 public:
   /*!
@@ -127,6 +149,8 @@ public:
   void loop();
 
 private:
+  virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override;
+
   /// Current time at the time of entering into loop().
   unsigned long current_time_ = 0;
   /// Next task to activate when next_time_ expires.

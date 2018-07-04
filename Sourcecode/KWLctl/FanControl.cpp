@@ -28,7 +28,7 @@ static void eeprom_write_int(unsigned int addr, int value) {
   // TODO use EEPROM config when separated out
   const uint8_t* data = reinterpret_cast<const uint8_t*>(&value);
   EEPROM.write(addr, data[0]);
-  EEPROM.write(addr, data[1]);
+  EEPROM.write(addr + 1, data[1]);
 };
 
 /// Global instance used by interrupt routines.
@@ -58,6 +58,7 @@ static constexpr unsigned long TIMEOUT_PWM_CALIBRATION = 300000000;
 
 FanControl::FanControl(Scheduler& sched, void (*speedCallback)(), Print& initTrace) :
   InitTrace(F("Initialisierung Ventilatoren"), initTrace),
+  Task("FanControl"),
   fan1_(kwl_config::PinFan1Power, kwl_config::PinFan1PWM, kwl_config::PinFan1Tacho, kwl_config::StandardSpeedSetpointFan1, countUpFan1),
   fan2_(kwl_config::PinFan2Power, kwl_config::PinFan2PWM, kwl_config::PinFan2Tacho, kwl_config::StandardSpeedSetpointFan1, countUpFan2),
   speed_callback_(speedCallback),
