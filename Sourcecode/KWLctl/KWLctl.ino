@@ -244,11 +244,11 @@ boolean bMqttOk    = false;
 
 /// Init tracer which prints to both TFT and Serial.
 static MultiPrint initTracer(Serial, tft);
-/// Task scheduler
-static Scheduler scheduler;
 /// Global MQTT client.
 // TODO move all MQTT service handling into the client
 static MQTTClient mqttClientWrapper(mqttClient);
+/// Task scheduler
+static Scheduler scheduler;
 /// Set of temperature sensors
 static TempSensors tempSensors(scheduler, initTracer);
 /// Fan control.

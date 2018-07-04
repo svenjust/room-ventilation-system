@@ -80,6 +80,7 @@ void TempSensors::TempSensor::retry()
 
 TempSensors::TempSensors(Scheduler& sched, Print& initTrace) :
   InitTrace(F("Initialisierung Temperatursensoren"), initTrace),
+  Task("TempSensors"),
   t1_(kwl_config::PinTemp1OneWireBus),
   t2_(kwl_config::PinTemp2OneWireBus),
   t3_(kwl_config::PinTemp3OneWireBus),
