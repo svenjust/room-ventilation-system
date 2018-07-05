@@ -25,12 +25,10 @@
 #include <PubSubClient.h>
 #include <Arduino.h>
 
-/// Precision of temperature reading (9-12 bits).
+/// Precision of temperature reading (9-12 bits; 12 bits is 0.0625C, 9 bits is 0.5C).
 static constexpr uint8_t TEMPERATURE_PRECISION = 12;
-/// Scheduling interval for temperature sensor query.
-static constexpr unsigned long SCHEDULING_INTERVAL = 125000;
-/// Number of scheduler ticks to look for MQTT.
-static constexpr uint8_t MQTT_COUNTDOWN_INTERVAL = 1000000 / SCHEDULING_INTERVAL;
+/// Scheduling interval for temperature sensor query (1s).
+static constexpr unsigned long SCHEDULING_INTERVAL = 1000000;
 
 TempSensors::TempSensor::TempSensor(uint8_t pin) :
   onewire_ifc_(pin),
@@ -39,6 +37,8 @@ TempSensors::TempSensor::TempSensor(uint8_t pin) :
   sensor_.begin();
   sensor_.setResolution(TEMPERATURE_PRECISION);
   sensor_.setWaitForConversion(false);
+  if (!sensor_.getAddress(address_, 0))
+    state_ = -1;  // re-request
 }
 
 bool TempSensors::TempSensor::loop()
@@ -47,10 +47,15 @@ bool TempSensors::TempSensor::loop()
     // new reading requested
     sensor_.requestTemperatures();
     state_ = 1;
+  } else if (state_ < 0) {
+    // request address again upon retry
+    if (sensor_.getAddress(address_, 0))
+      state_ = 0; // successfull query
+    // else state_ stays at -1 to retry getting the address next time
   } else if (state_ <= MAX_WAIT_TIME) {
     if (sensor_.isConversionComplete()) {
       // data can be read
-      auto res = sensor_.getTempCByIndex(0);
+      auto res = sensor_.getTempC(address_);
       if (res > DEVICE_DISCONNECTED_C) {
         // successful reading, start next read next time
         t_ = double(res);
@@ -75,7 +80,7 @@ void TempSensors::TempSensor::retry()
   } else {
     ++retry_count_;
   }
-  state_ = 0; // start next retry
+  state_ = -1; // start next retry
 }
 
 TempSensors::TempSensors(Scheduler& sched, Print& initTrace) :
@@ -84,8 +89,7 @@ TempSensors::TempSensors(Scheduler& sched, Print& initTrace) :
   t1_(kwl_config::PinTemp1OneWireBus),
   t2_(kwl_config::PinTemp2OneWireBus),
   t3_(kwl_config::PinTemp3OneWireBus),
-  t4_(kwl_config::PinTemp4OneWireBus),
-  mqtt_countdown_(MQTT_COUNTDOWN_INTERVAL)
+  t4_(kwl_config::PinTemp4OneWireBus)
 {
   // call every 1/8th of the second
   sched.addRepeated(*this, SCHEDULING_INTERVAL);
@@ -94,12 +98,15 @@ TempSensors::TempSensors(Scheduler& sched, Print& initTrace) :
 void TempSensors::run()
 {
   // sensor reading handling
-  bool newVal = t1_.loop();
-  newVal |= t2_.loop();
-  newVal |= t3_.loop();
-  newVal |= t4_.loop();
-
-  if (newVal || force_send_) {
+  TempSensor* t;
+  switch (next_sensor_) {
+    case 0: t = &t1_; next_sensor_ = 1; break;
+    case 1: t = &t2_; next_sensor_ = 2; break;
+    case 2: t = &t3_; next_sensor_ = 3; break;
+    default: t = &t4_; next_sensor_ = 0; break;
+  }
+  auto new_temp = t->loop();
+  if (new_temp || force_send_) {
     // compute efficiency
     auto diff_out = get_t3_outlet() - get_t1_outside();
     if (abs(diff_out) > 0.1) {
@@ -111,13 +118,7 @@ void TempSensors::run()
     }
   }
 
-  // MQTT handling
-  if (force_send_) {
-    sendMQTT();
-    force_send_ = false;
-  } else if (--mqtt_countdown_ == 0) {
-    sendMQTT();
-  }
+  sendMQTT();
 }
 
 bool TempSensors::mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int /*length*/)
@@ -126,6 +127,7 @@ bool TempSensors::mqttReceiveMsg(const StringView& topic, const char* payload, u
     forceSend();
   }
 #ifdef DEBUG
+  // TODO this should also disable updating temperatures via sensors
   else if (topic == MQTTTopic::KwlDebugsetTemperaturAussenluft) {
     get_t1_outside() = strtod(payload, nullptr);
     forceSend();
@@ -155,7 +157,6 @@ void TempSensors::sendMQTT() {
   //   - if max time reached, send,
   //   - if min time reached and min difference found, send,
   //   - else wait for the next call.
-  mqtt_countdown_ = MQTT_COUNTDOWN_INTERVAL;
   ++mqtt_ticks_;
   if (mqtt_ticks_ >= kwl_config::MaxIntervalMqttTemp || force_send_ ||
       (mqtt_ticks_ >= kwl_config::MinIntervalMqttTemp && (
@@ -170,11 +171,11 @@ void TempSensors::sendMQTT() {
     last_mqtt_t3_ = get_t3_outlet();
     last_mqtt_t4_ = get_t4_exhaust();
 
-    publish(MQTTTopic::KwlTemperaturAussenluft, t1_.get_t(), 2, kwl_config::RetainTemperature);
-    publish(MQTTTopic::KwlTemperaturZuluft, t2_.get_t(), 2, kwl_config::RetainTemperature);
-    publish(MQTTTopic::KwlTemperaturAbluft, t3_.get_t(), 2, kwl_config::RetainTemperature);
-    publish(MQTTTopic::KwlTemperaturFortluft, t4_.get_t(), 2, kwl_config::RetainTemperature);
-    publish(MQTTTopic::KwlEffiency, getEfficiency(), kwl_config::RetainTemperature);
+    auto r1 = publish(MQTTTopic::KwlTemperaturAussenluft, last_mqtt_t1_, 2, kwl_config::RetainTemperature);
+    auto r2 = publish(MQTTTopic::KwlTemperaturZuluft, last_mqtt_t2_, 2, kwl_config::RetainTemperature);
+    auto r3 = publish(MQTTTopic::KwlTemperaturAbluft, last_mqtt_t3_, 2, kwl_config::RetainTemperature);
+    auto r4 = publish(MQTTTopic::KwlTemperaturFortluft, last_mqtt_t4_, 2, kwl_config::RetainTemperature);
+    auto r5 = publish(MQTTTopic::KwlEffiency, getEfficiency(), kwl_config::RetainTemperature);
 
 #if 0
     // TODO revive after respective stuff moved in their components
@@ -190,8 +191,9 @@ void TempSensors::sendMQTT() {
     }
 #endif
 
+    // NOTE: in case we can't send something, force sending next time
     mqtt_ticks_ = 0;
-    force_send_ = false;
+    force_send_ = !(r1 && r2 && r3 && r4 && r5);
   }
 }
 

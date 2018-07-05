@@ -41,25 +41,31 @@ class TempSensors : private InitTrace, private Task, private MessageHandler
   class TempSensor
   {
   public:
+    /*!
+     * @brief Construct temperature sensor reading via given pin.
+     *
+     * @param pin pin on which to read the temperature.
+     */
     explicit TempSensor(uint8_t pin);
 
-    /// Execute one loop. Returns true, if temperature changed.
+    /// Execute one loop, returns true if temperature read.
     bool loop();
 
     /// Get measured temperature or INVALID.
     inline double& get_t() { return t_; }
 
   private:
-    /// Maximum wait time to wait for sensor to respond before reporting INVALID and retrying.
-    static constexpr uint8_t MAX_WAIT_TIME = 50;  // 5 seconds
+    /// Maximum wait time to wait for sensor to respond before reporting INVALID and retrying (5s).
+    static constexpr uint8_t MAX_WAIT_TIME = 3;
     /// After how many errors do we consider temperature sensor to be dead (~1 min).
-    static constexpr uint8_t MAX_RETRIES = 10;
+    static constexpr uint8_t MAX_RETRIES = 5;
 
     void retry();
 
     OneWire onewire_ifc_;       ///< Interface on which to read.
     DallasTemperature sensor_;  ///< Sensor.
-    uint8_t state_ = 0;         ///< Current query state.
+    DeviceAddress address_;     ///< Sensor address.
+    int8_t state_ = 0;          ///< Current query state.
     uint8_t retry_count_ = 0;   ///< Retry count.
     double t_ = INVALID;        ///< Current temperature.
   };
@@ -98,8 +104,8 @@ private:
   TempSensor t3_; ///< (Inside) temperature of outlet air being pulled from the house.
   TempSensor t4_; ///< Temperature of exhaust air being pushed to the outside.
   int efficiency_ = 0;        ///< Current efficiency of heat exchange.
+  uint8_t next_sensor_ = 0;   ///< Next sensor to talk to.
   bool force_send_ = false;   ///< Force sending temperatures via MQTT.
-  uint8_t mqtt_countdown_;    ///< Countdown when to send MQTT message.
   uint8_t mqtt_ticks_ = 0;    ///< MQTT seconds ticks.
   double last_mqtt_t1_ = INVALID;
   double last_mqtt_t2_ = INVALID;

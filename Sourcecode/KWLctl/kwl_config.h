@@ -254,7 +254,7 @@ public:
   // ************************************** M Q T T   R E P O R T I N G *********************************************************************************
 
   /// At most how often to send temperature messages via MQTT, in seconds.
-  static constexpr uint8_t MinIntervalMqttTemp = 2;
+  static constexpr uint8_t MinIntervalMqttTemp = 5;
   /// At least how often to send temperature messages via MQTT, in seconds.
   static constexpr uint8_t MaxIntervalMqttTemp = 60;
   /// Minimum change in temperature to report per MQTT.
