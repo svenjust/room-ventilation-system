@@ -19,17 +19,10 @@
 
 #include "FanControl.h"
 #include "MQTTTopic.hpp"
+#include "KWLPersistentConfig.h"
 #include "kwl_config.h"
 
 #include <Arduino.h>
-#include <EEPROM.h>
-
-static void eeprom_write_int(unsigned int addr, int value) {
-  // TODO use EEPROM config when separated out
-  const uint8_t* data = reinterpret_cast<const uint8_t*>(&value);
-  EEPROM.write(addr, data[0]);
-  EEPROM.write(addr + 1, data[1]);
-};
 
 /// Global instance used by interrupt routines.
 static FanControl* instance_ = nullptr;
@@ -56,14 +49,19 @@ static constexpr unsigned long TIMEOUT_CALIBRATION = 600000000;
 static constexpr unsigned long TIMEOUT_PWM_CALIBRATION = 300000000;
 
 
-FanControl::FanControl(Scheduler& sched, void (*speedCallback)(), Print& initTrace) :
+FanControl::FanControl(Scheduler& sched, KWLPersistentConfig& config, void (*speedCallback)(), Print& initTrace) :
   InitTrace(F("Initialisierung Ventilatoren"), initTrace),
   Task("FanControl"),
-  fan1_(kwl_config::PinFan1Power, kwl_config::PinFan1PWM, kwl_config::PinFan1Tacho, kwl_config::StandardSpeedSetpointFan1, countUpFan1),
-  fan2_(kwl_config::PinFan2Power, kwl_config::PinFan2PWM, kwl_config::PinFan2Tacho, kwl_config::StandardSpeedSetpointFan1, countUpFan2),
+  fan1_(kwl_config::PinFan1Power, kwl_config::PinFan1PWM, kwl_config::PinFan1Tacho, config.getSpeedSetpointFan1(), countUpFan1),
+  fan2_(kwl_config::PinFan2Power, kwl_config::PinFan2PWM, kwl_config::PinFan2Tacho, config.getSpeedSetpointFan2(), countUpFan2),
   speed_callback_(speedCallback),
-  ventilation_mode_(kwl_config::StandardKwlMode)
+  ventilation_mode_(kwl_config::StandardKwlMode),
+  persistent_config_(config)
 {
+  for (unsigned i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
+    fan1_.initPWM(i, config.getFanPWMSetpoint(0, i));
+    fan2_.initPWM(i, config.getFanPWMSetpoint(1, i));
+  }
   instance_ = this;
   sched.addRepeated(*this, FAN_INTERVAL);
 }
@@ -256,8 +254,8 @@ void FanControl::stopCalibration(bool timeout)
 void FanControl::storePWMSettingsToEEPROM()
 {
   for (unsigned i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
-    eeprom_write_int(20 + (i * 4), fan1_.getPWM(i));
-    eeprom_write_int(22 + (i * 4), fan2_.getPWM(i));
+    persistent_config_.setFanPWMSetpoint(0, i, fan1_.getPWM(i));
+    persistent_config_.setFanPWMSetpoint(1, i, fan2_.getPWM(i));
   }
 }
 
@@ -268,12 +266,12 @@ bool FanControl::mqttReceiveMsg(const StringView& topic, const char* payload, un
     // Drehzahl Lüfter 1
     unsigned i = unsigned(s.toInt());
     getFan1().setStandardSpeed(i);
-    eeprom_write_int(2, i);
+    persistent_config_.setSpeedSetpointFan1(i);
   } else if (topic == MQTTTopic::CmdFan2Speed) {
     // Drehzahl Lüfter 2
     unsigned i = unsigned(s.toInt());
     getFan2().setStandardSpeed(i);
-    eeprom_write_int(4, i);
+    persistent_config_.setSpeedSetpointFan2(i);
   } else if (topic == MQTTTopic::CmdMode) {
     // KWL Stufe
     setVentilationMode(int(s.toInt()));

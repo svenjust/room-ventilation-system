@@ -489,7 +489,7 @@ void DoMenuActionScreen3() {
       previousMillisDisplayUpdate = 0;
       // Drehzahl Lüfter 1
       fanControl.getFan1().setStandardSpeed(inputStandardSpeedSetpointFan1);
-      eeprom_write_int(2, inputStandardSpeedSetpointFan1);
+      persistentConfig.setSpeedSetpointFan1(inputStandardSpeedSetpointFan1);
       tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 225 + baselineMiddle);
@@ -562,7 +562,7 @@ void DoMenuActionScreen4() {
       previousMillisDisplayUpdate = 0;
       // Drehzahl Lüfter 1
       fanControl.getFan2().setStandardSpeed(inputStandardSpeedSetpointFan2);
-      eeprom_write_int(4, inputStandardSpeedSetpointFan2);
+      persistentConfig.setSpeedSetpointFan2(inputStandardSpeedSetpointFan2);
       tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 225 + baselineMiddle);
@@ -666,7 +666,7 @@ void DoMenuActionScreen6() {
       tft.setCursor(18, 220 + baselineMiddle);
       tft.println(F("Speicherbereich wird geloescht..."));
 
-      initializeEEPROM(true);
+      persistentConfig.factoryReset();
 
       tft.setCursor(18, 250 + baselineMiddle);
       tft.println(F("Loeschung erfolgreich, jetzt Reboot..."));
