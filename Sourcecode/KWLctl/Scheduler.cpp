@@ -25,14 +25,7 @@
 /// First registered task for task enumeration.
 static Task* s_first_task = nullptr;
 
-Task::Task(const char* name) :
-  name_(name),
-  next_registered_(s_first_task)
-{
-  s_first_task = this;
-}
-
-void Task::addRuntime(unsigned long runtime)
+void TimingStats::addRuntime(unsigned long runtime)
 {
   if (runtime > max_runtime_)
     max_runtime_ = runtime;
@@ -47,7 +40,7 @@ void Task::addRuntime(unsigned long runtime)
   ++count_runtime_;
 }
 
-unsigned long Task::getAvgRuntime() const {
+unsigned long TimingStats::getAvgRuntime() const {
   unsigned long count = (count_runtime_ - adjust_count_runtime_);
   if (count)
     return sum_runtime_ / count;
@@ -55,13 +48,36 @@ unsigned long Task::getAvgRuntime() const {
     return 0;
 }
 
+void TimingStats::sendStats(MessageHandler& handler, unsigned long next) const {
+  char buffer[80];
+  snprintf(buffer, sizeof(buffer), "%s: max=%lu, avg=%lu, cnt=%lu-%lu, next=%lu",
+      name_, max_runtime_, getAvgRuntime(),
+      count_runtime_, adjust_count_runtime_, next);
+  handler.publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
+}
+
+Task::Task(const char* name) :
+  next_registered_(s_first_task),
+  runtime_(name)
+{
+  s_first_task = this;
+}
+
+Scheduler::Scheduler() :
+  runtime_("Scheduler"),
+  total_runtime_("AllTasks")
+{}
+
 void Scheduler::add(Task& t, unsigned long timeout_us)
 {
   unsigned long new_time;
-  if (is_in_loop_)
+  if (is_in_loop_) {
     new_time = current_time_ + timeout_us;
-  else
-    new_time = micros() + timeout_us;
+  } else {
+    static unsigned long s_startup_delay = 0;
+    new_time = micros() + timeout_us + s_startup_delay;
+    s_startup_delay += 220000;  // 220ms apart at startup
+  }
   t.next_time_ = new_time;
   t.interval_ = 0;
 
@@ -92,7 +108,8 @@ void Scheduler::loop()
     return; // recursive call, ERROR
   is_in_loop_ = true;
   current_time_ = micros();
-  unsigned long task_start_time = current_time_;
+  unsigned long schedule_start_time = current_time_;
+  unsigned long all_task_times = 0;
 
   Task* last_task = nullptr;
   auto cur_task = next_task_;
@@ -127,12 +144,14 @@ void Scheduler::loop()
 
     // OK, timer expired
     auto interval = cur_task->interval_;
+    unsigned long task_start_time = 0;
     if (interval) {
       // Interval task, compute next time to run the task. In case the next time would fall
       // into this loop run, skip one call. This protects against runaway tasks that are
       // scheduled too frequently.
       while (long(task_time - current_time_) < 0)
         task_time += interval;
+      task_start_time = micros();
       cur_task->run();
       cur_task->next_time_ = task_time;
     } else {
@@ -142,14 +161,14 @@ void Scheduler::loop()
       else
         next_task_ = next;
       cur_task->is_in_list_ = false;
+      task_start_time = micros();
       cur_task->run();
       if (!cur_task->is_in_list_)
         cur_task->next_time_ = 0;
     }
-    unsigned long task_end_time = micros();
-    auto task_runtime = task_end_time - task_start_time;
-    cur_task->addRuntime(task_runtime);
-    task_start_time = task_end_time;
+    auto task_runtime = micros() - task_start_time;
+    cur_task->runtime_.addRuntime(task_runtime);
+    all_task_times += task_runtime;
     cur_task = next;
   }
 
@@ -166,6 +185,13 @@ void Scheduler::loop()
     else
       next_task_ = queue_;
   }
+
+  if (all_task_times) {
+    // at least one task was scheduled, record how long did scheduler take
+    auto sched_runtime = micros() - schedule_start_time;
+    runtime_.addRuntime(sched_runtime - all_task_times);
+    total_runtime_.addRuntime(sched_runtime);
+  }
   is_in_loop_ = false;
 }
 
@@ -173,13 +199,11 @@ bool Scheduler::mqttReceiveMsg(const StringView& topic, const char* /*payload*/,
 {
   if (topic == MQTTTopic::KwlDebugsetSchedulerGetvalues) {
     // send statistics for scheduler
+    runtime_.sendStats(*this);
+    total_runtime_.sendStats(*this);
     Task* t = s_first_task;
-    char buffer[80];
     while (t) {
-      snprintf(buffer, sizeof(buffer), "%s: max=%lu, avg=%lu, cnt=%lu-%lu, next=%lu",
-               t->name_, t->max_runtime_, t->getAvgRuntime(),
-               t->count_runtime_, t->adjust_count_runtime_, t->next_time_);
-      publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
+      t->runtime_.sendStats(*this, t->next_time_);
       t = t->next_registered_;
     }
   } else {

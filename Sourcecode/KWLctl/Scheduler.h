@@ -28,6 +28,57 @@
 class Scheduler;
 
 /*!
+ * @brief Statistics for task timing.
+ *
+ * Typically, measurements are in microseconds, but the unit is not
+ * important for the purpose of the statistics.
+ *
+ * The implementation accounts for numeric overflows and consolidates
+ * sum and count appropriately, so a reliable average can be built over
+ * time.
+ */
+class TimingStats
+{
+public:
+  explicit TimingStats(const char* name) : name_(name) {}
+
+  /// Add one runtime measurement.
+  void addRuntime(unsigned long runtime);
+
+  /// Get maximum recorded runtime.
+  inline unsigned long getMaxRuntime() const { return max_runtime_; }
+
+  /// Get average runtime.
+  unsigned long getAvgRuntime() const;
+
+  /// Get total measurement count.
+  inline unsigned long getMeasurementCount() const { return count_runtime_; }
+
+  /// Get number of measurements consolidated in order not to overflow long counters.
+  unsigned long getConsolidatedMeasurementCount() const { return adjust_count_runtime_; }
+
+  /*!
+   * @brief Send statistics over MQTT.
+   *
+   * @param handler message handler where to publish the message.
+   * @param next next expected task start time, if any.
+   */
+  void sendStats(MessageHandler& handler, unsigned long next = 0) const;
+
+private:
+  /// Task name.
+  const char* name_;
+  /// Maximum run time of this task in microseconds.
+  unsigned long max_runtime_ = 0;
+  /// Sum of runtimes of this task in microseconds.
+  unsigned long sum_runtime_ = 0;
+  /// Count of runtime measurements for this task.
+  unsigned long count_runtime_ = 0;
+  /// Count of runtime measurements "eaten out" to keep measurements in range.
+  unsigned long adjust_count_runtime_ = 0;
+};
+
+/*!
  * @brief Base class for all tasks schedulable by a scheduler.
  */
 class Task
@@ -63,12 +114,6 @@ protected:
 private:
   friend class Scheduler;
 
-  /// Add one runtime measurement.
-  void addRuntime(unsigned long runtime);
-
-  /// Get average runtime of this task.
-  unsigned long getAvgRuntime() const;
-
   /// Next time at which to react to this task.
   unsigned long next_time_ = 0;
   /// Interval with which to schedule this task.
@@ -78,19 +123,10 @@ private:
   /// Set to true, if the task is already in scheduler's list.
   bool is_in_list_ = false;
 
-  /// Task name.
-  const char* name_;
   /// Next registered task in global list. Maintained by constructor.
   Task* next_registered_ = nullptr;
-
-  /// Maximum run time of this task in microseconds.
-  unsigned long max_runtime_ = 0;
-  /// Sum of runtimes of this task in microseconds.
-  unsigned long sum_runtime_ = 0;
-  /// Count of runtime measurements for this task.
-  unsigned long count_runtime_ = 0;
-  /// Count of runtime measurements "eaten out" to keep measurements in range.
-  unsigned long adjust_count_runtime_ = 0;
+  /// Run time of this task.
+  TimingStats runtime_;
 };
 
 /*!
@@ -118,6 +154,8 @@ private:
 class Scheduler : private MessageHandler
 {
 public:
+  Scheduler();
+
   /*!
    * @brief Add a task to be scheduled once.
    *
@@ -161,4 +199,8 @@ private:
   Task* queue_last_ = nullptr;
   /// Variable controlling whether we are in loop() function.
   bool is_in_loop_ = false;
+  /// Runtime of the scheduler when doing useful work and scheduling some task.
+  TimingStats runtime_;
+  /// Total runtime of all scheduled tasks in one scheduler loop.
+  TimingStats total_runtime_;
 };
