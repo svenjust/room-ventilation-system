@@ -487,8 +487,6 @@ void SetPreheater() {
 void DoActionAntiFreezeState() {
   // Funktion wird ausgeführt, um AntiFreeze (Frostschutz) zu erreichen.
 
-  tempSensors.forceSend();
-
   switch (antifreezeState) {
 
     case antifreezePreheater:
