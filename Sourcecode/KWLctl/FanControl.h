@@ -30,6 +30,7 @@
 #include "MQTTClient.h"
 
 class Print;
+class KWLPersistentConfig;
 
 /// Fan operation modes.
 enum class FanMode : uint8_t
@@ -48,12 +49,13 @@ public:
    * @brief Construct fan control object.
    *
    * @param sched scheduler to use for scheduling events.
+   * @param config configuration to read/write.
    * @param speedCallback callback to call after computing PWM signal for fans, but before
    *        setting it. Typically used for antifreeze/preheater regulation and to turn off
    *        fans if no preheater installed.
    * @param initTrace initial tracer for printing startup messages.
    */
-  FanControl(Scheduler& sched, void (*speedCallback)(), Print& initTrace);
+  FanControl(Scheduler& sched, KWLPersistentConfig& config, void (*speedCallback)(), Print& initTrace);
 
   /// Get current fan mode (normal or calibration).
   inline FanMode getMode() { return mode_; }
@@ -127,6 +129,8 @@ private:
   int current_calibration_mode_ = 0;            ///< Current mode being calibrated.
   unsigned long calibration_start_time_us_ = 0; ///< Start of calibration.
   unsigned long calibration_pwm_start_time_us_ = 0; ///< Start of one PWM mode calibration.
+
+  KWLPersistentConfig& persistent_config_;      ///< Configuration.
 
   bool force_send_mode_ = false;    ///< Force sending mode on the next run.
   bool force_send_speed_ = false;   ///< Force sending speed on the next run.

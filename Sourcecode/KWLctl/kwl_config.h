@@ -139,15 +139,7 @@ public:
   // Stufe 0 = 0%, Stufe 1 = 70%, Stufe 2 = 100%, Stufe 3 = 130%. Stufe 0 ist hier zusätzlich.
   //
   // Ein mögliche Definition für 6 Stufen wäre bspw.:
-  // Stufe 0 = 0%, Stufe 1 = 60%, Stufe 2 = 80%, Stufe 3 = 100%, Stufe 4 = 120%, Stufe 4 = 140%
-  //
-  // kwl_config::StandardModeCnt definiert die Anzahl der Stufen
-  //
-  // FACTORY_RESET_EEPROM = true setzt alle Werte der Steuerung auf eine definierte Werte zurück. Dieses entspricht einem
-  // Zurücksetzen auf den Werkzustand. Ein Factory-Reset kann auch per mqtt Befehl erreicht werden:
-  //     mosquitto_pub -t d15/set/kwl/resetAll_IKNOWWHATIMDOING -m YES
-  //
-  #define  FACTORY_RESET_EEPROM false // true = Werte im nichtflüchtigen Speicherbereich LÖSCHEN, false nichts tun
+  // Stufe 0 = 0%, Stufe 1 = 60%, Stufe 2 = 80%, Stufe 3 = 100%, Stufe 4 = 120%, Stufe 5 = 140%
 
   /// # der konfigurierten Standardlüftungsstufen.
   static constexpr unsigned StandardModeCnt = 4;
@@ -176,6 +168,19 @@ public:
   static constexpr unsigned StandardBypassMode              =    0;
   /// 0 = NO, 1 = YES
   static constexpr unsigned StandardHeatingAppCombUse       =    0;
+
+  /*!
+   * @brief Perform "factory reset" *at each startup*.
+   *
+   * If set, perform load of defaults on each startup. If not set, load EEPROM data.
+   * DO NOT set this in productive environment, only as last resort to reset EEPROM.
+   *
+   * Factory reset can be also done using MQTT:
+   * @code
+   * mosquitto_pub -t d15/set/kwl/resetAll_IKNOWWHATIMDOING -m YES
+   * @endcode
+   */
+  static constexpr bool FACTORY_RESET_EEPROM = false;
 
   // **************************************E N D E *** W E R K S E I N S T E L L U N G E N **************************************************************
 

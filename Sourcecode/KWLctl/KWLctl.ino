@@ -55,7 +55,6 @@
 #include <Adafruit_GFX.h>       // TFT
 #include <MCUFRIEND_kbv.h>      // TFT
 #include <TouchScreen.h>        // Touch
-#include <EEPROM.h>             // Speicherung von Einstellungen
 #include <SPI.h>
 #include <Ethernet.h>
 #include <PubSubClient.h>       // mqtt Client
@@ -70,6 +69,7 @@
 #include "Scheduler.h"
 #include "TempSensors.h"
 #include "FanControl.h"
+#include "KWLPersistentConfig.h"
 
 #include "kwl_config.h"
 #include "MQTTTopic.hpp"
@@ -225,14 +225,6 @@ unsigned long previousMillisTemp                  = 0;
 unsigned long currentMillis                       = 0;
 
 
-// Begin EEPROM
-const int  BUFSIZE = 50;
-char       eeprombuffer[BUFSIZE];
-const int  EEPROM_MIN_ADDR = 0;
-const int  EEPROM_MAX_ADDR = 1023;
-// Ende EEPROM
-
-
 // forwards:
 void DoActionAntiFreezeState();
 void SetPreheater();
@@ -247,12 +239,14 @@ static MultiPrint initTracer(Serial, tft);
 /// Global MQTT client.
 // TODO move all MQTT service handling into the client
 static MQTTClient mqttClientWrapper(mqttClient);
+/// Persistent configuration.
+static KWLPersistentConfig persistentConfig(initTracer, kwl_config::FACTORY_RESET_EEPROM);
 /// Task scheduler
 static Scheduler scheduler;
 /// Set of temperature sensors
 static TempSensors tempSensors(scheduler, initTracer);
 /// Fan control.
-static FanControl fanControl(scheduler,
+static FanControl fanControl(scheduler, persistentConfig,
     []() {
       // this callback is called after computing new PWM tech points
       // and before setting fan speed via PWM
@@ -333,7 +327,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     String s = String((char*)payload);
     if (s == "YES")   {
       Serial.println(F("Speicherbereich wird gelöscht"));
-      initializeEEPROM(true);
+      persistentConfig.factoryReset();
       // Reboot
       Serial.println(F("Reboot"));
       delay (1000);
@@ -347,15 +341,14 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     antifreezeHyst = i;
     antifreezeTempUpperLimit = antifreezeTemp + antifreezeHyst;
     // AntiFreezeHysterese
-    eeprom_write_int(12, i);
+    persistentConfig.setBypassHystereseTemp(antifreezeHyst);
   }
   else if (topicStr == MQTTTopic::CmdBypassHystereseMinutes) {
     payload[length] = '\0';
     String s = String((char*)payload);
     int i = s.toInt();
     bypassHystereseMinutes = i;
-    // BypassHystereseMinutes
-    eeprom_write_int(10, i);
+    persistentConfig.setBypassHystereseMinutes(i);
   }
   else if (topicStr == MQTTTopic::CmdBypassManualFlap) {
     payload[length] = '\0';
@@ -388,14 +381,14 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
       Serial.println(F("Feuerstättenmodus wird aktiviert und gespeichert"));
       int i = 1;
       heatingAppCombUse = i;
-      eeprom_write_int(60, i);
+      persistentConfig.setHeatingAppCombUse(i);
       tempSensors.forceSend();
     }
     if (s == "NO")   {
       Serial.println(F("Feuerstättenmodus wird DEAKTIVIERT und gespeichert"));
       int i = 0;
       heatingAppCombUse = i;
-      eeprom_write_int(60, i);
+      persistentConfig.setHeatingAppCombUse(i);
       tempSensors.forceSend();
     }
   }
@@ -812,58 +805,20 @@ void initializeVariables()
 {
   Serial.println();
   Serial.println(F("initializeVariables"));
-  int temp = 0;
 
-  // Normdrehzahl Lüfter 1
-  eeprom_read_int (2, &temp);
-  fanControl.getFan1().setStandardSpeed(unsigned(temp));
+  // bypass
+  bypassTempAbluftMin = persistentConfig.getBypassTempAbluftMin();
+  bypassTempAussenluftMin = persistentConfig.getBypassTempAussenluftMin();
+  bypassHystereseMinutes = persistentConfig.getBypassHystereseMinutes();
+  bypassManualSetpoint = persistentConfig.getBypassManualSetpoint();
+  bypassMode = persistentConfig.getBypassMode();
 
-  // Normdrehzahl Lüfter 2
-  eeprom_read_int (4, &temp);
-  fanControl.getFan2().setStandardSpeed(unsigned(temp));
-
-  // bypassTempAbluftMin
-  eeprom_read_int (6, &temp);
-  bypassTempAbluftMin = temp;
-
-  // bypassTempAussenluftMin
-  eeprom_read_int (8, &temp);
-  bypassTempAussenluftMin = temp;
-
-  // bypassHystereseMinutes Close
-  eeprom_read_int (10, &temp);
-  bypassHystereseMinutes = temp;
-
-  // antifreezeHyst
-  eeprom_read_int (12, &temp);
-  antifreezeHyst = temp;
+  // antifreeze
+  antifreezeHyst = persistentConfig.getBypassHystereseTemp(); // TODO variable name is wrong
   antifreezeTempUpperLimit = antifreezeTemp + antifreezeHyst;
 
-  // bypassManualSetpoint Close
-  eeprom_read_int (14, &temp);
-  bypassManualSetpoint = temp;
-
-  // bypassMode Auto
-  eeprom_read_int (16, &temp);
-  bypassMode = temp;
-
-  // PWM für max 10 Lüftungsstufen und zwei Lüfter und einem Integer
-  // max 10 Werte * 2 Lüfter * 2 Byte
-  // 20 bis 60
-  if (kwl_config::StandardModeCnt > 10) {
-    Serial.println(F("ERROR: ModeCnt zu groß"));
-  }
-  for (int i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
-    eeprom_read_int (20 + (i * 4), &temp);
-    fanControl.getFan1().initPWM(i, temp);
-    eeprom_read_int (22 + (i * 4), &temp);
-    fanControl.getFan2().initPWM(i, temp);
-  }
-  // ENDE PWM für max 10 Lüftungsstufen
-
   // heatingAppCombUse
-  eeprom_read_int (60, &temp);
-  heatingAppCombUse = temp;
+  heatingAppCombUse = persistentConfig.getHeatingAppCombUse();
 
   // Weiter geht es ab Speicherplatz 62dez ff
 }
@@ -888,7 +843,6 @@ void setup()
   SetupTouch();
   print_header();
 
-  initializeEEPROM();
   initializeVariables();
 
   Serial.println();
