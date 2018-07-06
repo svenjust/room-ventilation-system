@@ -24,7 +24,7 @@
  */
 #pragma once
 
-#include <string.h>
+#include <WString.h>
 #include <stdlib.h>
 
 /*!
@@ -44,6 +44,12 @@ public:
     if (memcmp(data_, other, length_) != 0)
       return false;
     return other[length_] == 0;
+  }
+
+  bool operator==(const __FlashStringHelper* other) const {
+    if (memcmp_P(data_, other, length_) != 0)
+      return false;
+    return pgm_read_byte(reinterpret_cast<const uint8_t*>(other) + length_) == 0;
   }
 
   bool operator==(const StringView& other) const {
