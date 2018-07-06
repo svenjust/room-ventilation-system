@@ -20,7 +20,7 @@
 #include "FanControl.h"
 #include "MQTTTopic.hpp"
 #include "KWLPersistentConfig.h"
-#include "kwl_config.h"
+#include "KWLConfig.h"
 
 #include <Arduino.h>
 
@@ -52,13 +52,13 @@ static constexpr unsigned long TIMEOUT_PWM_CALIBRATION = 300000000;
 FanControl::FanControl(Scheduler& sched, KWLPersistentConfig& config, void (*speedCallback)(), Print& initTrace) :
   InitTrace(F("Initialisierung Ventilatoren"), initTrace),
   Task("FanControl"),
-  fan1_(kwl_config::PinFan1Power, kwl_config::PinFan1PWM, kwl_config::PinFan1Tacho, config.getSpeedSetpointFan1(), countUpFan1),
-  fan2_(kwl_config::PinFan2Power, kwl_config::PinFan2PWM, kwl_config::PinFan2Tacho, config.getSpeedSetpointFan2(), countUpFan2),
+  fan1_(KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho, config.getSpeedSetpointFan1(), countUpFan1),
+  fan2_(KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho, config.getSpeedSetpointFan2(), countUpFan2),
   speed_callback_(speedCallback),
-  ventilation_mode_(kwl_config::StandardKwlMode),
+  ventilation_mode_(KWLConfig::StandardKwlMode),
   persistent_config_(config)
 {
-  for (unsigned i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
+  for (unsigned i = 0; ((i < KWLConfig::StandardModeCnt) && (i < 10)); i++) {
     fan1_.initPWM(i, config.getFanPWMSetpoint(0, i));
     fan2_.initPWM(i, config.getFanPWMSetpoint(1, i));
   }
@@ -68,7 +68,7 @@ FanControl::FanControl(Scheduler& sched, KWLPersistentConfig& config, void (*spe
 
 void FanControl::setVentilationMode(int mode)
 {
-  ventilation_mode_ = constrain(mode, 0, int(kwl_config::StandardModeCnt - 1));
+  ventilation_mode_ = constrain(mode, 0, int(KWLConfig::StandardModeCnt - 1));
   speedUpdate();
   forceSendMode();
 }
@@ -90,7 +90,7 @@ void FanControl::run()
   fan1_.updateSpeed();
   fan2_.updateSpeed();
 
-  if (kwl_config::serialDebugFan == 1) {
+  if (KWLConfig::serialDebugFan == 1) {
     Serial.print(F("Speed fan1: "));
     Serial.print(fan1_.getSpeed());
     Serial.print(F(", fan2: "));
@@ -108,7 +108,7 @@ void FanControl::run()
 
   // publish any measurements, if necessary
   if (force_send_mode_ || --send_mode_countdown_ <= 0) {
-    if (publish(MQTTTopic::StateKwlMode, ventilation_mode_, kwl_config::RetainFanMode)) {
+    if (publish(MQTTTopic::StateKwlMode, ventilation_mode_, KWLConfig::RetainFanMode)) {
       send_mode_countdown_ = int(MODE_MQTT_INTERVAL / FAN_INTERVAL);
       force_send_mode_ = false;
     } else {
@@ -131,8 +131,8 @@ void FanControl::run()
     }
     if (force_send_speed_) {
       // yep, really sending now
-      auto r1 = publish(MQTTTopic::Fan1Speed, fan1, kwl_config::RetainFanSpeed);
-      auto r2 = publish(MQTTTopic::Fan2Speed, fan2, kwl_config::RetainFanSpeed);
+      auto r1 = publish(MQTTTopic::Fan1Speed, fan1, KWLConfig::RetainFanSpeed);
+      auto r2 = publish(MQTTTopic::Fan2Speed, fan2, KWLConfig::RetainFanSpeed);
       last_sent_fan1_speed_ = fan1;
       last_sent_fan2_speed_ = fan2;
       if (r1 && r2) {
@@ -161,12 +161,12 @@ void FanControl::setSpeed()
   fan1_.sendMQTTDebug(1, getScheduleTime(), *this);
   fan2_.sendMQTTDebug(2, getScheduleTime(), *this);
 
-  if (kwl_config::serialDebugFan == 1) {
+  if (KWLConfig::serialDebugFan == 1) {
     Serial.print(F("Timestamp: "));
     Serial.println(getScheduleTime());
   }
-  fan1_.setSpeed(1, kwl_config::PinFan1PWM, kwl_config::DacChannelFan1);
-  fan2_.setSpeed(2, kwl_config::PinFan2PWM, kwl_config::DacChannelFan2);
+  fan1_.setSpeed(1, KWLConfig::PinFan1PWM, KWLConfig::DacChannelFan1);
+  fan2_.setSpeed(2, KWLConfig::PinFan2PWM, KWLConfig::DacChannelFan2);
 }
 
 void FanControl::speedCalibrationStart() {
@@ -203,13 +203,13 @@ void FanControl::speedCalibrationStep()
       // Einzelne Stufen kalibrieren
       if (speedCalibrationPWMStep()) {
         // true = Kalibrierung der Lüftungsstufe beendet
-        if (current_calibration_mode_ == kwl_config::StandardModeCnt - 1) {
+        if (current_calibration_mode_ == KWLConfig::StandardModeCnt - 1) {
           // fertig mit allen Stufen!!!
           // Speichern in EEProm und Variablen
           fan1_.finishCalibration();
           fan2_.finishCalibration();
           storePWMSettingsToEEPROM();
-          for (unsigned i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
+          for (unsigned i = 0; ((i < KWLConfig::StandardModeCnt) && (i < 10)); i++) {
             Serial.print(F("Stufe: "));
             Serial.print(i);
             Serial.print(F("  PWM Fan 1: "));
@@ -253,7 +253,7 @@ void FanControl::stopCalibration(bool timeout)
 
 void FanControl::storePWMSettingsToEEPROM()
 {
-  for (unsigned i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
+  for (unsigned i = 0; ((i < KWLConfig::StandardModeCnt) && (i < 10)); i++) {
     persistent_config_.setFanPWMSetpoint(0, i, fan1_.getPWM(i));
     persistent_config_.setFanPWMSetpoint(1, i, fan2_.getPWM(i));
   }

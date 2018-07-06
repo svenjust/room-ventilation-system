@@ -22,17 +22,17 @@
  * @file
  * @brief Configuration of the project.
  *
- * @note DO NOT MODIFY THIS FILE. Put your configuration into user_config.h.
+ * @note DO NOT MODIFY THIS FILE. Put your configuration into UserConfig.h.
  *
- * If no user_config.h is provided, then defaults are used. If it is provided,
+ * If no UserConfig.h is provided, then defaults are used. If it is provided,
  * then defaults may be overridden there, by using lines in the form:
  *
  * CONFIGURE(name, value)
  * CONFIGURE_OBJ(name, (values...))
  *
- * for each configuration parameter from kwl_config.
+ * for each configuration parameter from KWLConfig.
  *
- * File user_config.h is not tracked, so it's easy to define specific site
+ * File UserConfig.h is not tracked, so it's easy to define specific site
  * configuration without modifying the tracked source code. Most likely, you
  * will at least want to override network settings.
  *
@@ -43,7 +43,7 @@
  * CONFIGURE_OBJ(mac, (0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF))
  * @endcode
  *
- * You can also define DEBUG macro in user_config.h to enable debugging MQTT messages.
+ * You can also define DEBUG macro in UserConfig.h to enable debugging MQTT messages.
  */
 
 #pragma once
@@ -78,12 +78,12 @@ private:
 /// Maximum # of fan mode settings. Not configurable.
 static constexpr unsigned MAX_FAN_MODE_CNT = 10;
 
-/// Do not build debug mode. Define in user_config.h if desired.
+/// Do not build debug mode. Define in UserConfig.h if desired.
 #undef DEBUG
 
 /// Default configuration, which can be overridden by the user configuration below.
-template<typename final_config>
-class kwl_default_config
+template<typename FinalConfig>
+class KWLDefaultConfig
 {
 protected:
   /// Helper for relay state.
@@ -286,45 +286,45 @@ public:
   // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 };
 
-template<typename final_config>
-const bool kwl_default_config<final_config>::RetainTemperature = final_config::RetainMeasurements;
-template<typename final_config>
-const bool kwl_default_config<final_config>::RetainFanMode = final_config::RetainMeasurements;
-template<typename final_config>
-const bool kwl_default_config<final_config>::RetainFanSpeed = final_config::RetainMeasurements;
+template<typename FinalConfig>
+const bool KWLDefaultConfig<FinalConfig>::RetainTemperature = FinalConfig::RetainMeasurements;
+template<typename FinalConfig>
+const bool KWLDefaultConfig<FinalConfig>::RetainFanMode = FinalConfig::RetainMeasurements;
+template<typename FinalConfig>
+const bool KWLDefaultConfig<FinalConfig>::RetainFanSpeed = FinalConfig::RetainMeasurements;
 
 /*!
- * @brief Helper macro to add configuration for simple parameters in user_config.h.
+ * @brief Helper macro to add configuration for simple parameters in UserConfig.h.
  *
  * If you get an error here, this means that you probably mistyped a configuration parameter name
- * from kwl_default_config or the value is not compatible for the data type.
+ * from KWLDefaultConfig or the value is not compatible for the data type.
  *
  * @param name configuration parameter name.
  * @param value value for the parameter.
  */
-#define CONFIGURE(name, value) static constexpr decltype(kwl_default_config<kwl_config>::name) name = value;
+#define CONFIGURE(name, value) static constexpr decltype(KWLDefaultConfig<KWLConfig>::name) name = value;
 
 /*!
- * @brief Helper macro to add configuration for object parameters in user_config.h.
+ * @brief Helper macro to add configuration for object parameters in UserConfig.h.
  *
  * If you get an error here, this means that you probably mistyped a configuration parameter name
- * from kwl_default_config or the value is not compatible for the data type.
+ * from KWLDefaultConfig or the value is not compatible for the data type.
  *
  * @param name configuration parameter name.
  * @param values constructor values (in form (a, b, c), including braces).
  */
-#define CONFIGURE_OBJ(name, values) static constexpr decltype(kwl_default_config<kwl_config>::name) name = decltype(kwl_default_config::name) values;
+#define CONFIGURE_OBJ(name, values) static constexpr decltype(KWLDefaultConfig<KWLConfig>::name) name = decltype(KWLDefaultConfig<KWLConfig>::name) values;
 
 /// Actual configuration, including user-specific values.
-class kwl_config : public kwl_default_config<kwl_config>
+class KWLConfig : public KWLDefaultConfig<KWLConfig>
 {
 public:
-#if !__has_include("user_config.h")
-#pragma message("No user_config.h provided, using only default. Most likely you want local configuration. See kwl_config.h for instructions.")
+#if !__has_include("UserConfig.h")
+#pragma message("No UserConfig.h provided, using only defaults. Most likely you want local configuration. See KWLConfig.h for instructions.")
 #else
-#include "user_config.h"
+#include "UserConfig.h"
 #endif
 };
 
-template<typename final_config>
-constexpr double kwl_default_config<final_config>::StandardKwlModeFactor[MAX_FAN_MODE_CNT];
+template<typename FinalConfig>
+constexpr double KWLDefaultConfig<FinalConfig>::StandardKwlModeFactor[MAX_FAN_MODE_CNT];

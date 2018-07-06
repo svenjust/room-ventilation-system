@@ -17,7 +17,7 @@
  * This copyright notice MUST APPEAR in all copies of the software!
  */
 
-#include "kwl_config.h"
+#include "KWLConfig.h"
 
 #include <IPAddress.h>
 

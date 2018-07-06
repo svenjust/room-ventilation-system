@@ -25,7 +25,7 @@
 
 #include "FanRPM.h"
 #include "Relay.h"
-#include "kwl_config.h"
+#include "KWLConfig.h"
 
 #include <PID_v1.h>
 

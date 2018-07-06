@@ -51,19 +51,19 @@ void loopMqttSendBypass() {
 
       case bypassFlapState_Open:
         mqttClient.publish(MQTTTopic::KwlBypassState, "open");
-        if (kwl_config::serialDebug == 1) {
+        if (KWLConfig::serialDebug == 1) {
           Serial.println(F("MQTTTopic::KwlBypassState: open"));
         }
         break;
       case bypassFlapState_Close:
         mqttClient.publish(MQTTTopic::KwlBypassState, "closed");
-        if (kwl_config::serialDebug == 1) {
+        if (KWLConfig::serialDebug == 1) {
           Serial.println(F("MQTTTopic::KwlBypassState: closed"));
         }
         break;
       case bypassFlapState_Unknown:
         mqttClient.publish(MQTTTopic::KwlBypassState, "unknown");
-        if (kwl_config::serialDebug == 1) {
+        if (KWLConfig::serialDebug == 1) {
           Serial.println(F("MQTTTopic::KwlBypassState: unknown"));
         }
         break;
@@ -83,28 +83,28 @@ void MqttSendBypassAllValues() {
 
     if (bypassMode == bypassMode_Auto) {
       mqttClient.publish(MQTTTopic::KwlBypassMode, "auto");
-      if (kwl_config::serialDebug == 1) {
+      if (KWLConfig::serialDebug == 1) {
         Serial.println(F("MQTTTopic::KwlBypassMode: auto"));
       }
     } else if (bypassMode == bypassMode_Manual) {
       mqttClient.publish(MQTTTopic::KwlBypassMode, "manual");
-      if (kwl_config::serialDebug == 1) {
+      if (KWLConfig::serialDebug == 1) {
         Serial.println(F("MQTTTopic::KwlBypassMode: manual"));
       }
     }
     itoa(bypassTempAbluftMin, buffer, 10);
     mqttClient.publish(MQTTTopic::KwlBypassTempAbluftMin, buffer);
-    if (kwl_config::serialDebug == 1) {
+    if (KWLConfig::serialDebug == 1) {
       Serial.println("MQTTTopic::KwlBypassTempAbluftMin: " + String(bypassTempAbluftMin));
     }
     itoa(bypassTempAussenluftMin, buffer, 10);
     mqttClient.publish(MQTTTopic::KwlBypassTempAussenluftMin, buffer);
-    if (kwl_config::serialDebug == 1) {
+    if (KWLConfig::serialDebug == 1) {
       Serial.println("MQTTTopic::KwlBypassTempAussenluftMin: " + String(bypassTempAussenluftMin));
     }
     itoa(bypassHystereseMinutes, buffer, 10);
     mqttClient.publish(MQTTTopic::KwlBypassHystereseMinutes, buffer);
-    if (kwl_config::serialDebug == 1) {
+    if (KWLConfig::serialDebug == 1) {
       Serial.println("MQTTTopic::KwlBypassHystereseMinutes: " + String(bypassHystereseMinutes));
     }
   }
@@ -135,25 +135,25 @@ void loopMqttSendDHT() {
       if (DHT1IsAvailable) {
         dtostrf(DHT1Temp, 6, 2, buffer);
         mqttClient.publish(MQTTTopic::KwlDHT1Temperatur, buffer);
-        if (kwl_config::serialDebug == 1) {
+        if (KWLConfig::serialDebug == 1) {
           Serial.println("MQTTTopic::KwlDHT1Temperatur: " + String(DHT1Temp));
         }
         dtostrf(DHT1Hum, 6, 2, buffer);
         mqttClient.publish(MQTTTopic::KwlDHT1Humidity, buffer);
-        if (kwl_config::serialDebug == 1) {
+        if (KWLConfig::serialDebug == 1) {
           Serial.println("MQTTTopic::KwlDHT1Humidity: " + String(DHT1Hum));
         }
       }
       if (DHT2IsAvailable) {
         dtostrf(DHT2Temp, 6, 2, buffer);
         mqttClient.publish(MQTTTopic::KwlDHT2Temperatur, buffer);
-        if (kwl_config::serialDebug == 1) {
+        if (KWLConfig::serialDebug == 1) {
           Serial.println("MQTTTopic::KwlDHT2Temperatur: " + String(DHT2Temp));
         }
 
         dtostrf(DHT2Hum, 6, 2, buffer);
         mqttClient.publish(MQTTTopic::KwlDHT2Humidity, buffer);
-        if (kwl_config::serialDebug == 1) {
+        if (KWLConfig::serialDebug == 1) {
           Serial.println("MQTTTopic::KwlDHT2Humidity: " + String(DHT2Hum));
         }
       }
@@ -181,7 +181,7 @@ void loopMqttSendCo2() {
       if (MHZ14IsAvailable) {
         dtostrf(MHZ14_CO2_ppm, 6, 0, buffer);
         mqttClient.publish(MQTTTopic::KwlCO2Abluft, buffer);
-        if (kwl_config::serialDebug == 1) {
+        if (KWLConfig::serialDebug == 1) {
           Serial.println("MQTTTopic::KwlCO2Abluft: " + String(MHZ14_CO2_ppm));
         }
       }
@@ -204,8 +204,8 @@ void loopNetworkConnection() {
       Serial.println(F("LAN not connected"));
       bLanOk = false;
       uint8_t mac[6];
-      kwl_config::mac.copy_to(mac);
-      Ethernet.begin(mac, kwl_config::ip, kwl_config::DnServer, kwl_config::gateway, kwl_config::subnet);
+      KWLConfig::mac.copy_to(mac);
+      Ethernet.begin(mac, KWLConfig::ip, KWLConfig::DnServer, KWLConfig::gateway, KWLConfig::subnet);
     } else {
       bLanOk = true;
     }
@@ -216,7 +216,7 @@ void loopNetworkConnection() {
   if (!mqttClient.connected()) {
     long now = millis();
     if (now - lastMqttReconnectAttempt > 5000) {
-      //if (kwl_config::serialDebug == 1) {
+      //if (KWLConfig::serialDebug == 1) {
       Serial.println(F("Mqtt Client not connected"));
       bMqttOk = false;
       //}

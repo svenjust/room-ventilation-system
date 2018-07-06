@@ -18,7 +18,7 @@
  */
 
 #include "Relay.h"
-#include "kwl_config.h"
+#include "KWLConfig.h"
 
 void Relay::set_mode(int8_t mode)
 {
@@ -37,10 +37,10 @@ void Relay::set_mode(int8_t mode)
 
 void Relay::on()
 {
-  set_mode(kwl_config::RelayON);
+  set_mode(KWLConfig::RelayON);
 }
 
 void Relay::off()
 {
-  set_mode(kwl_config::RelayOFF);
+  set_mode(KWLConfig::RelayOFF);
 }

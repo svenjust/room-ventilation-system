@@ -42,7 +42,7 @@ class KWLPersistentConfig : public PersistentConfiguration<KWLPersistentConfig, 
 private:
   friend class PersistentConfiguration<KWLPersistentConfig, KWL_EEPROM_VERSION>;
 
-  // documentation see kwl_config
+  // documentation see KWLConfig
 
   // NOTE: this is PERSISTENT layout, do not reorder unless you increase the version number
   unsigned SpeedSetpointFan1_;        // 2

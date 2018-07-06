@@ -44,12 +44,12 @@ Fan::Fan(uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin, unsigned standardSp
 
   // Lüfter Tacho Interrupt
   pinMode(tachoPin, INPUT_PULLUP);
-  attachInterrupt(uint8_t(digitalPinToInterrupt(tachoPin)), countUp, kwl_config::TachoSamplingMode);
+  attachInterrupt(uint8_t(digitalPinToInterrupt(tachoPin)), countUp, KWLConfig::TachoSamplingMode);
 
   Serial.print (F("Pin und Interrupt: "));
-  Serial.print (kwl_config::PinFan1Tacho);
+  Serial.print (KWLConfig::PinFan1Tacho);
   Serial.print (F("\t"));
-  Serial.println (digitalPinToInterrupt(kwl_config::PinFan1Tacho));
+  Serial.println (digitalPinToInterrupt(KWLConfig::PinFan1Tacho));
 
   // Turn on power
   power_.on();
@@ -57,7 +57,7 @@ Fan::Fan(uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin, unsigned standardSp
 
 void Fan::computeSpeed(int ventMode, FanCalculateSpeedMode calcMode)
 {
-  speed_setpoint_ = standard_speed_ * kwl_config::StandardKwlModeFactor[ventMode];
+  speed_setpoint_ = standard_speed_ * KWLConfig::StandardKwlModeFactor[ventMode];
 
   if (ventMode == 0) {
     tech_setpoint_ = 0 ;  // Lüfungsstufe 0 alles ausschalten
@@ -88,7 +88,7 @@ void Fan::computeSpeed(int ventMode, FanCalculateSpeedMode calcMode)
 
 void Fan::setSpeed(int id, uint8_t pwmPin, uint8_t dacChannel)
 {
-  if (kwl_config::serialDebugFan == 1) {
+  if (KWLConfig::serialDebugFan == 1) {
     Serial.print(F("Fan "));
     Serial.print(id);
     Serial.print(F(": \tgap: "));
@@ -110,13 +110,13 @@ void Fan::setSpeed(int id, uint8_t pwmPin, uint8_t dacChannel)
   analogWrite(pwmPin, tech / 4);
 
   // Setzen der Werte per DAC
-  if (kwl_config::ControlFansDAC) {
+  if (KWLConfig::ControlFansDAC) {
     byte HBy;
     byte LBy;
 
     HBy = byte(tech >> 8);   //HIGH-Byte berechnen
     LBy = byte(tech & 255);  //LOW-Byte berechnen
-    Wire.beginTransmission(kwl_config::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
+    Wire.beginTransmission(KWLConfig::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
     Wire.write(dacChannel);                   // Fan channel schreiben
     Wire.write(LBy);                          // LOW-Byte schreiben
     Wire.write(HBy);                          // HIGH-Byte schreiben
@@ -134,13 +134,13 @@ void Fan::debugSet(int ventMode, int techSetpoint) {
 
 bool Fan::speedCalibrationStep(int mode)
 {
-  if (abs(kwl_config::StandardKwlModeFactor[mode]) < 0.01) {
+  if (abs(KWLConfig::StandardKwlModeFactor[mode]) < 0.01) {
     // Faktor Null ist einfach
     calibration_pwm_setpoint_[mode] = 0;
     return true;
   } else {
     // Faktor ungleich 0
-    speed_setpoint_ = standard_speed_ * kwl_config::StandardKwlModeFactor[mode];
+    speed_setpoint_ = standard_speed_ * KWLConfig::StandardKwlModeFactor[mode];
 
     double gap = abs(speed_setpoint_ - current_speed_); //distance away from setpoint
     if ((gap < 10) && (good_pwm_setpoint_count_ < REQUIRED_GOOD_PWM_COUNT)) {
@@ -172,7 +172,7 @@ bool Fan::speedCalibrationStep(int mode)
 
 void Fan::finishCalibration()
 {
-  for (unsigned i = 0; (i < kwl_config::StandardModeCnt) && (i < MAX_FAN_MODE_CNT); ++i)
+  for (unsigned i = 0; (i < KWLConfig::StandardModeCnt) && (i < MAX_FAN_MODE_CNT); ++i)
     pwm_setpoint_[i] = calibration_pwm_setpoint_[i];
 }
 

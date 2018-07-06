@@ -20,7 +20,7 @@
 #include "TempSensors.h"
 #include "MQTTTopic.hpp"
 
-#include "kwl_config.h"
+#include "KWLConfig.h"
 
 #include <PubSubClient.h>
 #include <Arduino.h>
@@ -86,10 +86,10 @@ void TempSensors::TempSensor::retry()
 TempSensors::TempSensors(Scheduler& sched, Print& initTrace) :
   InitTrace(F("Initialisierung Temperatursensoren"), initTrace),
   Task("TempSensors"),
-  t1_(kwl_config::PinTemp1OneWireBus),
-  t2_(kwl_config::PinTemp2OneWireBus),
-  t3_(kwl_config::PinTemp3OneWireBus),
-  t4_(kwl_config::PinTemp4OneWireBus)
+  t1_(KWLConfig::PinTemp1OneWireBus),
+  t2_(KWLConfig::PinTemp2OneWireBus),
+  t3_(KWLConfig::PinTemp3OneWireBus),
+  t4_(KWLConfig::PinTemp4OneWireBus)
 {
   // call every 1/8th of the second
   sched.addRepeated(*this, SCHEDULING_INTERVAL);
@@ -158,12 +158,12 @@ void TempSensors::sendMQTT() {
   //   - if min time reached and min difference found, send,
   //   - else wait for the next call.
   ++mqtt_ticks_;
-  if (mqtt_ticks_ >= kwl_config::MaxIntervalMqttTemp || force_send_ ||
-      (mqtt_ticks_ >= kwl_config::MinIntervalMqttTemp && (
-         (abs(get_t1_outside() - last_mqtt_t1_) > kwl_config::MinDiffMqttTemp) ||
-         (abs(get_t2_inlet() - last_mqtt_t2_) > kwl_config::MinDiffMqttTemp) ||
-         (abs(get_t3_outlet() - last_mqtt_t3_) > kwl_config::MinDiffMqttTemp) ||
-         (abs(get_t4_exhaust() - last_mqtt_t4_) > kwl_config::MinDiffMqttTemp)
+  if (mqtt_ticks_ >= KWLConfig::MaxIntervalMqttTemp || force_send_ ||
+      (mqtt_ticks_ >= KWLConfig::MinIntervalMqttTemp && (
+         (abs(get_t1_outside() - last_mqtt_t1_) > KWLConfig::MinDiffMqttTemp) ||
+         (abs(get_t2_inlet() - last_mqtt_t2_) > KWLConfig::MinDiffMqttTemp) ||
+         (abs(get_t3_outlet() - last_mqtt_t3_) > KWLConfig::MinDiffMqttTemp) ||
+         (abs(get_t4_exhaust() - last_mqtt_t4_) > KWLConfig::MinDiffMqttTemp)
       ))
      ) {
     last_mqtt_t1_ = get_t1_outside();
@@ -171,11 +171,11 @@ void TempSensors::sendMQTT() {
     last_mqtt_t3_ = get_t3_outlet();
     last_mqtt_t4_ = get_t4_exhaust();
 
-    auto r1 = publish(MQTTTopic::KwlTemperaturAussenluft, last_mqtt_t1_, 2, kwl_config::RetainTemperature);
-    auto r2 = publish(MQTTTopic::KwlTemperaturZuluft, last_mqtt_t2_, 2, kwl_config::RetainTemperature);
-    auto r3 = publish(MQTTTopic::KwlTemperaturAbluft, last_mqtt_t3_, 2, kwl_config::RetainTemperature);
-    auto r4 = publish(MQTTTopic::KwlTemperaturFortluft, last_mqtt_t4_, 2, kwl_config::RetainTemperature);
-    auto r5 = publish(MQTTTopic::KwlEffiency, getEfficiency(), kwl_config::RetainTemperature);
+    auto r1 = publish(MQTTTopic::KwlTemperaturAussenluft, last_mqtt_t1_, 2, KWLConfig::RetainTemperature);
+    auto r2 = publish(MQTTTopic::KwlTemperaturZuluft, last_mqtt_t2_, 2, KWLConfig::RetainTemperature);
+    auto r3 = publish(MQTTTopic::KwlTemperaturAbluft, last_mqtt_t3_, 2, KWLConfig::RetainTemperature);
+    auto r4 = publish(MQTTTopic::KwlTemperaturFortluft, last_mqtt_t4_, 2, KWLConfig::RetainTemperature);
+    auto r5 = publish(MQTTTopic::KwlEffiency, getEfficiency(), KWLConfig::RetainTemperature);
 
 #if 0
     // TODO revive after respective stuff moved in their components

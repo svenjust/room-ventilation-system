@@ -19,9 +19,9 @@
  */
 
 #include "KWLPersistentConfig.h"
-#include "kwl_config.h"
+#include "KWLConfig.h"
 
-#define KWL_COPY(name) name##_ = kwl_config::Standard##name
+#define KWL_COPY(name) name##_ = KWLConfig::Standard##name
 
 void KWLPersistentConfig::loadDefaults()
 {
@@ -36,12 +36,12 @@ void KWLPersistentConfig::loadDefaults()
 
   UnusedFiller_ = 0;
 
-  if (kwl_config::StandardModeCnt > 10) {
+  if (KWLConfig::StandardModeCnt > 10) {
     Serial.println(F("ERROR: StandardModeCnt too big, max. 10 supported"));
   }
-  for (unsigned i = 0; ((i < kwl_config::StandardModeCnt) && (i < 10)); i++) {
-    FanPWMSetpoint_[i][0] = unsigned(kwl_config::StandardSpeedSetpointFan1 * kwl_config::StandardKwlModeFactor[i] * 1000 / kwl_config::StandardNenndrehzahlFan);
-    FanPWMSetpoint_[i][1] = unsigned(kwl_config::StandardSpeedSetpointFan2 * kwl_config::StandardKwlModeFactor[i] * 1000 / kwl_config::StandardNenndrehzahlFan);
+  for (unsigned i = 0; ((i < KWLConfig::StandardModeCnt) && (i < 10)); i++) {
+    FanPWMSetpoint_[i][0] = unsigned(KWLConfig::StandardSpeedSetpointFan1 * KWLConfig::StandardKwlModeFactor[i] * 1000 / KWLConfig::StandardNenndrehzahlFan);
+    FanPWMSetpoint_[i][1] = unsigned(KWLConfig::StandardSpeedSetpointFan2 * KWLConfig::StandardKwlModeFactor[i] * 1000 / KWLConfig::StandardNenndrehzahlFan);
   }
 
   KWL_COPY(HeatingAppCombUse);

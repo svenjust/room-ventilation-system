@@ -20,7 +20,7 @@
 
 #include "MessageHandler.h"
 #include "MQTTClient.h"
-#include "kwl_config.h"
+#include "KWLConfig.h"
 
 #include <PubSubClient.h>
 #include <stdlib.h>
@@ -36,7 +36,7 @@ MessageHandler::~MessageHandler() {}
 
 bool MessageHandler::publish(const char* topic, const char* payload, bool retained)
 {
-  if (kwl_config::serialDebug) {
+  if (KWLConfig::serialDebug) {
     Serial.print(F("MQTT send "));
     Serial.print(topic);
     Serial.print(':');
@@ -67,7 +67,7 @@ void MessageHandler::mqttMessageReceived(char* topic, uint8_t* payload, unsigned
 {
   payload[length] = 0;  // ensure NUL termination
   const StringView topicStr(topic);
-  if (kwl_config::serialDebug) {
+  if (KWLConfig::serialDebug) {
     Serial.print(F("MQTT receive "));
     Serial.write(topicStr.c_str(), topicStr.length());
     Serial.print(':');
@@ -83,7 +83,7 @@ void MessageHandler::mqttMessageReceived(char* topic, uint8_t* payload, unsigned
     handler = handler->next_;
   }
 
-  if (kwl_config::serialDebug) {
+  if (KWLConfig::serialDebug) {
     Serial.println(F("Unexpected MQTT message received"));
   }
 }

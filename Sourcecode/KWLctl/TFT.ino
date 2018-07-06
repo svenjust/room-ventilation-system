@@ -259,7 +259,7 @@ void DoMenuActionScreen0() {
       break;
     case 3:
       previousMillisDisplayUpdate = 0;
-      if (fanControl.getVentilationMode() < kwl_config::StandardModeCnt - 1)  fanControl.setVentilationMode(fanControl.getVentilationMode() + 1);
+      if (fanControl.getVentilationMode() < KWLConfig::StandardModeCnt - 1)  fanControl.setVentilationMode(fanControl.getVentilationMode() + 1);
       break;
     case 4:
       previousMillisDisplayUpdate = 0;
@@ -772,7 +772,7 @@ void loopDisplayUpdate() {
   currentMillis = millis();
 
   if ((currentMillis - previousMillisDisplayUpdate >= intervalDisplayUpdate) || updateDisplayNow) {
-    if (kwl_config::serialDebugDisplay == 1) {
+    if (KWLConfig::serialDebugDisplay == 1) {
       Serial.println(F("loopDisplayUpdate"));
     }
 
@@ -802,7 +802,7 @@ void loopDisplayUpdate() {
     }
 
     // Einzelseiten
-    if (kwl_config::serialDebugDisplay == 1) {
+    if (KWLConfig::serialDebugDisplay == 1) {
       Serial.print ("loopDisplayUpdate: menuScreen: ");
       Serial.println(menuScreen);
     }
@@ -871,7 +871,7 @@ void loopDisplayUpdate() {
 
 void SetupBackgroundScreen() {
 
-  if (kwl_config::serialDebugDisplay == 1) {
+  if (KWLConfig::serialDebugDisplay == 1) {
     Serial.println(F("SetupBackgroundScreen"));
   }
   tft.fillRect(0, 30, 480 - touchBtnWidth, 290, colBackColor);
@@ -970,7 +970,7 @@ void ShowMenu() {
 
 
 void DoMenuAction() {
-  if (kwl_config::serialDebugDisplay) {
+  if (KWLConfig::serialDebugDisplay) {
     Serial.print (F("DoMenuAction "));
     Serial.println(menuScreen);
   }
@@ -1096,7 +1096,7 @@ void loopTouch()
 
       LastMillisTouch = millis();
 
-      if (kwl_config::serialDebugDisplay) {
+      if (KWLConfig::serialDebugDisplay) {
         Serial.print("Touch (xpos / ypos): ");
         Serial.print(xpos);
         Serial.print(" / ");
@@ -1164,7 +1164,7 @@ void loopIsDisplayTouched() {
 
 // *** TFT starten
 void SetupTftScreen() {
-  if (kwl_config::serialDebugDisplay == 1) {
+  if (KWLConfig::serialDebugDisplay == 1) {
     Serial.println(F("start_tft"));
   }
   ID = tft.readID();  // you must detect the correct controller
