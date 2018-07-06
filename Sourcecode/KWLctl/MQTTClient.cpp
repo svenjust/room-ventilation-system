@@ -19,74 +19,19 @@
  */
 
 #include "MQTTClient.h"
-#include "kwl_config.h"
+#include "MessageHandler.h"
 
 #include <PubSubClient.h>
 
-static MessageHandler* s_first_handler = nullptr;
-static PubSubClient* s_mqtt_client = nullptr;
+PubSubClient* MQTTClient::client_ = nullptr;
 
-MessageHandler::MessageHandler() : next_(s_first_handler)
+
+MQTTClient::MQTTClient(PubSubClient& client)
 {
-  s_first_handler = this;
+  client_ = &client;
 }
 
-bool MessageHandler::publish(const char* topic, const char* payload, bool retained)
+void MQTTClient::mqttReceiveMsg(char* topic, uint8_t* payload, unsigned int length)
 {
-  if (kwl_config::serialDebug) {
-    Serial.print(F("MQTT send "));
-    Serial.print(topic);
-    Serial.print(':');
-    Serial.print(' ');
-    Serial.print(payload);
-    if (retained)
-      Serial.print(F(" [retained]"));
-    Serial.println();
-  }
-  return s_mqtt_client->publish(topic, payload, retained);
-}
-
-bool MessageHandler::publish(const char* topic, long payload, bool retained)
-{
-  char buffer[16];
-  ltoa(payload, buffer, 10);
-  return publish(topic, buffer, retained);
-}
-
-bool MessageHandler::publish(const char* topic, double payload, unsigned char precision, bool retained)
-{
-  char buffer[16];
-  dtostrf(payload, sizeof(buffer) - 1, precision, buffer);
-  return publish(topic, buffer, retained);
-}
-
-
-void MQTTClient::mqttReceiveMsg(char* topic, byte* payload, unsigned int length)
-{
-  payload[length] = 0;  // ensure NUL termination
-  const StringView topicStr(topic);
-  if (kwl_config::serialDebug) {
-    Serial.print(F("MQTT receive "));
-    Serial.write(topicStr.c_str(), topicStr.length());
-    Serial.print(':');
-    Serial.print(' ');
-    Serial.write(payload, length);
-    Serial.println();
-  }
-
-  auto handler = s_first_handler;
-  while (handler) {
-    if (handler->mqttReceiveMsg(topicStr, reinterpret_cast<const char*>(payload), length))
-      return;
-    handler = handler->next_;
-  }
-
-  if (kwl_config::serialDebug) {
-    Serial.println(F("Unexpected MQTT message received"));
-  }
-}
-
-MQTTClient::MQTTClient(PubSubClient& client) : client_(client)
-{
-  s_mqtt_client = &client;
+  MessageHandler::mqttMessageReceived(topic, payload, length);
 }

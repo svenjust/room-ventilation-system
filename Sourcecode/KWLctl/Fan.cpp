@@ -18,7 +18,7 @@
  */
 
 #include "Fan.h"
-#include "MQTTClient.h"
+#include "MessageHandler.h"
 #include "MQTTTopic.hpp"
 
 #include <Wire.h>

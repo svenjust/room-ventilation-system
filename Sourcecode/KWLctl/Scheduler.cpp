@@ -19,42 +19,12 @@
 
 #include "Scheduler.h"
 #include "MQTTTopic.hpp"
+#include "StringView.h"
 
 #include <Arduino.h>
 
 /// First registered task for task enumeration.
 static Task* s_first_task = nullptr;
-
-void TimingStats::addRuntime(unsigned long runtime)
-{
-  if (runtime > max_runtime_)
-    max_runtime_ = runtime;
-  auto sum = sum_runtime_ + runtime;
-  if (sum < sum_runtime_) {
-    // overflow on sum of runtimes, cut in half
-    sum_runtime_ >>= 1;
-    // compute # of "eaten" measurements
-    adjust_count_runtime_ += (count_runtime_ - adjust_count_runtime_) >> 1;
-  }
-  sum_runtime_ += runtime;
-  ++count_runtime_;
-}
-
-unsigned long TimingStats::getAvgRuntime() const {
-  unsigned long count = (count_runtime_ - adjust_count_runtime_);
-  if (count)
-    return sum_runtime_ / count;
-  else
-    return 0;
-}
-
-void TimingStats::sendStats(MessageHandler& handler, unsigned long next) const {
-  char buffer[80];
-  snprintf(buffer, sizeof(buffer), "%s: max=%lu, avg=%lu, cnt=%lu-%lu, next=%lu",
-      name_, max_runtime_, getAvgRuntime(),
-      count_runtime_, adjust_count_runtime_, next);
-  handler.publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
-}
 
 Task::Task(const char* name) :
   next_registered_(s_first_task),

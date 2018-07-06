@@ -31,66 +31,6 @@
 class PubSubClient;
 
 /*!
- * @brief Handler for incoming MQTT messages.
- *
- * Creating an instance automatically registers it with the handler.
- * Derive from this class in your component to handle incoming and outgoing messages.
- */
-class MessageHandler
-{
-public:
-  MessageHandler();
-
-  virtual ~MessageHandler() {}
-
-  /*!
-   * @brief Publish a message.
-   *
-   * @param topic message topic.
-   * @param payload message payload (string).
-   * @param retained if set, retain the message on the server for quick read upon client connect.
-   * @return @c true, if published successfully, @c false otherwise.
-   */
-  bool publish(const char* topic, const char* payload, bool retained = false);
-
-  /*!
-   * @brief Publish a message.
-   *
-   * @param topic message topic.
-   * @param payload message payload (integer).
-   * @param retained if set, retain the message on the server for quick read upon client connect.
-   * @return @c true, if published successfully, @c false otherwise.
-   */
-  bool publish(const char* topic, long payload, bool retained = false);
-
-  /*!
-   * @brief Publish a message.
-   *
-   * @param topic message topic.
-   * @param payload message payload (floating point).
-   * @param precision number of decimal places to display.
-   * @param retained if set, retain the message on the server for quick read upon client connect.
-   * @return @c true, if published successfully, @c false otherwise.
-   */
-  bool publish(const char* topic, double payload, unsigned char precision = 2, bool retained = false);
-
-private:
-  friend class MQTTClient;
-
-  /*!
-   * @brief Try to handle received message.
-   *
-   * @param topic MQTT topic.
-   * @param payload payload of the MQTT message (NUL-terminated after length).
-   * @param length length of the payload.
-   * @return @c true, if the message was handled, @c false otherwise (e.g., for other component).
-   */
-  virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) = 0;
-
-  MessageHandler* next_;
-};
-
-/*!
  * @brief Client to communicate with MQTT protocol.
  */
 // TODO move ethernet init and client handling here
@@ -100,9 +40,12 @@ public:
   /// Construct MQTT client.
   explicit MQTTClient(PubSubClient& client);
 
-  // TODO make private after MQTT client cleaned up.
-  static void mqttReceiveMsg(char* topic, byte* payload, unsigned int length);
+  // TODO remove after MQTT client cleaned up.
+  static void mqttReceiveMsg(char* topic, uint8_t* payload, unsigned int length);
+
+  /// Get global instance of the MQTT client.
+  static PubSubClient& getClient() { return *client_; }
 
 private:
-  PubSubClient& client_;
+  static PubSubClient* client_;
 };
