@@ -207,6 +207,8 @@ public:
   static constexpr uint8_t PinFan1Tacho       = 18;
   /// Eingang Lüfter Abluft Tachosignal mit Interrupt, Zuordnung von Pin zu Interrupt geschieht im Code mit der Funktion digitalPinToInterrupt.
   static constexpr uint8_t PinFan2Tacho       = 19;
+  /// Sampling für Tachoimpulse beim FALLING oder RISING.
+  static constexpr int8_t TachoSamplingMode   = FALLING;
 
   // Alternative zu PWM, Ansteuerung per DAC. I2C nutzt beim Arduino Mega Pin 20 u 21.
   /// I2C-OUTPUT-Addresse für Horter DAC als 7 Bit, wird verwendet als Alternative zur PWM Ansteuerung der Lüfter und für Vorheizregister.

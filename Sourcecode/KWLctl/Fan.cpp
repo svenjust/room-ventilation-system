@@ -44,7 +44,7 @@ Fan::Fan(uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin, unsigned standardSp
 
   // Lüfter Tacho Interrupt
   pinMode(tachoPin, INPUT_PULLUP);
-  attachInterrupt(uint8_t(digitalPinToInterrupt(tachoPin)), countUp, RISING);
+  attachInterrupt(uint8_t(digitalPinToInterrupt(tachoPin)), countUp, kwl_config::TachoSamplingMode);
 
   Serial.print (F("Pin und Interrupt: "));
   Serial.print (kwl_config::PinFan1Tacho);
