@@ -33,6 +33,8 @@ Task::Task(const char* name) :
   s_first_task = this;
 }
 
+Task::~Task() {}
+
 Scheduler::Scheduler() :
   runtime_("Scheduler"),
   total_runtime_("AllTasks")

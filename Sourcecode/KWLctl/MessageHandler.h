@@ -23,7 +23,7 @@
  */
 #pragma once
 
-#include <stdint.h>
+#include "FlashStringLiteral.h"
 
 class StringView;
 
@@ -48,7 +48,7 @@ public:
    * @param retained if set, retain the message on the server for quick read upon client connect.
    * @return @c true, if published successfully, @c false otherwise.
    */
-  bool publish(const char* topic, const char* payload, bool retained = false);
+  static bool publish(const char* topic, const char* payload, bool retained = false);
 
   /*!
    * @brief Publish a message.
@@ -58,7 +58,7 @@ public:
    * @param retained if set, retain the message on the server for quick read upon client connect.
    * @return @c true, if published successfully, @c false otherwise.
    */
-  bool publish(const char* topic, long payload, bool retained = false);
+  static bool publish(const char* topic, long payload, bool retained = false);
 
   /*!
    * @brief Publish a message.
@@ -69,10 +69,23 @@ public:
    * @param retained if set, retain the message on the server for quick read upon client connect.
    * @return @c true, if published successfully, @c false otherwise.
    */
-  bool publish(const char* topic, double payload, unsigned char precision = 2, bool retained = false);
+  static bool publish(const char* topic, double payload, unsigned char precision = 2, bool retained = false);
+
+  /*!
+   * @brief Publish a message to a topic string stored in Flash memory.
+   *
+   * @param topic message topic stored in Flash memory.
+   * @param payload message payload (any type supported by other publish() methods).
+   * @param args additional arguments to type-specific publish() method.
+   * @return @c true, if published successfully, @c false otherwise.
+   */
+  template<unsigned Len, typename PayloadType, typename... Args>
+  inline static bool publish(const FlashStringLiteral<Len>& topic, PayloadType payload, Args... args) {
+    return publish(topic.load(), payload, args...);
+  }
 
 private:
-  friend class MQTTClient;
+  friend class NetworkClient;
 
   /*!
    * @brief Try to handle received message.

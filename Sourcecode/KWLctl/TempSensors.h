@@ -24,8 +24,7 @@
 #pragma once
 
 #include "Scheduler.h"
-#include "InitTrace.h"
-#include "MQTTClient.h"
+#include "NetworkClient.h"
 
 #include <OneWire.h>            // OneWire Temperatursensoren
 #include <DallasTemperature.h>  // https://www.milesburton.com/Dallas_Temperature_Control_Library
@@ -35,7 +34,7 @@
  *
  * Sensors array will update in a loop scheduled by task scheduler.
  */
-class TempSensors : private InitTrace, private Task, private MessageHandler
+class TempSensors : private Task, private MessageHandler
 {
   /// One temperature sensor
   class TempSensor
@@ -47,6 +46,9 @@ class TempSensors : private InitTrace, private Task, private MessageHandler
      * @param pin pin on which to read the temperature.
      */
     explicit TempSensor(uint8_t pin);
+
+    /// Initialize the sensor.
+    void start();
 
     /// Execute one loop, returns true if temperature read.
     bool loop();
@@ -72,7 +74,10 @@ class TempSensors : private InitTrace, private Task, private MessageHandler
 
 public:
   /// Construct sensor read loop on the given scheduler and send via MQTT client.
-  explicit TempSensors(Scheduler& sched, Print& initTrace);
+  TempSensors();
+
+  /// Start sensors.
+  void start(Scheduler& sched, Print& initTrace);
 
   /// Constant for invalid temperature.
   static constexpr double INVALID = -127.0;
@@ -105,7 +110,7 @@ private:
   TempSensor t4_; ///< Temperature of exhaust air being pushed to the outside.
   int efficiency_ = 0;        ///< Current efficiency of heat exchange.
   uint8_t next_sensor_ = 0;   ///< Next sensor to talk to.
-  bool force_send_ = false;   ///< Force sending temperatures via MQTT.
+  bool force_send_ = true;    ///< Force sending temperatures via MQTT (initially true to send first measurement).
   uint8_t mqtt_ticks_ = 0;    ///< MQTT seconds ticks.
   double last_mqtt_t1_ = INVALID;
   double last_mqtt_t2_ = INVALID;

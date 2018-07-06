@@ -25,9 +25,7 @@
 
 #include "Scheduler.h"
 #include "Fan.h"
-#include "Relay.h"
-#include "InitTrace.h"
-#include "MQTTClient.h"
+#include "NetworkClient.h"
 
 class Print;
 class KWLPersistentConfig;
@@ -42,20 +40,26 @@ enum class FanMode : uint8_t
 /*!
  * @brief Fan regulation and status reporting.
  */
-class FanControl : private InitTrace, private Task, private MessageHandler
+class FanControl : private Task, private MessageHandler
 {
 public:
   /*!
    * @brief Construct fan control object.
    *
-   * @param sched scheduler to use for scheduling events.
    * @param config configuration to read/write.
    * @param speedCallback callback to call after computing PWM signal for fans, but before
    *        setting it. Typically used for antifreeze/preheater regulation and to turn off
    *        fans if no preheater installed.
+   */
+  explicit FanControl(KWLPersistentConfig& config, void (*speedCallback)());
+
+  /*!
+   * @brief Start fans.
+   *
+   * @param sched scheduler to use for scheduling events.
    * @param initTrace initial tracer for printing startup messages.
    */
-  FanControl(Scheduler& sched, KWLPersistentConfig& config, void (*speedCallback)(), Print& initTrace);
+  void start(Scheduler& sched, Print& initTrace);
 
   /// Get current fan mode (normal or calibration).
   inline FanMode getMode() { return mode_; }

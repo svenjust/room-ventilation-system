@@ -35,19 +35,7 @@ class Task
 public:
   Task(const char* name);
 
-  virtual ~Task() {}
-
-  /*!
-   * @brief Initialize the task when the scheduler starts.
-   */
-  virtual void init() {}
-
-  /*!
-   * @brief Timer expired, run the task.
-   *
-   * This method is called by the scheduler after specified time expiry interval.
-   */
-  virtual void run() = 0;
+  virtual ~Task();
 
 protected:
   /*!
@@ -62,6 +50,13 @@ protected:
 
 private:
   friend class Scheduler;
+
+  /*!
+   * @brief Timer expired, run the task.
+   *
+   * This method is called by the scheduler after specified time expiry interval.
+   */
+  virtual void run() = 0;
 
   /// Next time at which to react to this task.
   unsigned long next_time_ = 0;

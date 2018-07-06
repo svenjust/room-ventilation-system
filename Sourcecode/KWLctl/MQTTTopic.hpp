@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "FlashStringLiteral.h"
+
 /*!
  * @brief MQTT Topics für die Kommunikation zwischen dieser Steuerung und einem mqtt Broker.
  *
@@ -32,67 +34,67 @@
  */
 namespace MQTTTopic
 {
-  constexpr const char* Command                    = "d15/set/#";
-  constexpr const char* CommandDebug               = "d15/debugset/#";
-  constexpr const char* CmdResetAll                = "d15/set/kwl/resetAll_IKNOWWHATIMDOING";
-  constexpr const char* CmdCalibrateFans           = "d15/set/kwl/calibratefans";
-  constexpr const char* CmdFansCalculateSpeedMode  = "d15/set/kwl/fans/calculatespeed";
-  constexpr const char* CmdFan1Speed               = "d15/set/kwl/fan1/standardspeed";
-  constexpr const char* CmdFan2Speed               = "d15/set/kwl/fan2/standardspeed";
-  constexpr const char* CmdGetSpeed                = "d15/set/kwl/fans/getspeed";
-  constexpr const char* CmdGetTemp                 = "d15/set/kwl/temperatur/gettemp";
-  constexpr const char* CmdGetvalues               = "d15/set/kwl/getvalues";
-  constexpr const char* CmdMode                    = "d15/set/kwl/lueftungsstufe";
-  constexpr const char* CmdAntiFreezeHyst          = "d15/set/kwl/antifreeze/hysterese";
-  constexpr const char* CmdBypassGetValues         = "d15/set/kwl/summerbypass/getvalues";
-  constexpr const char* CmdBypassManualFlap        = "d15/set/kwl/summerbypass/flap";
-  constexpr const char* CmdBypassMode              = "d15/set/kwl/summerbypass/mode";
-  constexpr const char* CmdBypassHystereseMinutes  = "d15/set/kwl/summerbypass/HystereseMinutes";
-  constexpr const char* CmdHeatingAppCombUse       = "d15/set/kwl/heatingapp/combinedUse";
+  constexpr auto Command                    = makeFlashStringLiteral("d15/set/#");
+  constexpr auto CommandDebug               = makeFlashStringLiteral("d15/debugset/#");
+  constexpr auto CmdResetAll                = makeFlashStringLiteral("d15/set/kwl/resetAll_IKNOWWHATIMDOING");
+  constexpr auto CmdCalibrateFans           = makeFlashStringLiteral("d15/set/kwl/calibratefans");
+  constexpr auto CmdFansCalculateSpeedMode  = makeFlashStringLiteral("d15/set/kwl/fans/calculatespeed");
+  constexpr auto CmdFan1Speed               = makeFlashStringLiteral("d15/set/kwl/fan1/standardspeed");
+  constexpr auto CmdFan2Speed               = makeFlashStringLiteral("d15/set/kwl/fan2/standardspeed");
+  constexpr auto CmdGetSpeed                = makeFlashStringLiteral("d15/set/kwl/fans/getspeed");
+  constexpr auto CmdGetTemp                 = makeFlashStringLiteral("d15/set/kwl/temperatur/gettemp");
+  constexpr auto CmdGetvalues               = makeFlashStringLiteral("d15/set/kwl/getvalues");
+  constexpr auto CmdMode                    = makeFlashStringLiteral("d15/set/kwl/lueftungsstufe");
+  constexpr auto CmdAntiFreezeHyst          = makeFlashStringLiteral("d15/set/kwl/antifreeze/hysterese");
+  constexpr auto CmdBypassGetValues         = makeFlashStringLiteral("d15/set/kwl/summerbypass/getvalues");
+  constexpr auto CmdBypassManualFlap        = makeFlashStringLiteral("d15/set/kwl/summerbypass/flap");
+  constexpr auto CmdBypassMode              = makeFlashStringLiteral("d15/set/kwl/summerbypass/mode");
+  constexpr auto CmdBypassHystereseMinutes  = makeFlashStringLiteral("d15/set/kwl/summerbypass/HystereseMinutes");
+  constexpr auto CmdHeatingAppCombUse       = makeFlashStringLiteral("d15/set/kwl/heatingapp/combinedUse");
 
-  constexpr const char* Heartbeat                  = "d15/state/kwl/heartbeat";
-  constexpr const char* Fan1Speed                  = "d15/state/kwl/fan1/speed";
-  constexpr const char* Fan2Speed                  = "d15/state/kwl/fan2/speed";
-  constexpr const char* KwlOnline                  = "d15/state/kwl/heartbeat";
-  constexpr const char* StateKwlMode               = "d15/state/kwl/lueftungsstufe";
-  constexpr const char* KwlTemperaturAussenluft    = "d15/state/kwl/aussenluft/temperatur";
-  constexpr const char* KwlTemperaturZuluft        = "d15/state/kwl/zuluft/temperatur";
-  constexpr const char* KwlTemperaturAbluft        = "d15/state/kwl/abluft/temperatur";
-  constexpr const char* KwlTemperaturFortluft      = "d15/state/kwl/fortluft/temperatur";
-  constexpr const char* KwlEffiency                = "d15/state/kwl/effiencyKwl";
-  constexpr const char* KwlAntifreeze              = "d15/state/kwl/antifreeze";
-  constexpr const char* KwlBypassState             = "d15/state/kwl/summerbypass/flap";
-  constexpr const char* KwlBypassMode              = "d15/state/kwl/summerbypass/mode";
-  constexpr const char* KwlBypassTempAbluftMin     = "d15/state/kwl/summerbypass/TempAbluftMin";
-  constexpr const char* KwlBypassTempAussenluftMin = "d15/state/kwl/summerbypass/TempAussenluftMin";
-  constexpr const char* KwlBypassHystereseMinutes  = "d15/state/kwl/summerbypass/HystereseMinutes";
-  constexpr const char* KwlHeatingAppCombUse       = "d15/state/kwl/heatingapp/combinedUse";
+  constexpr auto Heartbeat                  = makeFlashStringLiteral("d15/state/kwl/heartbeat");
+  constexpr auto Fan1Speed                  = makeFlashStringLiteral("d15/state/kwl/fan1/speed");
+  constexpr auto Fan2Speed                  = makeFlashStringLiteral("d15/state/kwl/fan2/speed");
+  constexpr auto KwlOnline                  = makeFlashStringLiteral("d15/state/kwl/heartbeat");
+  constexpr auto StateKwlMode               = makeFlashStringLiteral("d15/state/kwl/lueftungsstufe");
+  constexpr auto KwlTemperaturAussenluft    = makeFlashStringLiteral("d15/state/kwl/aussenluft/temperatur");
+  constexpr auto KwlTemperaturZuluft        = makeFlashStringLiteral("d15/state/kwl/zuluft/temperatur");
+  constexpr auto KwlTemperaturAbluft        = makeFlashStringLiteral("d15/state/kwl/abluft/temperatur");
+  constexpr auto KwlTemperaturFortluft      = makeFlashStringLiteral("d15/state/kwl/fortluft/temperatur");
+  constexpr auto KwlEffiency                = makeFlashStringLiteral("d15/state/kwl/effiencyKwl");
+  constexpr auto KwlAntifreeze              = makeFlashStringLiteral("d15/state/kwl/antifreeze");
+  constexpr auto KwlBypassState             = makeFlashStringLiteral("d15/state/kwl/summerbypass/flap");
+  constexpr auto KwlBypassMode              = makeFlashStringLiteral("d15/state/kwl/summerbypass/mode");
+  constexpr auto KwlBypassTempAbluftMin     = makeFlashStringLiteral("d15/state/kwl/summerbypass/TempAbluftMin");
+  constexpr auto KwlBypassTempAussenluftMin = makeFlashStringLiteral("d15/state/kwl/summerbypass/TempAussenluftMin");
+  constexpr auto KwlBypassHystereseMinutes  = makeFlashStringLiteral("d15/state/kwl/summerbypass/HystereseMinutes");
+  constexpr auto KwlHeatingAppCombUse       = makeFlashStringLiteral("d15/state/kwl/heatingapp/combinedUse");
 
-  constexpr const char* KwlDHT1Temperatur          = "d15/state/kwl/dht1/temperatur";
-  constexpr const char* KwlDHT2Temperatur          = "d15/state/kwl/dht2/temperatur";
-  constexpr const char* KwlDHT1Humidity            = "d15/state/kwl/dht1/humidity";
-  constexpr const char* KwlDHT2Humidity            = "d15/state/kwl/dht2/humidity";
-  constexpr const char* KwlCO2Abluft               = "d15/state/kwl/abluft/co2";
-  constexpr const char* KwlVOCAbluft               = "d15/state/kwl/abluft/voc";
+  constexpr auto KwlDHT1Temperatur          = makeFlashStringLiteral("d15/state/kwl/dht1/temperatur");
+  constexpr auto KwlDHT2Temperatur          = makeFlashStringLiteral("d15/state/kwl/dht2/temperatur");
+  constexpr auto KwlDHT1Humidity            = makeFlashStringLiteral("d15/state/kwl/dht1/humidity");
+  constexpr auto KwlDHT2Humidity            = makeFlashStringLiteral("d15/state/kwl/dht2/humidity");
+  constexpr auto KwlCO2Abluft               = makeFlashStringLiteral("d15/state/kwl/abluft/co2");
+  constexpr auto KwlVOCAbluft               = makeFlashStringLiteral("d15/state/kwl/abluft/voc");
 
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, und schalten Debugausgaben per mqtt ein und aus
-  constexpr const char* KwlDebugsetFan1Getvalues   = "d15/debugset/kwl/fan1/getvalues";
-  constexpr const char* KwlDebugsetFan2Getvalues   = "d15/debugset/kwl/fan2/getvalues";
-  constexpr const char* KwlDebugstateFan1          = "d15/debugstate/kwl/fan1";
-  constexpr const char* KwlDebugstateFan2          = "d15/debugstate/kwl/fan2";
-  constexpr const char* KwlDebugstatePreheater     = "d15/debugstate/kwl/preheater";
-  constexpr const char* KwlDebugsetSchedulerGetvalues   = "d15/debugset/kwl/scheduler/getvalues";
-  constexpr const char* KwlDebugstateScheduler    = "d15/debugstate/kwl/scheduler";
+  constexpr auto KwlDebugsetFan1Getvalues   = makeFlashStringLiteral("d15/debugset/kwl/fan1/getvalues");
+  constexpr auto KwlDebugsetFan2Getvalues   = makeFlashStringLiteral("d15/debugset/kwl/fan2/getvalues");
+  constexpr auto KwlDebugstateFan1          = makeFlashStringLiteral("d15/debugstate/kwl/fan1");
+  constexpr auto KwlDebugstateFan2          = makeFlashStringLiteral("d15/debugstate/kwl/fan2");
+  constexpr auto KwlDebugstatePreheater     = makeFlashStringLiteral("d15/debugstate/kwl/preheater");
+  constexpr auto KwlDebugsetSchedulerGetvalues   = makeFlashStringLiteral("d15/debugset/kwl/scheduler/getvalues");
+  constexpr auto KwlDebugstateScheduler    = makeFlashStringLiteral("d15/debugstate/kwl/scheduler");
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, es werden Messwerte überschrieben, es kann damit der Sommer-Bypass und die Frostschutzschaltung getestet werden
-  constexpr const char* KwlDebugsetTemperaturAussenluft = "d15/debugset/kwl/aussenluft/temperatur";
-  constexpr const char* KwlDebugsetTemperaturZuluft     = "d15/debugset/kwl/zuluft/temperatur";
-  constexpr const char* KwlDebugsetTemperaturAbluft     = "d15/debugset/kwl/abluft/temperatur";
-  constexpr const char* KwlDebugsetTemperaturFortluft   = "d15/debugset/kwl/fortluft/temperatur";
+  constexpr auto KwlDebugsetTemperaturAussenluft = makeFlashStringLiteral("d15/debugset/kwl/aussenluft/temperatur");
+  constexpr auto KwlDebugsetTemperaturZuluft     = makeFlashStringLiteral("d15/debugset/kwl/zuluft/temperatur");
+  constexpr auto KwlDebugsetTemperaturAbluft     = makeFlashStringLiteral("d15/debugset/kwl/abluft/temperatur");
+  constexpr auto KwlDebugsetTemperaturFortluft   = makeFlashStringLiteral("d15/debugset/kwl/fortluft/temperatur");
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, um Kalibrierung explizit zu setzen
-  constexpr const char* KwlDebugsetFan1PWM         = "d15/debugset/kwl/fan1/pwm";
-  constexpr const char* KwlDebugsetFan2PWM         = "d15/debugset/kwl/fan2/pwm";
-  constexpr const char* KwlDebugsetFanPWMStore     = "d15/debugset/kwl/fan/pwm/store_IKNOWWHATIMDOING";
+  constexpr auto KwlDebugsetFan1PWM         = makeFlashStringLiteral("d15/debugset/kwl/fan1/pwm");
+  constexpr auto KwlDebugsetFan2PWM         = makeFlashStringLiteral("d15/debugset/kwl/fan2/pwm");
+  constexpr auto KwlDebugsetFanPWMStore     = makeFlashStringLiteral("d15/debugset/kwl/fan/pwm/store_IKNOWWHATIMDOING");
 }

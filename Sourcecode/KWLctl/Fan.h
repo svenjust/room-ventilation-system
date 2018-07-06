@@ -46,13 +46,20 @@ public:
   /*!
    * @brief Construct one fan interface.
    *
+   * @param id fan ID for display purposes (1 or 2).
    * @param powerPin pin on which to drive power relay.
    * @param pwmPin pin on which to send PWM signal.
    * @param tachoPin pin on which to read tacho pulses.
-   * @param standardSpeed standard speed to use initially (in RPM).
-   * @param countUp interrupt routine which calls interrupt() for this fan to count RPM.
    */
-  Fan(uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin, unsigned standardSpeed, void (*countUp)());
+  Fan(uint8_t id, uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin);
+
+  /*!
+   * @brief Start the fan.
+   *
+   * @param countUp interrupt routine which calls interrupt() for this fan to count RPM.
+   * @param standardSpeed standard speed to use initially (in RPM).
+   */
+  void start(void (*countUp)(), unsigned standardSpeed);
 
   /// Get current speed (RPM) of this fan.
   inline unsigned getSpeed() const { return unsigned(current_speed_); }
@@ -120,12 +127,15 @@ private:
   double current_speed_ = 0;            ///< Current speed of the fan in RPM.
   double speed_setpoint_ = 0;           ///< Desired speed of the fan in RPM.
   double tech_setpoint_ = 0;            ///< Needed PWM signal to set this fan speed.
-  unsigned standard_speed_;             ///< Standard speed of this fan (configuration for default ventilation mode).
+  unsigned standard_speed_ = 0;         ///< Standard speed of this fan (configuration for default ventilation mode).
   int pwm_setpoint_[MAX_FAN_MODE_CNT];  ///< Current set of PWM output for ventilation modes.
   int calibration_pwm_setpoint_[MAX_FAN_MODE_CNT];  ///< Temporary PWM values during calibration.
   int good_pwm_setpoint_[REQUIRED_GOOD_PWM_COUNT];  ///< PWM signal strength considered "good" during calibration.
   unsigned good_pwm_setpoint_count_ = 0;            ///< # of "good" PWM signal strengths we already know.
   bool mqtt_send_debug_ = false;        ///< Send debugging info for this fan per MQTT.
+  uint8_t pwm_pin_;                     ///< Pin to send PWM signa to.
+  uint8_t tacho_pin_;                   ///< Pin to read tacho signal from.
+  uint8_t fan_id_;                      ///< Fan ID (1 or 2).
   PID pid_;                             ///< PID regulator for this fan.
 };
 

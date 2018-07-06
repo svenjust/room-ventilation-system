@@ -29,27 +29,39 @@ static constexpr double aggKp  = 0.5,  aggKi = 0.1, aggKd  = 0.001;
 static constexpr double consKp = 0.1, consKi = 0.1, consKd = 0.001;
 
 
-Fan::Fan(uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin, unsigned standardSpeed, void (*countUp)()) :
+Fan::Fan(uint8_t id, uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin) :
   power_(powerPin),
-  standard_speed_(standardSpeed),
+  pwm_pin_(pwmPin),
+  tacho_pin_(tachoPin),
+  fan_id_(id),
   pid_(&current_speed_, &tech_setpoint_, &speed_setpoint_, consKp, consKi, consKd, P_ON_M, DIRECT)
+{}
+
+void Fan::start(void (*countUp)(), unsigned standardSpeed)
 {
+  standard_speed_ = standardSpeed;
+
   pid_.SetOutputLimits(0, 1000);
   pid_.SetMode(AUTOMATIC);
   pid_.SetSampleTime(1000); // TODO use constant slightly less than in fan interval?
 
   // Lüfter Speed
-  pinMode(pwmPin, OUTPUT);
-  digitalWrite(pwmPin, LOW);
+  pinMode(pwm_pin_, OUTPUT);
+  digitalWrite(pwm_pin_, LOW);
 
   // Lüfter Tacho Interrupt
-  pinMode(tachoPin, INPUT_PULLUP);
-  attachInterrupt(uint8_t(digitalPinToInterrupt(tachoPin)), countUp, KWLConfig::TachoSamplingMode);
+  pinMode(tacho_pin_, INPUT_PULLUP);
+  auto intr = uint8_t(digitalPinToInterrupt(tacho_pin_));
+  attachInterrupt(intr, countUp, KWLConfig::TachoSamplingMode);
 
-  Serial.print (F("Pin und Interrupt: "));
-  Serial.print (KWLConfig::PinFan1Tacho);
-  Serial.print (F("\t"));
-  Serial.println (digitalPinToInterrupt(KWLConfig::PinFan1Tacho));
+  Serial.print(F("Fan pins(tacho/PWM), interrupt, std speed:\t"));
+  Serial.print(tacho_pin_);
+  Serial.print('\t');
+  Serial.print(pwm_pin_);
+  Serial.print('\t');
+  Serial.print(intr);
+  Serial.print('\t');
+  Serial.println(standardSpeed);
 
   // Turn on power
   power_.on();

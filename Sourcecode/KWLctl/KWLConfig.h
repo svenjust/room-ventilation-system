@@ -39,8 +39,8 @@
  * @par Example:
  * @code
  * CONFIGURE(RelayOFF, OPEN)
- * CONFIGURE_OBJ(ip, (192, 168, 42, 201))
- * CONFIGURE_OBJ(mac, (0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF))
+ * CONFIGURE_OBJ(NetworkIPAddress, (192, 168, 42, 201))
+ * CONFIGURE_OBJ(NetworkMACAddress, (0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF))
  * @endcode
  *
  * You can also define DEBUG macro in UserConfig.h to enable debugging MQTT messages.
@@ -95,23 +95,31 @@ public:
   // Hier die IP Adresse für diese Steuerung und den MQTT Broker definieren.
 
   /// MAC Adresse des Ethernet Shields.
-  static constexpr MACAddressLiteral mac = {  0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };
+  static constexpr MACAddressLiteral NetworkMACAddress = {  0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };
 
   /// IP Adresse für diese Gerät im eigenen Netz.
-  static constexpr IPAddressLiteral ip = {192, 168,  20, 201};
+  static constexpr IPAddressLiteral NetworkIPAddress = {192, 168,  20, 201};
 
   /// Subnet Maske.
-  static constexpr IPAddressLiteral subnet = {255, 255, 255,   0};
+  static constexpr IPAddressLiteral NetworkSubnetMask = {255, 255, 255,   0};
 
   /// Gateway.
-  static constexpr IPAddressLiteral gateway = {192, 168,  20, 250};
+  static constexpr IPAddressLiteral NetworkGateway = {192, 168,  20, 250};
 
   /// DNS Server, hier Google.
-  static constexpr IPAddressLiteral DnServer = {8,   8,   8,   8};
+  static constexpr IPAddressLiteral NetworkDNSServer = {8,   8,   8,   8};
 
   /// IP Adresse des MQTT Brokers.
-  static constexpr IPAddressLiteral mqttbroker = {192, 168,  20, 240};
+  static constexpr IPAddressLiteral NetworkMQTTBroker = {192, 168,  20, 240};
 
+  /// Port des MQTT Brokers.
+  static constexpr uint16_t NetworkMQTTPort = 1883;
+
+  /// Login name für den MQTT Broker.
+  static constexpr const char* NetworkMQTTUsername = nullptr;
+
+  /// Passwort für den MQTT Broker.
+  static constexpr const char* NetworkMQTTPassword = nullptr;
 
   // MQTT retain settings:
 

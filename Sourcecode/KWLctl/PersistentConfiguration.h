@@ -44,6 +44,8 @@ protected:
   /// Function to load defaults.
   using LoadFnc = void (PersistentConfigurationBase::*)();
 
+  PersistentConfigurationBase() {}
+
   /*!
    * @brief Load and validate the configuration.
    *
@@ -53,7 +55,7 @@ protected:
    * @param load_defaults reference to loadDefaults() of the actual config.
    * @param reset if set, unconditionally reset EEPROM contents and load it with defaults.
    */
-  PersistentConfigurationBase(Print& out, unsigned int size, unsigned int version, LoadFnc load_defaults, bool reset = false);
+  void start(Print& out, unsigned int size, unsigned int version, LoadFnc load_defaults, bool reset = false);
 
   /*!
    * @brief Update a member in the EEPROM.
@@ -94,8 +96,9 @@ private:
  * @brief Helper to define a persistent configuration in EEPROM easily.
  *
  * Simply define your own class deriving from this configuration and
- * add members you'd like to store in EEPROM. Then, after updating
- * a member, call update() method to update it in EEPROM as well.
+ * add members you'd like to store in EEPROM. Initially, call start()
+ * to load the configuration. Later, after updating a member, call
+ * update() method to update it in EEPROM as well.
  *
  * It is also possible to update the entire configuration using
  * updateAll() call or an arbitrary part using updateRange().
@@ -125,14 +128,14 @@ class PersistentConfiguration : public PersistentConfigurationBase
 {
 public:
   /*!
-   * @brief Construct the configuration.
+   * @brief Load the configuration.
    *
    * @param out stream for printing debugging messages.
    * @param reset if set, unconditionally reset EEPROM contents and load it with defaults.
    */
-  PersistentConfiguration(Print& out, bool reset = false) :
-    PersistentConfigurationBase(out, sizeof(T), Version, static_cast<LoadFnc>(&T::loadDefaults), reset)
-  {}
+  void start(Print& out, bool reset = false) {
+    PersistentConfigurationBase::start(out, sizeof(T), Version, static_cast<LoadFnc>(&T::loadDefaults), reset);
+  }
 
   /*!
    * @brief Update entire configuration by writing it to EEPROM (SLOW).

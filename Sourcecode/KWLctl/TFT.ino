@@ -156,24 +156,24 @@ void SetupBackgroundScreen0() {
 
 void loopDisplayUpdateScreen0() {
   // Menu Screen 0
-  if (LastDisplaykwlMode != fanControl.getVentilationMode() || updateDisplayNow) {
+  if (LastDisplaykwlMode != kwlControl.getFanControl().getVentilationMode() || updateDisplayNow) {
     // KWL Mode
     tft.setFont(&FreeSansBold24pt7b);
     tft.setTextColor(colFontColor, colBackColor);
     tft.setTextSize(2);
 
     tft.setCursor(200, 55 + 2 * baselineBigNumber);
-    sprintf(strPrint, "%-1i", (int)fanControl.getVentilationMode());
+    sprintf(strPrint, "%-1i", (int)kwlControl.getFanControl().getVentilationMode());
     tft.fillRect(200, 55, 60, 80, colBackColor);
     tft.print(strPrint);
-    LastDisplaykwlMode = fanControl.getVentilationMode();
+    LastDisplaykwlMode = kwlControl.getFanControl().getVentilationMode();
     tft.setTextSize(1);
   }
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(colFontColor, colBackColor);
 
   // Speed Fan1
-  int speed1 = fanControl.getFan1().getSpeed();
+  int speed1 = kwlControl.getFanControl().getFan1().getSpeed();
   if (abs(LastDisplaySpeedTachoFan1 - speed1) > 10 || updateDisplayNow) {
     LastDisplaySpeedTachoFan1 = speed1;
     tft.fillRect(280, 192, 80, numberfieldheight, colBackColor);
@@ -183,7 +183,7 @@ void loopDisplayUpdateScreen0() {
     tft.print(strPrint);
   }
   // Speed Fan2
-  int speed2 = fanControl.getFan2().getSpeed();
+  int speed2 = kwlControl.getFanControl().getFan2().getSpeed();
   if (abs(LastDisplaySpeedTachoFan2 - speed2) > 10 || updateDisplayNow) {
     LastDisplaySpeedTachoFan2 = speed2;
     sprintf(strPrint, "%5i", speed2);
@@ -195,46 +195,46 @@ void loopDisplayUpdateScreen0() {
     tft.print(strPrint);
   }
   // T1
-  if (abs(LastDisplayT1 - tempSensors.get_t1_outside()) > 0.5 || updateDisplayNow) {
-    LastDisplayT1 = tempSensors.get_t1_outside();
+  if (abs(LastDisplayT1 - kwlControl.getTempSensors().get_t1_outside()) > 0.5 || updateDisplayNow) {
+    LastDisplayT1 = kwlControl.getTempSensors().get_t1_outside();
     tft.fillRect(160, 166, 80, numberfieldheight, colBackColor);
-    dtostrf(tempSensors.get_t1_outside(), 5, 1, strPrint);
+    dtostrf(kwlControl.getTempSensors().get_t1_outside(), 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 166 + baselineMiddle);
     tft.print(strPrint);
   }
   // T2
-  if (abs(LastDisplayT2 - tempSensors.get_t2_inlet()) > 0.5 || updateDisplayNow) {
-    LastDisplayT2 = tempSensors.get_t2_inlet();
+  if (abs(LastDisplayT2 - kwlControl.getTempSensors().get_t2_inlet()) > 0.5 || updateDisplayNow) {
+    LastDisplayT2 = kwlControl.getTempSensors().get_t2_inlet();
     tft.fillRect(160, 192, 80, numberfieldheight, colBackColor);
-    dtostrf(tempSensors.get_t2_inlet(), 5, 1, strPrint);
+    dtostrf(kwlControl.getTempSensors().get_t2_inlet(), 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 192 + baselineMiddle);
     tft.print(strPrint);
   }
   // T3
-  if (abs(LastDisplayT3 - tempSensors.get_t3_outlet()) > 0.5 || updateDisplayNow) {
-    LastDisplayT3 = tempSensors.get_t3_outlet();
+  if (abs(LastDisplayT3 - kwlControl.getTempSensors().get_t3_outlet()) > 0.5 || updateDisplayNow) {
+    LastDisplayT3 = kwlControl.getTempSensors().get_t3_outlet();
     tft.fillRect(160, 218, 80, numberfieldheight, colBackColor);
-    dtostrf(tempSensors.get_t3_outlet(), 5, 1, strPrint);
+    dtostrf(kwlControl.getTempSensors().get_t3_outlet(), 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 218 + baselineMiddle);
     tft.print(strPrint);
   }
   // T4
-  if (abs(LastDisplayT4 - tempSensors.get_t4_exhaust()) > 0.5 || updateDisplayNow) {
-    LastDisplayT4 = tempSensors.get_t4_exhaust();
+  if (abs(LastDisplayT4 - kwlControl.getTempSensors().get_t4_exhaust()) > 0.5 || updateDisplayNow) {
+    LastDisplayT4 = kwlControl.getTempSensors().get_t4_exhaust();
     tft.fillRect(160, 244, 80, numberfieldheight, colBackColor);
-    dtostrf(tempSensors.get_t4_exhaust(), 5, 1, strPrint);
+    dtostrf(kwlControl.getTempSensors().get_t4_exhaust(), 5, 1, strPrint);
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 244 + baselineMiddle);
     tft.print(strPrint);
   }
   // Etha Wirkungsgrad
-  if (abs(LastEffiencyKwl - tempSensors.getEfficiency()) > 1 || updateDisplayNow) {
-    LastEffiencyKwl = tempSensors.getEfficiency();
+  if (abs(LastEffiencyKwl - kwlControl.getTempSensors().getEfficiency()) > 1 || updateDisplayNow) {
+    LastEffiencyKwl = kwlControl.getTempSensors().getEfficiency();
     tft.fillRect(160, 270, 80, numberfieldheight, colBackColor);
-    sprintf(strPrint, "%5d %%", (int)tempSensors.getEfficiency());
+    sprintf(strPrint, "%5d %%", (int)kwlControl.getTempSensors().getEfficiency());
     tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
     tft.setCursor(240 - w, 270 + baselineMiddle);
     tft.print(strPrint);
@@ -259,11 +259,11 @@ void DoMenuActionScreen0() {
       break;
     case 3:
       previousMillisDisplayUpdate = 0;
-      if (fanControl.getVentilationMode() < KWLConfig::StandardModeCnt - 1)  fanControl.setVentilationMode(fanControl.getVentilationMode() + 1);
+      if (kwlControl.getFanControl().getVentilationMode() < KWLConfig::StandardModeCnt - 1)  kwlControl.getFanControl().setVentilationMode(kwlControl.getFanControl().getVentilationMode() + 1);
       break;
     case 4:
       previousMillisDisplayUpdate = 0;
-      if (fanControl.getVentilationMode() > 0)  fanControl.setVentilationMode(fanControl.getVentilationMode() - 1);
+      if (kwlControl.getFanControl().getVentilationMode() > 0)  kwlControl.getFanControl().setVentilationMode(kwlControl.getFanControl().getVentilationMode() - 1);
       break;
     default:
       previousMillisDisplayUpdate = 0;
@@ -433,7 +433,7 @@ void DoMenuActionScreen2() {
 
 // ****************************************** Screen 3: EINSTELLUNG NORMDREHZAHL L1 *************************
 void SetupScreen3() {
-  inputStandardSpeedSetpointFan1 = fanControl.getFan1().getStandardSpeed();
+  inputStandardSpeedSetpointFan1 = kwlControl.getFanControl().getFan1().getStandardSpeed();
 }
 
 void SetupBackgroundScreen3() {
@@ -444,7 +444,7 @@ void SetupBackgroundScreen3() {
   tft.print (F("Mit dem Button 'OK' wird der Wert gespeichert."));
   tft.setCursor(18, 100 + baselineMiddle);
   tft.print (F("Der aktueller Wert betraegt: "));
-  tft.print (int(fanControl.getFan1().getStandardSpeed()));
+  tft.print (int(kwlControl.getFanControl().getFan1().getStandardSpeed()));
   tft.println(" U / min");
   tft.setCursor(18, 150 + baselineMiddle);
   tft.print (F("Neuer Wert: "));
@@ -488,8 +488,8 @@ void DoMenuActionScreen3() {
     case 6:
       previousMillisDisplayUpdate = 0;
       // Drehzahl Lüfter 1
-      fanControl.getFan1().setStandardSpeed(inputStandardSpeedSetpointFan1);
-      persistentConfig.setSpeedSetpointFan1(inputStandardSpeedSetpointFan1);
+      kwlControl.getFanControl().getFan1().setStandardSpeed(inputStandardSpeedSetpointFan1);
+      kwlControl.getPersistentConfig().setSpeedSetpointFan1(inputStandardSpeedSetpointFan1);
       tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 225 + baselineMiddle);
@@ -506,7 +506,7 @@ void DoMenuActionScreen3() {
 
 // ****************************************** Screen 4: EINSTELLUNG NORMDREHZAHL L2 *************************
 void SetupScreen4() {
-  inputStandardSpeedSetpointFan2 = fanControl.getFan2().getStandardSpeed();
+  inputStandardSpeedSetpointFan2 = kwlControl.getFanControl().getFan2().getStandardSpeed();
 }
 
 void SetupBackgroundScreen4() {
@@ -517,7 +517,7 @@ void SetupBackgroundScreen4() {
   tft.print (F("Mit dem Button 'OK' wird der Wert gespeichert."));
   tft.setCursor(18, 100 + baselineMiddle);
   tft.print (F("Der aktueller Wert betraegt: "));
-  tft.print (int(fanControl.getFan2().getStandardSpeed()));
+  tft.print (int(kwlControl.getFanControl().getFan2().getStandardSpeed()));
   tft.println(" U / min");
   tft.setCursor(18, 150 + baselineMiddle);
   tft.print (F("Neuer Wert: "));
@@ -561,8 +561,8 @@ void DoMenuActionScreen4() {
     case 6:
       previousMillisDisplayUpdate = 0;
       // Drehzahl Lüfter 1
-      fanControl.getFan2().setStandardSpeed(inputStandardSpeedSetpointFan2);
-      persistentConfig.setSpeedSetpointFan2(inputStandardSpeedSetpointFan2);
+      kwlControl.getFanControl().getFan2().setStandardSpeed(inputStandardSpeedSetpointFan2);
+      kwlControl.getPersistentConfig().setSpeedSetpointFan2(inputStandardSpeedSetpointFan2);
       tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 225 + baselineMiddle);
@@ -611,7 +611,7 @@ void DoMenuActionScreen5() {
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
-      fanControl.speedCalibrationStart();
+      kwlControl.getFanControl().speedCalibrationStart();
       tft.setFont(&FreeSans9pt7b);
       tft.setTextColor(colFontColor, colBackColor);
       tft.setCursor(18, 211 + baselineMiddle);
@@ -666,7 +666,7 @@ void DoMenuActionScreen6() {
       tft.setCursor(18, 220 + baselineMiddle);
       tft.println(F("Speicherbereich wird geloescht..."));
 
-      persistentConfig.factoryReset();
+      kwlControl.getPersistentConfig().factoryReset();
 
       tft.setCursor(18, 250 + baselineMiddle);
       tft.println(F("Loeschung erfolgreich, jetzt Reboot..."));
@@ -703,7 +703,7 @@ void SetupBackgroundScreen7() {
   tft.print (F("oder dynamisch per PID-Regler geregelt"));
   tft.setCursor(18, 125 + baselineMiddle);
   tft.print(F("werden. Aktuelle Einstellung: "));
-  if (fanControl.getCalculateSpeedMode() == FanCalculateSpeedMode::PROP) {
+  if (kwlControl.getFanControl().getCalculateSpeedMode() == FanCalculateSpeedMode::PROP) {
     tft.print(F("PWM Wert"));
   } else {
     tft.print(F("PID-Regler"));
@@ -744,8 +744,8 @@ void DoMenuActionScreen7() {
       break;
     case 6:
       previousMillisDisplayUpdate = 0;
-      if ((tmpInput == FanCalculateSpeedMode::PROP || tmpInput == FanCalculateSpeedMode::PID) && tmpInput != fanControl.getCalculateSpeedMode()) {
-        fanControl.setCalculateSpeedMode(tmpInput);
+      if ((tmpInput == FanCalculateSpeedMode::PROP || tmpInput == FanCalculateSpeedMode::PID) && tmpInput != kwlControl.getFanControl().getCalculateSpeedMode()) {
+        kwlControl.getFanControl().setCalculateSpeedMode(tmpInput);
         tft.setFont(&FreeSans9pt7b);
         tft.setTextColor(colFontColor, colBackColor);
         tft.fillRect(18, 250, 200, numberfieldheight, colBackColor);
@@ -777,18 +777,18 @@ void loopDisplayUpdate() {
     }
 
     // Netzwerkverbindung anzeigen
-    if (!bLanOk) {
-      if (LastLanOk != bLanOk || updateDisplayNow) {
-        LastLanOk = bLanOk;
+    if (!kwlControl.getNetworkClient().isLANOk()) {
+      if (LastLanOk != kwlControl.getNetworkClient().isLANOk() || updateDisplayNow) {
+        LastLanOk = kwlControl.getNetworkClient().isLANOk();
         tft.fillRect(10, 0, 120, 20, colErrorBackColor);
         tft.setTextColor(colErrorFontColor );
         tft.setCursor(20, 0 + baselineMiddle);
         tft.setFont(&FreeSans9pt7b);  // Kleiner Font
         tft.print(F("ERR LAN"));
       }
-    } else if (!bMqttOk) {
-      if (LastMqttOk != bMqttOk || updateDisplayNow) {
-        LastMqttOk = bMqttOk;
+    } else if (!kwlControl.getNetworkClient().isMQTTOk()) {
+      if (LastMqttOk != kwlControl.getNetworkClient().isMQTTOk() || updateDisplayNow) {
+        LastMqttOk = kwlControl.getNetworkClient().isMQTTOk();
         tft.fillRect(10, 0, 120, 20, colErrorBackColor);
         tft.setTextColor(colErrorFontColor );
         tft.setCursor(20, 0 + baselineMiddle);

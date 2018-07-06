@@ -19,7 +19,7 @@
  */
 
 #include "MessageHandler.h"
-#include "MQTTClient.h"
+#include "NetworkClient.h"
 #include "KWLConfig.h"
 
 #include <PubSubClient.h>
@@ -46,7 +46,10 @@ bool MessageHandler::publish(const char* topic, const char* payload, bool retain
       Serial.print(F(" [retained]"));
     Serial.println();
   }
-  return MQTTClient::getClient().publish(topic, payload, retained);
+  if (NetworkClient::hasClient())
+    return NetworkClient::getClient().publish(topic, payload, retained);
+  else
+    return false;
 }
 
 bool MessageHandler::publish(const char* topic, long payload, bool retained)

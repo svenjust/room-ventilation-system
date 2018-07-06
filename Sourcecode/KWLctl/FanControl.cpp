@@ -49,20 +49,27 @@ static constexpr unsigned long TIMEOUT_CALIBRATION = 600000000;
 static constexpr unsigned long TIMEOUT_PWM_CALIBRATION = 300000000;
 
 
-FanControl::FanControl(Scheduler& sched, KWLPersistentConfig& config, void (*speedCallback)(), Print& initTrace) :
-  InitTrace(F("Initialisierung Ventilatoren"), initTrace),
+FanControl::FanControl(KWLPersistentConfig& config, void (*speedCallback)()) :
   Task("FanControl"),
-  fan1_(KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho, config.getSpeedSetpointFan1(), countUpFan1),
-  fan2_(KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho, config.getSpeedSetpointFan2(), countUpFan2),
+  fan1_(1, KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho),
+  fan2_(2, KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho),
   speed_callback_(speedCallback),
   ventilation_mode_(KWLConfig::StandardKwlMode),
   persistent_config_(config)
+{}
+
+void FanControl::start(Scheduler& sched, Print& initTrace)
 {
-  for (unsigned i = 0; ((i < KWLConfig::StandardModeCnt) && (i < 10)); i++) {
-    fan1_.initPWM(i, config.getFanPWMSetpoint(0, i));
-    fan2_.initPWM(i, config.getFanPWMSetpoint(1, i));
-  }
+  initTrace.println(F("Initialisierung Ventilatoren"));
+
   instance_ = this;
+  for (unsigned i = 0; ((i < KWLConfig::StandardModeCnt) && (i < 10)); i++) {
+    fan1_.initPWM(i, persistent_config_.getFanPWMSetpoint(0, i));
+    fan2_.initPWM(i, persistent_config_.getFanPWMSetpoint(1, i));
+  }
+  fan1_.start(countUpFan1, persistent_config_.getSpeedSetpointFan1());
+  fan2_.start(countUpFan2, persistent_config_.getSpeedSetpointFan2());
+
   sched.addRepeated(*this, FAN_INTERVAL);
 }
 
@@ -275,16 +282,27 @@ bool FanControl::mqttReceiveMsg(const StringView& topic, const char* payload, un
   } else if (topic == MQTTTopic::CmdMode) {
     // KWL Stufe
     setVentilationMode(int(s.toInt()));
+  } else if (topic == MQTTTopic::CmdFansCalculateSpeedMode) {
+    if (s == F("PROP"))
+      setCalculateSpeedMode(FanCalculateSpeedMode::PROP);
+    else if (s == F("PID"))
+      setCalculateSpeedMode(FanCalculateSpeedMode::PID);
+  } else if (topic == MQTTTopic::CmdCalibrateFans) {
+    if (s == F("YES"))
+      speedCalibrationStart();
+  } else if (topic == MQTTTopic::CmdGetSpeed) {
+    forceSendSpeed();
+    forceSendMode();
 #ifdef DEBUG
   } else if (topic == MQTTTopic::KwlDebugsetFan1Getvalues) {
-    if (s == "on")
+    if (s == F("on"))
       fan1_.debug(true);
-    else if (s == "off")
+    else if (s == F("off"))
       fan1_.debug(false);
   } else if (topic == MQTTTopic::KwlDebugsetFan2Getvalues) {
-    if (s == "on")
+    if (s == F("on"))
       fan2_.debug(true);
-    else if (s == "off")
+    else if (s == F("off"))
       fan2_.debug(false);
   } else if (topic == MQTTTopic::KwlDebugsetFan1PWM) {
     // update PWM value for the current state

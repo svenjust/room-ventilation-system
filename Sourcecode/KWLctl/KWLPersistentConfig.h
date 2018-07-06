@@ -61,9 +61,6 @@ private:
   void loadDefaults();
 
 public:
-  /// Construct the configuration, directing output to the specified stream.
-  KWLPersistentConfig(Print& out, bool reset = false) : PersistentConfiguration<KWLPersistentConfig, KWL_EEPROM_VERSION>(out, reset) {}
-
   // default getters/setters
   KWL_GETSET(SpeedSetpointFan1)
   KWL_GETSET(SpeedSetpointFan2)

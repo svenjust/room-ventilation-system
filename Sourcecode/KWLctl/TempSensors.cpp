@@ -33,12 +33,17 @@ static constexpr unsigned long SCHEDULING_INTERVAL = 1000000;
 TempSensors::TempSensor::TempSensor(uint8_t pin) :
   onewire_ifc_(pin),
   sensor_(&onewire_ifc_)
+{}
+
+void TempSensors::TempSensor::start()
 {
   sensor_.begin();
   sensor_.setResolution(TEMPERATURE_PRECISION);
   sensor_.setWaitForConversion(false);
   if (!sensor_.getAddress(address_, 0))
-    state_ = -1;  // re-request
+    state_ = -1;  // re-request later
+  else
+    loop(); // initial temperature request
 }
 
 bool TempSensors::TempSensor::loop()
@@ -83,15 +88,26 @@ void TempSensors::TempSensor::retry()
   state_ = -1; // start next retry
 }
 
-TempSensors::TempSensors(Scheduler& sched, Print& initTrace) :
-  InitTrace(F("Initialisierung Temperatursensoren"), initTrace),
+TempSensors::TempSensors() :
   Task("TempSensors"),
   t1_(KWLConfig::PinTemp1OneWireBus),
   t2_(KWLConfig::PinTemp2OneWireBus),
   t3_(KWLConfig::PinTemp3OneWireBus),
   t4_(KWLConfig::PinTemp4OneWireBus)
 {
-  // call every 1/8th of the second
+}
+
+void TempSensors::start(Scheduler& sched, Print& initTracer)
+{
+  initTracer.println(F("Initialisierung Temperatursensoren"));
+
+  // initialize sensors and request temperature reading at startup
+  t1_.start();
+  t1_.start();
+  t2_.start();
+  t4_.start();
+
+  // call regularly to update
   sched.addRepeated(*this, SCHEDULING_INTERVAL);
 }
 
