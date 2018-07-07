@@ -72,6 +72,8 @@
 
 #include "KWLConfig.h"
 #include "MQTTTopic.hpp"
+#include "MicroNTP.h"
+#include "EthernetUdp.h"
 
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
@@ -226,7 +228,8 @@ class KWLControl
 {
 public:
   KWLControl() :
-    fan_control_(persistent_config_, &checkAntifreeze)
+    fan_control_(persistent_config_, &checkAntifreeze),
+    ntp_(udp_, KWLConfig::NetworkNTPServer)
   {}
 
   /// Start the controller.
@@ -235,6 +238,7 @@ public:
     network_client_.start(scheduler_, initTracer);
     temp_sensors_.start(scheduler_, initTracer);
     fan_control_.start(scheduler_, initTracer);
+    ntp_.begin();
   }
 
   /// Get persistent configuration.
@@ -248,6 +252,9 @@ public:
 
   /// Get fan controlling object.
   FanControl getFanControl() { return fan_control_; }
+
+  /// Get NTP client.
+  MicroNTP& getNTP() { return ntp_; }
 
   /// Get task scheduler.
   Scheduler& getScheduler() { return scheduler_; }
@@ -270,6 +277,10 @@ private:
   TempSensors temp_sensors_;
   /// Fan control.
   FanControl fan_control_;
+  /// UDP handler for NTP.
+  EthernetUDP udp_;
+  /// NTP protocol.
+  MicroNTP ntp_;  // will be moved to timed program handling routines and made a task
 };
 
 KWLControl kwlControl;
@@ -894,6 +905,8 @@ void loop()
 
   loopDisplayUpdate();
   loopTouch();
+
+  kwlControl.getNTP().loop();
 }
 // *** LOOP ENDE ***
 

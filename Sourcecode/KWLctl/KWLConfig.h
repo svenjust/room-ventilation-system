@@ -109,6 +109,9 @@ public:
   /// DNS Server, hier Google.
   static constexpr IPAddressLiteral NetworkDNSServer = {8,   8,   8,   8};
 
+  /// NTP (network time protocol) server, defaults to gateway.
+  static const IPAddressLiteral NetworkNTPServer;
+
   /// IP Adresse des MQTT Brokers.
   static constexpr IPAddressLiteral NetworkMQTTBroker = {192, 168,  20, 240};
 
@@ -294,6 +297,8 @@ public:
   // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 };
 
+template<typename FinalConfig>
+const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkNTPServer = FinalConfig::NetworkGateway;
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainTemperature = FinalConfig::RetainMeasurements;
 template<typename FinalConfig>

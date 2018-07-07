@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2018 Sven Just (sven@familie-just.de)
  * Copyright (C) 2018 Ivan Schréter (schreter@gmx.net)
  *
  * This program is free software: you can redistribute it and/or modify
