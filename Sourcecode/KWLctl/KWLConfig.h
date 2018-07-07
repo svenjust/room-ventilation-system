@@ -61,6 +61,12 @@ class IPAddressLiteral
 public:
   constexpr IPAddressLiteral(byte a, byte b, byte c, byte d) : ip{a, b, c, d} {}
   operator IPAddress() const;
+  constexpr IPAddressLiteral operator&(const IPAddressLiteral& other) const {
+    return IPAddressLiteral(ip[0] & other.ip[0], ip[1] & other.ip[1], ip[2] & other.ip[2], ip[3] & other.ip[3]);
+  }
+  constexpr IPAddressLiteral operator|(const IPAddressLiteral& other) const {
+    return IPAddressLiteral(ip[0] | other.ip[0], ip[1] | other.ip[1], ip[2] | other.ip[2], ip[3] | other.ip[3]);
+  }
 private:
   byte ip[4];
 };
@@ -100,14 +106,14 @@ public:
   /// IP Adresse für diese Gerät im eigenen Netz.
   static constexpr IPAddressLiteral NetworkIPAddress = {192, 168,  20, 201};
 
-  /// Subnet Maske.
+  /// Subnet Mask.
   static constexpr IPAddressLiteral NetworkSubnetMask = {255, 255, 255,   0};
 
-  /// Gateway.
-  static constexpr IPAddressLiteral NetworkGateway = {192, 168,  20, 250};
+  /// Gateway, defaults to network address with "1" as last element.
+  static const IPAddressLiteral NetworkGateway;
 
-  /// DNS Server, hier Google.
-  static constexpr IPAddressLiteral NetworkDNSServer = {8,   8,   8,   8};
+  /// DNS Server, defaults to gateway.
+  static const IPAddressLiteral NetworkDNSServer;
 
   /// NTP (network time protocol) server, defaults to gateway.
   static const IPAddressLiteral NetworkNTPServer;
@@ -297,6 +303,10 @@ public:
   // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 };
 
+template<typename FinalConfig>
+const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkGateway = (FinalConfig::NetworkIPAddress & FinalConfig::NetworkSubnetMask) | IPAddressLiteral(0, 0, 0, 1);
+template<typename FinalConfig>
+const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkDNSServer = FinalConfig::NetworkGateway;
 template<typename FinalConfig>
 const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkNTPServer = FinalConfig::NetworkGateway;
 template<typename FinalConfig>
