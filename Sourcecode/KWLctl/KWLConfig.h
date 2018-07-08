@@ -282,6 +282,9 @@ public:
 
   // ************************************** M Q T T   R E P O R T I N G *********************************************************************************
 
+  /// Period for sending heartbeat messages.
+  static constexpr uint8_t HeartbeatPeriod = 30;
+
   /// At most how often to send temperature messages via MQTT, in seconds.
   static constexpr uint8_t MinIntervalMqttTemp = 5;
   /// At least how often to send temperature messages via MQTT, in seconds.

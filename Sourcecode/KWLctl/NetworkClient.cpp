@@ -36,8 +36,8 @@ static constexpr unsigned long LAN_CHECK_INTERVAL = 10000000;
 /// Interval for reconnecting MQTT (5 seconds).
 static constexpr unsigned long MQTT_RECONNECT_INTERVAL = 5000000;
 
-/// MQTT heartbeat period (30 seconds).
-static constexpr unsigned long MQTT_HEARTBEAT_PERIOD = 30000000;
+/// MQTT heartbeat period.
+static constexpr unsigned long MQTT_HEARTBEAT_PERIOD = KWLConfig::HeartbeatPeriod * 1000000UL;
 
 PubSubClient* NetworkClient::s_client_ = nullptr;
 
@@ -150,7 +150,7 @@ void NetworkClient::run()
   if (force_heartbeat_) {
     // once connected or after timeout, publish an announcement
     last_heartbeat_time_ = getScheduleTime();
-    force_heartbeat_ = !mqtt_client_.publish(MQTTTopic::Heartbeat.load(), "online", true);
+    force_heartbeat_ = !MessageHandler::publish(MQTTTopic::Heartbeat, F("online"), true);
   }
 
   // now MQTT messages can be received
