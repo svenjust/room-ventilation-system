@@ -89,7 +89,7 @@ void TempSensors::TempSensor::retry()
 }
 
 TempSensors::TempSensors() :
-  Task("TempSensors"),
+  Task(F("TempSensors")),
   t1_(KWLConfig::PinTemp1OneWireBus),
   t2_(KWLConfig::PinTemp2OneWireBus),
   t3_(KWLConfig::PinTemp3OneWireBus),

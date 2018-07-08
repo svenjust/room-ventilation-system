@@ -29,24 +29,21 @@
 /*!
  * @brief Simple scheduler for cooperative multitasking.
  *
- * The scheduler works by maintaining two tasks lists - a queue of pending tasks
- * and a list of current tasks. When the scheduler runs one loop, it picks any
- * expired tasks from the current task list, removes them and runs them. Tasks
- * can re-add themselves into the scheduler, but they will end up in pending
- * queue.
- *
- * When the entire current task list is processed in one loop() call, the pending
- * queue becomes the current task list and unless it was once already switched to
- * pending task queue, it will be processed in the same loop call.
- *
- * If not entire current task list is processed in one loop() call (typical), then
- * the pending queue is added at the end of the current task list and will be
- * processed in the next scheduler run.
+ * The scheduler works by maintaining a task list. Each task has an associated
+ * next schedule time and optionally interval time. When the scheduler runs one
+ * loop, it picks any expired tasks from the task list, removes them and runs
+ * them. Task can re-add themselves into the scheduler, but they will be only
+ * executed in the next scheduler loop. If a task specified a scheduling interval,
+ * then the scheduler will automatically re-add it after execution.
  *
  * This way, it is guaranteed that all tasks get processed at some time, even if
  * there is a misbehaving task registering itself over and over with zero timeout.
- * This misbehaving task will run only at most twice per scheduler loop and other
+ * This misbehaving task will run only at most once per scheduler loop and other
  * tasks will get their chance to run.
+ *
+ * Additionally, tasks can override poll() method to be called every time the
+ * scheduler runs. This is for instance needed to interface with user input or
+ * network handling.
  */
 class Scheduler : private MessageHandler
 {
@@ -59,7 +56,7 @@ public:
    * Timeout is corrected for task runtime, i.e., the actual timeout is task's
    * start time + timeout, not current time + timeout.
    *
-   * Calling add() on a task already in the list just updates its timeout.
+   * Calling add() on an already scheduled task just updates its timeout.
    *
    * @param t Task to add.
    * @param timeout_us timeout in microseconds at which to wake up the task.
@@ -71,12 +68,19 @@ public:
    *
    * This version of add schedules the task repeatedly at the given interval.
    *
-   * Calling addRepeated() on a task already in the list just updates its interval.
+   * Calling addRepeated() on an already scheduled task just updates its timeout and interval.
    *
    * @param t Task to add.
    * @param interval interval in microseconds at which to wake up the task.
    */
   void addRepeated(Task& t, unsigned long interval);
+
+  /*!
+   * @brief Remove the specified task from scheduling.
+   *
+   * @param t task to remove.
+   */
+  void remove(Task& t);
 
   /*!
    * @brief Method to be called from loop() function periodically to check for expired tasks.
@@ -88,12 +92,6 @@ private:
 
   /// Current time at the time of entering into loop().
   unsigned long current_time_ = 0;
-  /// Next task to activate when next_time_ expires.
-  Task* next_task_ = nullptr;
-  /// Queue of tasks where new tasks register themselves with add().
-  Task* queue_ = nullptr;
-  /// Last registered element in the queue, if any.
-  Task* queue_last_ = nullptr;
   /// Variable controlling whether we are in loop() function.
   bool is_in_loop_ = false;
   /// Runtime of the scheduler when doing useful work and scheduling some task.

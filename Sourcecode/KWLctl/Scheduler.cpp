@@ -26,7 +26,7 @@
 /// First registered task for task enumeration.
 static Task* s_first_task = nullptr;
 
-Task::Task(const char* name) :
+Task::Task(const __FlashStringHelper* name) :
   next_registered_(s_first_task),
   runtime_(name)
 {
@@ -36,8 +36,8 @@ Task::Task(const char* name) :
 Task::~Task() {}
 
 Scheduler::Scheduler() :
-  runtime_("Scheduler"),
-  total_runtime_("AllTasks")
+  runtime_(F("Scheduler")),
+  total_runtime_(F("AllTasks"))
 {}
 
 void Scheduler::add(Task& t, unsigned long timeout_us)
@@ -48,20 +48,15 @@ void Scheduler::add(Task& t, unsigned long timeout_us)
   } else {
     static unsigned long s_startup_delay = 0;
     new_time = micros() + timeout_us + s_startup_delay;
-    s_startup_delay += 220000;  // 220ms apart at startup
+    s_startup_delay = (s_startup_delay + 223500) & 0xffffffUL;  // ~220ms apart at startup, max. 1s
   }
+  if (new_time == t.next_time_)
+    ++new_time;   // this is for the unlikely case where re-add inside run() will use exactly the same
+                  // time as before, which would remove the task from scheduling
+  if (!new_time)
+    new_time = 1; // 0 is special for not scheduled
   t.next_time_ = new_time;
   t.interval_ = 0;
-
-  if (!t.is_in_list_) {
-    if (queue_last_)
-      queue_last_->next_ = &t;
-    else
-      queue_ = &t;
-    t.next_ = nullptr;
-    queue_last_ = &t;
-    t.is_in_list_ = true;
-  }
 }
 
 void Scheduler::addRepeated(Task& t, unsigned long interval)
@@ -70,92 +65,59 @@ void Scheduler::addRepeated(Task& t, unsigned long interval)
   t.interval_ = interval;
 }
 
+void Scheduler::remove(Task& t)
+{
+  t.next_time_ = 0;
+  t.interval_ = 0;
+}
+
 void Scheduler::loop()
 {
-  enum {
-    MAX_TASKS = 64  // maximum # of tasks to check in one loop
-  };
-
   if (is_in_loop_)
     return; // recursive call, ERROR
+
   is_in_loop_ = true;
   current_time_ = micros();
   unsigned long schedule_start_time = current_time_;
   unsigned long all_task_times = 0;
 
-  Task* last_task = nullptr;
-  auto cur_task = next_task_;
-  bool switched = false;
-  for (byte i = 0; i < MAX_TASKS; ++i) {
-    if (!cur_task) {
-      if (!switched && queue_) {
-        // pick new tasks from the queue, if any
-        if (last_task) {
-          last_task->next_ = queue_;
+  auto cur_task = s_first_task;
+  while (cur_task) {
+    auto task_time = cur_task->next_time_;
+    auto next = cur_task->next_registered_;
+    unsigned long task_start_time = micros();
+    bool had_poll = cur_task->poll();
+    bool had_run = false;
+    if (task_time) {
+      long delta = long(task_time - current_time_);
+      if (delta <= 0) {
+        // OK, timer expired
+        cur_task->run();
+        auto interval = cur_task->interval_;
+        if (interval) {
+          // Interval task, compute next time to run the task. In case the next time would fall
+          // into this loop run, skip one call. This protects against runaway tasks that are
+          // scheduled too frequently.
+          while (long(task_time - current_time_) < 0)
+            task_time += interval;
+          cur_task->next_time_ = task_time;
         } else {
-          next_task_ = queue_;
-          last_task = nullptr;
+          // Regular task, remove the task from the list. It has to be explicitly re-added.
+          if (cur_task->next_time_ == task_time)
+            cur_task->next_time_ = 0; // was not re-added in the meantime
         }
-        cur_task = queue_;
-        queue_ = queue_last_ = nullptr;
-        switched = true;
-      } else {
-        break; // no mote tasks to schedule at this time
+        had_run = true;
       }
     }
-
-    auto task_time = cur_task->next_time_;
-    long delta = long(task_time - current_time_);
-    auto next = cur_task->next_;
-    if (delta > 0) {
-      // not expired yet, try next task in the list
-      last_task = cur_task;
-      cur_task = next;
-      continue;
-    }
-
-    // OK, timer expired
-    auto interval = cur_task->interval_;
-    unsigned long task_start_time = 0;
-    if (interval) {
-      // Interval task, compute next time to run the task. In case the next time would fall
-      // into this loop run, skip one call. This protects against runaway tasks that are
-      // scheduled too frequently.
-      while (long(task_time - current_time_) < 0)
-        task_time += interval;
-      task_start_time = micros();
-      cur_task->run();
-      cur_task->next_time_ = task_time;
-    } else {
-      // Regular task, remove the task from the list. It has to be explicitly re-added.
-      if (last_task)
-        last_task->next_ = next;
+    if (had_poll || had_run) {
+      auto task_runtime = micros() - task_start_time;
+      if (had_run)
+        cur_task->runtime_.addRuntime(task_runtime);
       else
-        next_task_ = next;
-      cur_task->is_in_list_ = false;
-      task_start_time = micros();
-      cur_task->run();
-      if (!cur_task->is_in_list_)
-        cur_task->next_time_ = 0;
+        cur_task->runtime_.addPolltime(task_runtime);
+      all_task_times += task_runtime;
     }
-    auto task_runtime = micros() - task_start_time;
-    cur_task->runtime_.addRuntime(task_runtime);
-    all_task_times += task_runtime;
     cur_task = next;
-  }
-
-  if (queue_) {
-    // integrate tasks from the pending queue into task list
-    last_task = nullptr;
-    cur_task = next_task_;
-    while (cur_task) {
-      last_task = cur_task;
-      cur_task = cur_task->next_;
-    }
-    if (last_task)
-      last_task->next_ = queue_;
-    else
-      next_task_ = queue_;
   }
 
   if (all_task_times) {

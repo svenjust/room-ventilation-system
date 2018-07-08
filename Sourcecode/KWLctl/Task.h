@@ -33,7 +33,7 @@ class Scheduler;
 class Task
 {
 public:
-  Task(const char* name);
+  Task(const __FlashStringHelper* name);
 
   virtual ~Task();
 
@@ -44,9 +44,12 @@ protected:
    * Use this method inside of run() to get time information. The time
    * returned is close to the current time.
    *
-   * @return time in microseconds.
+   * @return time in microseconds or 0 if not scheduled.
    */
   inline unsigned long getScheduleTime() { return next_time_; }
+
+  /// Check if the task is scheduled repeatedly.
+  bool isRepeated() { return interval_ != 0; }
 
 private:
   friend class Scheduler;
@@ -58,14 +61,17 @@ private:
    */
   virtual void run() = 0;
 
+  /*!
+   * @brief Do low-latency work for the task.
+   *
+   * @return @c true, if any work has been done (i.e., it is implemented).
+   */
+  virtual bool poll() { return false; }
+
   /// Next time at which to react to this task.
   unsigned long next_time_ = 0;
   /// Interval with which to schedule this task.
   unsigned long interval_ = 0;
-  /// Next task in scheduler's list. Maintained by scheduler.
-  Task* next_ = nullptr;
-  /// Set to true, if the task is already in scheduler's list.
-  bool is_in_list_ = false;
 
   /// Next registered task in global list. Maintained by constructor.
   Task* next_registered_ = nullptr;

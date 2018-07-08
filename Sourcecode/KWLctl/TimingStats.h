@@ -24,6 +24,7 @@
 #pragma once
 
 class MessageHandler;
+class __FlashStringHelper;
 
 /*!
  * @brief Statistics for timing operation duration.
@@ -38,7 +39,11 @@ class MessageHandler;
 class TimingStats
 {
 public:
-  explicit TimingStats(const char* name) : name_(name) {}
+  /// Construct stats for a given task name.
+  explicit TimingStats(const __FlashStringHelper* name) : name_(name) {}
+
+
+  // Primary statistics for task runtime (expensive, scheduled operations).
 
   /// Add one runtime measurement.
   void addRuntime(unsigned long runtime);
@@ -55,6 +60,19 @@ public:
   /// Get number of measurements consolidated in order not to overflow long counters.
   unsigned long getConsolidatedMeasurementCount() const { return adjust_count_runtime_; }
 
+
+  // Secondary statistics for task poll time (quick operations, react to network and input).
+
+  /// Add time spent in polling.
+  void addPolltime(unsigned long polltime);
+
+  /// Get maximum recorded poll time.
+  inline unsigned long getMaxPolltime() const { return max_polltime_; }
+
+  /// Get average poll time.
+  unsigned long getAvgPolltime() const;
+
+
   /*!
    * @brief Send statistics over MQTT.
    *
@@ -65,7 +83,7 @@ public:
 
 private:
   /// Task name.
-  const char* name_;
+  const __FlashStringHelper* name_;
   /// Maximum run time of this task in microseconds.
   unsigned long max_runtime_ = 0;
   /// Sum of runtimes of this task in microseconds.
@@ -74,4 +92,10 @@ private:
   unsigned long count_runtime_ = 0;
   /// Count of runtime measurements "eaten out" to keep measurements in range.
   unsigned long adjust_count_runtime_ = 0;
+  /// Maximum run time of this task in microseconds.
+  unsigned long max_polltime_ = 0;
+  /// Sum of runtimes of this task in microseconds.
+  unsigned long sum_polltime_ = 0;
+  /// Count of runtime measurements for this task.
+  unsigned count_polltime_ = 0;
 };

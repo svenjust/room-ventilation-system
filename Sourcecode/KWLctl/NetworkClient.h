@@ -36,11 +36,14 @@
 class NetworkClient : private Task
 {
 public:
+  NetworkClient(const NetworkClient&) = delete;
+  NetworkClient& operator=(const NetworkClient&) = delete;
+
   /// Construct network client.
-  NetworkClient();
+  explicit NetworkClient(Scheduler& scheduler);
 
   /// Start network client.
-  void start(Scheduler& scheduler, Print& initTracer);
+  void start(Print& initTracer);
 
   /// Check if the global MQTT client is already installed.
   static bool hasClient() { return s_client_ != nullptr; }
@@ -61,11 +64,15 @@ private:
   /// Initialize MQTT connection.
   bool mqttConnect();
 
+  virtual bool poll() override;
+
   virtual void run() override;
 
   /// Static link to the client to be used by MessageHandler to publish messages.
   static PubSubClient* s_client_;
 
+  /// Scheduler scheduling tasks.
+  Scheduler& scheduler_;
   /// Ethernet client for MQTT client.
   EthernetClient eth_client_;
   /// MQTT client.
@@ -74,12 +81,12 @@ private:
   unsigned long last_mqtt_reconnect_attempt_time_ = 0;
   /// Last time when MQTT started a reconnect attempt.
   unsigned long last_lan_reconnect_attempt_time_ = 0;
-  /// Last time a heartbeat message was sent.
-  unsigned long last_heartbeat_time_ = 0;
   /// Flag set when LAN is present.
   bool lan_ok_ = false;
   /// Flag set when MQTT is present.
   bool mqtt_ok_ = false;
-  /// Flag to force sending heartbeat message (e.g., after connect).
-  bool force_heartbeat_ = false;
+  /// Subscribe flag for commands.
+  bool subscribed_command_ = false;
+  /// Subscribe flag for debug commands.
+  bool subscribed_debug_ = false;
 };

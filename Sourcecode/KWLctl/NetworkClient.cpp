@@ -27,9 +27,6 @@
 #include <Ethernet.h>
 #include <PubSubClient.h>
 
-/// Do checks for new messages every 75ms.
-static constexpr unsigned long NETWORK_SCHEDULE_INTERVAL = 75000;
-
 /// Interval for checking LAN network OK (10 seconds).
 static constexpr unsigned long LAN_CHECK_INTERVAL = 10000000;
 
@@ -41,12 +38,13 @@ static constexpr unsigned long MQTT_HEARTBEAT_PERIOD = KWLConfig::HeartbeatPerio
 
 PubSubClient* NetworkClient::s_client_ = nullptr;
 
-NetworkClient::NetworkClient() :
-  Task("NetworkClient"),
+NetworkClient::NetworkClient(Scheduler& scheduler) :
+  Task(F("NetworkClient")),
+  scheduler_(scheduler),
   mqtt_client_(eth_client_)
 {}
 
-void NetworkClient::start(Scheduler& scheduler, Print& initTracer)
+void NetworkClient::start(Print& initTracer)
 {
   initTracer.println(F("Initialisierung Ethernet"));
   initEthernet();
@@ -60,9 +58,7 @@ void NetworkClient::start(Scheduler& scheduler, Print& initTracer)
   last_mqtt_reconnect_attempt_time_ = micros();
   mqtt_ok_ = true;
   s_client_ = &mqtt_client_;
-  run();  // first run call here to connect MQTT
-
-  scheduler.addRepeated(*this, NETWORK_SCHEDULE_INTERVAL);
+  poll();  // first run call here to connect MQTT
 }
 
 void NetworkClient::initEthernet()
@@ -79,11 +75,11 @@ bool NetworkClient::mqttConnect()
   bool rc = mqtt_client_.connect("arduinoClientKwl", KWLConfig::NetworkMQTTUsername, KWLConfig::NetworkMQTTPassword, MQTTTopic::Heartbeat.load(), 0, true, "offline");
   if (rc) {
     // subscribe
-    mqtt_client_.subscribe(MQTTTopic::Command.load());
-    mqtt_client_.subscribe(MQTTTopic::CommandDebug.load());
+    subscribed_command_ = mqtt_client_.subscribe(MQTTTopic::Command.load());
+    subscribed_debug_ = mqtt_client_.subscribe(MQTTTopic::CommandDebug.load());
+    scheduler_.add(*this, 1); // next run should send heartbeat
   }
   last_mqtt_reconnect_attempt_time_ = micros();
-  force_heartbeat_ = true;
   Serial.print(F("MQTT connect end at "));
   Serial.print(last_mqtt_reconnect_attempt_time_);
   if (mqtt_client_.connected()) {
@@ -95,16 +91,17 @@ bool NetworkClient::mqttConnect()
   }
 }
 
-void NetworkClient::run()
+bool NetworkClient::poll()
 {
   Ethernet.maintain();
+  auto current_time = micros();
   if (lan_ok_) {
     if (Ethernet.localIP()[0] == 0) {
       Serial.println(F("LAN disconnected, attempting to connect"));
       lan_ok_ = false;
       initEthernet(); // nothing more to do now
-      last_lan_reconnect_attempt_time_ = getScheduleTime();
-      return;
+      last_lan_reconnect_attempt_time_ = current_time;
+      return true;
     }
     // have Ethernet, do other checks
   } else {
@@ -116,12 +113,12 @@ void NetworkClient::run()
       mqtt_ok_ = true; // to force check and immediate reconnect
     } else {
       // still no Ethernet
-      if (getScheduleTime() - last_lan_reconnect_attempt_time_ >= LAN_CHECK_INTERVAL) {
+      if (current_time - last_lan_reconnect_attempt_time_ >= LAN_CHECK_INTERVAL) {
         // try reconnecting
         initEthernet();
-        last_lan_reconnect_attempt_time_ = getScheduleTime();
+        last_lan_reconnect_attempt_time_ = current_time;
       }
-      return;
+      return true;
     }
   }
 
@@ -130,29 +127,38 @@ void NetworkClient::run()
       Serial.println(F("MQTT disconnected, attempting to connect"));
       mqtt_ok_ = mqttConnect();
       if (!mqtt_ok_)
-        return; // couldn't connect now, cannot continue
+        return true; // couldn't connect now, cannot continue
     }
     // have MQTT receive messages
   } else {
     // no MQTT previously, check if now connected
-    if (getScheduleTime() - last_mqtt_reconnect_attempt_time_ >= MQTT_RECONNECT_INTERVAL) {
+    if (current_time - last_mqtt_reconnect_attempt_time_ >= MQTT_RECONNECT_INTERVAL) {
       // new reconnect attempt
       mqtt_ok_ = mqttConnect();
       if (!mqtt_ok_)
-        return;
+        return true;
     } else {
-      return; // not connected
+      return true; // not connected
     }
   }
 
-  if (getScheduleTime() - last_heartbeat_time_ >= MQTT_HEARTBEAT_PERIOD)
-    force_heartbeat_ = true;
-  if (force_heartbeat_) {
-    // once connected or after timeout, publish an announcement
-    last_heartbeat_time_ = getScheduleTime();
-    force_heartbeat_ = !MessageHandler::publish(MQTTTopic::Heartbeat, F("online"), true);
-  }
+  // Make sure we are subscribed, if after connect we didn't succeed
+  if (!subscribed_command_)
+    subscribed_command_ = mqtt_client_.subscribe(MQTTTopic::Command.load());
+  if (!subscribed_debug_)
+    subscribed_debug_ = mqtt_client_.subscribe(MQTTTopic::CommandDebug.load());
 
   // now MQTT messages can be received
   mqtt_client_.loop();
+  return true;
+}
+
+void NetworkClient::run()
+{
+  // once connected or after timeout, publish an announcement
+  if (!MessageHandler::publish(MQTTTopic::Heartbeat, F("online"), true)) {
+    scheduler_.add(*this, 100000);  // try again in 100ms
+  } else if (!isRepeated()) {
+    scheduler_.addRepeated(*this, MQTT_HEARTBEAT_PERIOD);
+  }
 }

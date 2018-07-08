@@ -228,6 +228,7 @@ class KWLControl
 {
 public:
   KWLControl() :
+    network_client_(scheduler_),
     fan_control_(persistent_config_, &checkAntifreeze),
     ntp_(udp_, KWLConfig::NetworkNTPServer)
   {}
@@ -235,7 +236,7 @@ public:
   /// Start the controller.
   void start(Print& initTracer) {
     persistent_config_.start(initTracer, KWLConfig::FACTORY_RESET_EEPROM);
-    network_client_.start(scheduler_, initTracer);
+    network_client_.start(initTracer);
     temp_sensors_.start(scheduler_, initTracer);
     fan_control_.start(scheduler_, initTracer);
     ntp_.begin();

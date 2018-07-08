@@ -50,7 +50,7 @@ static constexpr unsigned long TIMEOUT_PWM_CALIBRATION = 300000000;
 
 
 FanControl::FanControl(KWLPersistentConfig& config, void (*speedCallback)()) :
-  Task("FanControl"),
+  Task(F("FanControl")),
   fan1_(1, KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho),
   fan2_(2, KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho),
   speed_callback_(speedCallback),
