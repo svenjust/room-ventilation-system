@@ -53,9 +53,10 @@ protected:
    * @param size configuration class size.
    * @param version configuration version.
    * @param load_defaults reference to loadDefaults() of the actual config.
+   * @param migrate reference to migrate() of the actual config.
    * @param reset if set, unconditionally reset EEPROM contents and load it with defaults.
    */
-  void begin(Print& out, unsigned int size, unsigned int version, LoadFnc load_defaults, bool reset = false);
+  void begin(Print& out, unsigned int size, unsigned int version, LoadFnc load_defaults, LoadFnc migrate, bool reset = false);
 
   /*!
    * @brief Update a member in the EEPROM.
@@ -134,7 +135,7 @@ public:
    * @param reset if set, unconditionally reset EEPROM contents and load it with defaults.
    */
   void begin(Print& out, bool reset = false) {
-    PersistentConfigurationBase::begin(out, sizeof(T), Version, static_cast<LoadFnc>(&T::loadDefaults), reset);
+    PersistentConfigurationBase::begin(out, sizeof(T), Version, static_cast<LoadFnc>(&T::loadDefaults), static_cast<LoadFnc>(&T::migrate), reset);
   }
 
   /*!
@@ -143,6 +144,10 @@ public:
    * @return @c true, if data updated, @c false if out of range (too big).
    */
   bool updateAll() { return updateRange(this, sizeof(T)); }
+
+protected:
+  /// Default migrate is empty.
+  void migrate() {}
 
   // NOTE: no data members allowed here!
 };

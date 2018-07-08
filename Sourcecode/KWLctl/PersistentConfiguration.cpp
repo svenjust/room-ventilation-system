@@ -27,7 +27,7 @@ static constexpr int EEPROM_MIN_ADDR = 0;
 /// Address past addressable EEPROM contents.
 static constexpr int EEPROM_MAX_ADDR = 1024;
 
-void PersistentConfigurationBase::begin(Print& out, unsigned int size, unsigned int version, LoadFnc load_defaults, bool reset)
+void PersistentConfigurationBase::begin(Print& out, unsigned int size, unsigned int version, LoadFnc load_defaults, LoadFnc migrate, bool reset)
 {
   out.println(F("Reading EEPROM contents..."));
   dumpRaw(out);
@@ -75,6 +75,9 @@ void PersistentConfigurationBase::begin(Print& out, unsigned int size, unsigned 
     } else {
       out.println(F("New EEPROM contents stored successfully."));
     }
+  } else {
+    // config is considered valid, migrate existing values
+    (this->*migrate)();
   }
 }
 
