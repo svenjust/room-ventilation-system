@@ -51,6 +51,9 @@ public:
   /// Get maximum recorded runtime.
   inline unsigned long getMaxRuntime() const { return max_runtime_; }
 
+  /// Get maximum recorded runtime since start.
+  unsigned long getMaxRuntimeSinceStart() const;
+
   /// Get average runtime.
   unsigned long getAvgRuntime() const;
 
@@ -69,6 +72,9 @@ public:
   /// Get maximum recorded poll time.
   inline unsigned long getMaxPolltime() const { return max_polltime_; }
 
+  /// Get maximum recorded polltime since start.
+  unsigned long getMaxPolltimeSinceStart() const;
+
   /// Get average poll time.
   unsigned long getAvgPolltime() const;
 
@@ -81,21 +87,28 @@ public:
    */
   void sendStats(MessageHandler& handler, unsigned long next = 0) const;
 
+  /// Reset maxima.
+  void resetMaximum();
+
 private:
   /// Task name.
   const __FlashStringHelper* name_;
   /// Maximum run time of this task in microseconds.
   unsigned long max_runtime_ = 0;
+  /// Maximum run time of this task since beginning at reset.
+  unsigned long max_runtime_since_start_ = 0;
   /// Sum of runtimes of this task in microseconds.
   unsigned long sum_runtime_ = 0;
   /// Count of runtime measurements for this task.
   unsigned long count_runtime_ = 0;
   /// Count of runtime measurements "eaten out" to keep measurements in range.
   unsigned long adjust_count_runtime_ = 0;
-  /// Maximum run time of this task in microseconds.
+  /// Maximum poll time of this task in microseconds.
   unsigned long max_polltime_ = 0;
-  /// Sum of runtimes of this task in microseconds.
+  /// Maximum poll time of this task since beginning at reset.
+  unsigned long max_polltime_since_start_ = 0;
+  /// Sum of polltimes of this task in microseconds.
   unsigned long sum_polltime_ = 0;
-  /// Count of runtime measurements for this task.
+  /// Count of polltime measurements for this task.
   unsigned count_polltime_ = 0;
 };

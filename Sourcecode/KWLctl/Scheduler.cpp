@@ -140,6 +140,13 @@ bool Scheduler::mqttReceiveMsg(const StringView& topic, const char* /*payload*/,
       t->runtime_.sendStats(*this, t->next_time_);
       t = t->next_registered_;
     }
+  } else if (topic == MQTTTopic::KwlDebugsetSchedulerResetvalues) {
+    // reset maximum runtimes for all tasks
+    Task* t = s_first_task;
+    while (t) {
+      t->runtime_.resetMaximum();
+      t = t->next_registered_;
+    }
   } else {
     return false;
   }

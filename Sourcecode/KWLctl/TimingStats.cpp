@@ -55,12 +55,18 @@ void TimingStats::addPolltime(unsigned long polltime)
   }
 }
 
-unsigned long TimingStats::getAvgRuntime() const {
+unsigned long TimingStats::getAvgRuntime() const
+{
   unsigned long count = (count_runtime_ - adjust_count_runtime_);
   if (count)
     return sum_runtime_ / count;
   else
     return 0;
+}
+
+unsigned long TimingStats::getMaxRuntimeSinceStart() const
+{
+  return max_runtime_ > max_runtime_since_start_ ? max_runtime_ : max_runtime_since_start_;
 }
 
 unsigned long TimingStats::getAvgPolltime() const {
@@ -70,12 +76,26 @@ unsigned long TimingStats::getAvgPolltime() const {
     return 0;
 }
 
-void TimingStats::sendStats(MessageHandler& handler, unsigned long next) const {
-  char buffer[140]; // leaves at least 30B for task name
+unsigned long TimingStats::getMaxPolltimeSinceStart() const
+{
+  return max_polltime_ > max_polltime_since_start_ ? max_polltime_ : max_polltime_since_start_;
+}
+
+void TimingStats::sendStats(MessageHandler& handler, unsigned long next) const
+{
+  char buffer[150]; // leaves at least 20B for task name
   char* dest = strcpy_P(buffer, reinterpret_cast<const char*>(name_)) + strlen(buffer);
-  snprintf(dest, sizeof(buffer) - (dest - buffer),
-      ": max=%lu, avg=%lu, cnt=%lu-%lu, next=%lu, pmax=%lu, pavg=%lu",
-      max_runtime_, getAvgRuntime(), count_runtime_, adjust_count_runtime_, next,
-      max_polltime_, getAvgPolltime());
+  snprintf(dest, sizeof(buffer) - unsigned(dest - buffer),
+      ": max=%lu/%lu, avg=%lu, cnt=%lu-%lu, next=%lu, pmax=%lu/%lu, pavg=%lu",
+      max_runtime_, getMaxRuntimeSinceStart(), getAvgRuntime(), count_runtime_, adjust_count_runtime_, next,
+      max_polltime_, getMaxPolltimeSinceStart(), getAvgPolltime());
   handler.publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
+}
+
+void TimingStats::resetMaximum()
+{
+  max_runtime_since_start_ = getMaxRuntimeSinceStart();
+  max_polltime_since_start_ = getMaxPolltimeSinceStart();
+  max_runtime_ = 0;
+  max_polltime_ = 0;
 }

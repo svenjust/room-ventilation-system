@@ -85,6 +85,7 @@ namespace MQTTTopic
   constexpr auto KwlDebugstateFan2          = makeFlashStringLiteral("d15/debugstate/kwl/fan2");
   constexpr auto KwlDebugstatePreheater     = makeFlashStringLiteral("d15/debugstate/kwl/preheater");
   constexpr auto KwlDebugsetSchedulerGetvalues   = makeFlashStringLiteral("d15/debugset/kwl/scheduler/getvalues");
+  constexpr auto KwlDebugsetSchedulerResetvalues = makeFlashStringLiteral("d15/debugset/kwl/scheduler/resetvalues");
   constexpr auto KwlDebugstateScheduler    = makeFlashStringLiteral("d15/debugstate/kwl/scheduler");
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, es werden Messwerte überschrieben, es kann damit der Sommer-Bypass und die Frostschutzschaltung getestet werden
