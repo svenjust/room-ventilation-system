@@ -25,11 +25,14 @@
 #pragma once
 
 #include "PersistentConfiguration.h"
+#include "ProgramData.h"
 
 #include <stdint.h>
 
 /// EEPROM configuration version to expect/write.
 static constexpr unsigned KWL_EEPROM_VERSION = 49;
+/// # of programs.
+static constexpr uint8_t PROGRAM_COUNT = 16;
 
 // Helper for getters and setters.
 #define KWL_GETSET(name) \
@@ -60,9 +63,13 @@ private:
   int FanPWMSetpoint_[10][2];         // 20-59
   unsigned HeatingAppCombUse_;        // 60
   int16_t TimezoneMin_;               // 62
+  ProgramData programs_[PROGRAM_COUNT];// 64..192
 
   /// Initialize with defaults, if version doesn't fit.
   void loadDefaults();
+
+  /// Migrate configuration.
+  void migrate();
 
 public:
   // default getters/setters
@@ -80,6 +87,12 @@ public:
 
   int getFanPWMSetpoint(unsigned fan, unsigned idx) { return FanPWMSetpoint_[idx][fan]; }
   void setFanPWMSetpoint(unsigned fan, unsigned idx, int pwm) { FanPWMSetpoint_[idx][fan] = pwm; update(FanPWMSetpoint_[idx][fan]); }
+
+  /// Get program data from the given slot.
+  const ProgramData& getProgram(unsigned index) const { return programs_[index]; }
+
+  /// Set program data in the given slot.
+  void setProgram(unsigned index, const ProgramData& program) { programs_[index] = program; update(programs_[index]); }
 };
 
 #undef KWL_GETSET
