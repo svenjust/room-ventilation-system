@@ -23,6 +23,7 @@
  */
 #pragma once
 
+#include "HMS.h"
 #include <IPAddress.h>
 
 class UDP;
@@ -38,17 +39,6 @@ public:
   MicroNTP(const MicroNTP&) = delete;
   MicroNTP& operator=(const MicroNTP&) = delete;
 
-  /// Parsed time.
-  struct HMS {
-    /// Hours (0-23).
-    uint8_t h;
-    /// Minutes (0-59).
-    uint8_t m;
-    /// Seconds (0-59).
-    uint8_t s;
-    /// Weekday (0-6, 0 == Monday).
-    uint8_t wd;
-  };
 
   /*!
    * @brief Construct NTP client.
@@ -67,12 +57,25 @@ public:
   /// Force sending query on next loop() call.
   void forceQuery();
 
+  /// Check if time is synchronized.
+  bool hasTime() const { return current_ntp_time_ != 0; }
+
   /*!
    * @brief Get current time in seconds since epoch.
    *
    * @return time in seconds or 0 if NTP not available.
    */
-  unsigned long currentTime();
+  unsigned long currentTime() const;
+
+  /*!
+   * @brief Get time in seconds since epoch.
+   *
+   * @param ms time in milliseconds, as returned by millis(). This time should be
+   *    reasonably close to the current time to avoid overflow problems (at most
+   *    a few days).
+   * @return time in seconds or 0 if NTP not available.
+   */
+  unsigned long time(unsigned long ms) const;
 
   /*!
    * @brief Get current time parsed into hours/minutes/seconds + weekday.
@@ -84,7 +87,26 @@ public:
    * @param dst daylight saving time flag (summer time; adds 3600 to timezeone offset).
    * @return time parsed into hours/minutes/seconds + weekday.
    */
-  HMS currentTimeHMS(unsigned tz_offset, bool dst);
+  inline HMS currentTimeHMS(int tz_offset, bool dst) const {
+    return HMS(currentTime(), tz_offset, dst);
+  }
+
+  /*!
+   * @brief Get time parsed into hours/minutes/seconds + weekday.
+   *
+   * This method allows you to get the time "cooked" without any expensive
+   * libraries, if you just need to get the time itself + optionally a weekday.
+   *
+   * @param ms time in milliseconds, as returned by millis(). This time should be
+   *    reasonably close to the current time to avoid overflow problems (at most
+   *    a few days).
+   * @param tz_offset timezone offset in seconds (e.g., 3600 for GMT+1).
+   * @param dst daylight saving time flag (summer time; adds 3600 to timezeone offset).
+   * @return time parsed into hours/minutes/seconds + weekday.
+   */
+  inline HMS timeHMS(unsigned long ms, int tz_offset, bool dst) const {
+    return HMS(time(ms), tz_offset, dst);
+  }
 
 private:
   /// Send NTP request. Returns true, if packet was sent.

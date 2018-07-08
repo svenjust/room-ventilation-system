@@ -121,32 +121,20 @@ void MicroNTP::forceQuery()
   sent_time_ms_ = millis() - NTP_QUERY_INTERVAL;
 }
 
-unsigned long MicroNTP::currentTime()
+unsigned long MicroNTP::currentTime() const
+{
+  return time(millis());
+}
+
+unsigned long MicroNTP::time(unsigned long ms) const
 {
   if (current_ntp_time_) {
-    auto ms = millis() + ntp_time_millis_fract_ - receive_time_ms_;
+    ms = ms + ntp_time_millis_fract_ - receive_time_ms_;
     return current_ntp_time_ + (ms / 1000);
   } else {
     return 0;
   }
 };
-
-MicroNTP::HMS MicroNTP::currentTimeHMS(unsigned tz_offset, bool dst)
-{
-  if (dst)
-    tz_offset += 3600;
-  auto tm = currentTime() + tz_offset;
-  HMS res;
-  res.s = tm % 60;
-  tm /= 60;
-  res.m = tm % 60;
-  tm /= 60;
-  res.h = tm % 24;
-  tm /= 24;
-  // 1.1.1970 was Thursday
-  res.wd = (tm + 3) % 7;
-  return res;
-}
 
 bool MicroNTP::sendRequest(uint32_t ms)
 {
@@ -199,12 +187,8 @@ bool MicroNTP::parseReply(uint32_t ms)
       Serial.print(F("ms, at Arduino ms="));
       Serial.print(ms);
       Serial.print(F(", UTC h:m:s/wd="));
-      auto hms = currentTimeHMS(0, false);
-      Serial.print(hms.h);
-      Serial.print(':');
-      Serial.print(hms.m);
-      Serial.print(':');
-      Serial.print(hms.s);
+      auto hms = timeHMS(ms, 0, false);
+      Serial.print(PrintableHMS(hms));
       Serial.print('/');
       Serial.print(hms.wd);
       if (expected_time) {
