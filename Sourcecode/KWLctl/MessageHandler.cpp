@@ -52,6 +52,14 @@ bool MessageHandler::publish(const char* topic, const char* payload, bool retain
     return false;
 }
 
+bool MessageHandler::publish(const char* topic, const __FlashStringHelper* payload, bool retained)
+{
+  auto len = strlen_P(reinterpret_cast<const char*>(payload));
+  char buffer[len + 1];
+  memcpy_P(buffer, reinterpret_cast<const char*>(payload), len + 1);
+  return publish(topic, buffer, retained);
+}
+
 bool MessageHandler::publish(const char* topic, long payload, bool retained)
 {
   char buffer[16];

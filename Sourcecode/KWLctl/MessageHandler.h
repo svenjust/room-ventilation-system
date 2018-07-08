@@ -26,6 +26,7 @@
 #include "FlashStringLiteral.h"
 
 class StringView;
+class __FlashStringHelper;
 
 /*!
  * @brief Handler for incoming MQTT messages.
@@ -49,6 +50,16 @@ public:
    * @return @c true, if published successfully, @c false otherwise.
    */
   static bool publish(const char* topic, const char* payload, bool retained = false);
+
+  /*!
+   * @brief Publish a message.
+   *
+   * @param topic message topic.
+   * @param payload message payload (string).
+   * @param retained if set, retain the message on the server for quick read upon client connect.
+   * @return @c true, if published successfully, @c false otherwise.
+   */
+  static bool publish(const char* topic, const __FlashStringHelper* payload, bool retained = false);
 
   /*!
    * @brief Publish a message.
