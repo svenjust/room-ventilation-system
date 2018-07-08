@@ -49,7 +49,7 @@ static constexpr unsigned long TIMEOUT_CALIBRATION = 600000000;
 static constexpr unsigned long TIMEOUT_PWM_CALIBRATION = 300000000;
 
 
-FanControl::FanControl(KWLPersistentConfig& config, void (*speedCallback)()) :
+FanControl::FanControl(KWLPersistentConfig& config, SetSpeedCallback *speedCallback) :
   Task(F("FanControl")),
   fan1_(1, KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho),
   fan2_(2, KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho),
@@ -97,7 +97,7 @@ void FanControl::run()
   fan1_.updateSpeed();
   fan2_.updateSpeed();
 
-  if (KWLConfig::serialDebugFan == 1) {
+  if (KWLConfig::serialDebugFan) {
     Serial.print(F("Speed fan1: "));
     Serial.print(fan1_.getSpeed());
     Serial.print(F(", fan2: "));
@@ -158,7 +158,7 @@ void FanControl::speedUpdate()
   fan2_.computeSpeed(ventilation_mode_, calc_speed_mode_);
 
   if (speed_callback_)
-    speed_callback_();
+    speed_callback_->fanSpeedSet();
 
   setSpeed();
 }
@@ -168,7 +168,7 @@ void FanControl::setSpeed()
   fan1_.sendMQTTDebug(1, getScheduleTime(), *this);
   fan2_.sendMQTTDebug(2, getScheduleTime(), *this);
 
-  if (KWLConfig::serialDebugFan == 1) {
+  if (KWLConfig::serialDebugFan) {
     Serial.print(F("Timestamp: "));
     Serial.println(getScheduleTime());
   }

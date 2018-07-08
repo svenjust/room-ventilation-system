@@ -68,6 +68,7 @@
 #include "Scheduler.h"
 #include "TempSensors.h"
 #include "FanControl.h"
+#include "Antifreeze.h"
 #include "KWLPersistentConfig.h"
 
 #include "KWLConfig.h"
@@ -130,36 +131,12 @@ boolean mqttCmdSendBypassState                 = false;
 boolean mqttCmdSendBypassAllValues             = false;
 boolean mqttCmdSendMode                        = false;
 boolean mqttCmdSendConfig                      = false;
-// mqttDebug Messages
-boolean mqttCmdSendAlwaysDebugPreheater        = false;
 
 char   TEMPChar[10];            // Hilfsvariable zu Konvertierung
 char   buffer[7];               // the ASCII of the integer will be stored in this char array
 String TEMPAsString;            // Ausgelesene Wert als String
 String ErrorText;               // Textvariable für Fehlermeldung
 String InfoText;                // Textvariable für Infomeldung
-
-// Start Definition für Heating Appliance (Feuerstätte)  //////////////////////////////////////////
-int            heatingAppCombUse                    = KWLConfig::StandardHeatingAppCombUse;
-unsigned long  heatingAppCombUseAntiFreezeInterval  = 14400000;   // 4 Stunden = 4 *60 * 60 * 1000
-unsigned long  heatingAppCombUseAntiFreezeStartTime = 0;
-// Ende  Definition für Heating Appliance (Feuerstätte)  //////////////////////////////////////////
-
-// Start Definition für AntiFreeze (Frostschutz) //////////////////////////////////////////
-#define antifreezeOff                   0
-#define antifreezePreheater             1
-#define antifreezeZuluftOff             2
-#define antifreezeFireplace             3
-
-int     antifreezeState               = antifreezeOff;
-float   antifreezeTemp                = 1.5;     // Nach kaltem Wetter im Feb 2018 gemäß Messwerte
-int     antifreezeHyst                = 2;
-double  antifreezeTempUpperLimit;
-boolean antifreezeAlarm               = false;
-
-double        techSetpointPreheater   = 0.0;      // Analogsignal 0..1000 für Vorheizer
-unsigned long PreheaterStartMillis    = 0;        // Beginn der Vorheizung
-// Ende Definition für AntiFreeze (Frostschutz) //////////////////////////////////////////
 
 // Start - Variablen für Bypass ///////////////////////////////////////////
 #define bypassMode_Auto         0
@@ -185,8 +162,6 @@ unsigned long bypassFlapsStartTime = 0;                           // Startzeit f
 
 
 // Definitionen für das Scheduling
-unsigned long intervalAntifreezeCheck        = 60000;   //  60000 = 60 * 1000         // Frostschutzprüfung je Minute
-unsigned long intervalAntiFreezeAlarmCheck   = 600000;  // 600000 = 10 * 60 * 1000;   // 10 Min Zeitraum zur Überprüfung, ob Vorheizregister die Temperatur erhöhen kann,
 unsigned long intervalBypassSummerCheck      = 60000;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
 unsigned long intervalBypassSummerSetFlaps   = 60000;   // 60000;  // 1 * 60 * 1000 Zeitraum zum Fahren des Bypasses, 1 Minuten
 unsigned long intervalCheckForErrors         = 1000;
@@ -200,7 +175,6 @@ unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minut
 unsigned long intervalMqttMHZ14Oversampling  = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttBypassState        = 900000; //15 * 60 * 1000; 15 Minuten
 
-unsigned long previousMillisAntifreeze            = 0;
 unsigned long previousMillisBypassSummerCheck     = 0;
 unsigned long previousMillisBypassSummerSetFlaps  = 0;
 unsigned long previousMillisCheckForErrors        = 0;
@@ -219,17 +193,14 @@ unsigned long previousMillisTemp                  = 0;
 unsigned long currentMillis                       = 0;
 
 
-// forwards:
-void DoActionAntiFreezeState();
-void SetPreheater();
-
 /// Class comprising all modules for the control of the ventilation system.
-class KWLControl
+class KWLControl : private FanControl::SetSpeedCallback
 {
 public:
   KWLControl() :
     network_client_(scheduler_),
-    fan_control_(persistent_config_, &checkAntifreeze),
+    fan_control_(persistent_config_, this),
+    antifreeze_(scheduler_, fan_control_, temp_sensors_, persistent_config_),
     ntp_(udp_, KWLConfig::NetworkNTPServer)
   {}
 
@@ -239,6 +210,7 @@ public:
     network_client_.start(initTracer);
     temp_sensors_.start(scheduler_, initTracer);
     fan_control_.start(scheduler_, initTracer);
+    antifreeze_.start(initTracer);
     ntp_.begin();
   }
 
@@ -252,7 +224,10 @@ public:
   TempSensors& getTempSensors() { return temp_sensors_; }
 
   /// Get fan controlling object.
-  FanControl getFanControl() { return fan_control_; }
+  FanControl& getFanControl() { return fan_control_; }
+
+  /// Get antifreeze control.
+  Antifreeze& getAntifreeze() { return antifreeze_; }
 
   /// Get NTP client.
   MicroNTP& getNTP() { return ntp_; }
@@ -261,11 +236,10 @@ public:
   Scheduler& getScheduler() { return scheduler_; }
 
 private:
-  static void checkAntifreeze() {
+  virtual void fanSpeedSet() override {
     // this callback is called after computing new PWM tech points
     // and before setting fan speed via PWM
-    DoActionAntiFreezeState();
-    SetPreheater();
+    antifreeze_.doActionAntiFreezeState();
   }
 
   /// Persistent configuration.
@@ -278,6 +252,8 @@ private:
   TempSensors temp_sensors_;
   /// Fan control.
   FanControl fan_control_;
+  /// Antifreeze/preheater control.
+  Antifreeze antifreeze_;
   /// UDP handler for NTP.
   EthernetUDP udp_;
   /// NTP protocol.
@@ -285,12 +261,6 @@ private:
 };
 
 KWLControl kwlControl;
-
-// PID REGLER
-double heaterKp = 50, heaterKi = 0.1, heaterKd = 0.025;
-
-//Specify the links and initial tuning parameters
-PID PidPreheater(&kwlControl.getTempSensors().get_t4_exhaust(), &techSetpointPreheater, &antifreezeTempUpperLimit, heaterKp, heaterKi, heaterKd, P_ON_M, DIRECT);
 
 ///////////////////////
 
@@ -342,12 +312,6 @@ private:
         delay (1000);
         asm volatile ("jmp 0");
       }
-    } else if (topic == MQTTTopic::CmdAntiFreezeHyst) {
-      int i = s.toInt();
-      antifreezeHyst = i;
-      antifreezeTempUpperLimit = antifreezeTemp + antifreezeHyst;
-      // AntiFreezeHysterese
-      kwlControl.getPersistentConfig().setBypassHystereseTemp(antifreezeHyst);
     } else if (topic == MQTTTopic::CmdBypassHystereseMinutes) {
       int i = s.toInt();
       bypassHystereseMinutes = i;
@@ -367,28 +331,14 @@ private:
         bypassMode = bypassMode_Manual;
         mqttCmdSendBypassState = true;
       }
-    } else if (topic == MQTTTopic::CmdHeatingAppCombUse) {
-      if (s == F("YES"))   {
-        Serial.println(F("Feuerstättenmodus wird aktiviert und gespeichert"));
-        int i = 1;
-        heatingAppCombUse = i;
-        kwlControl.getPersistentConfig().setHeatingAppCombUse(i);
-        kwlControl.getTempSensors().forceSend();
-      } else if (s == F("NO"))   {
-        Serial.println(F("Feuerstättenmodus wird DEAKTIVIERT und gespeichert"));
-        int i = 0;
-        heatingAppCombUse = i;
-        kwlControl.getPersistentConfig().setHeatingAppCombUse(i);
-        kwlControl.getTempSensors().forceSend();
-      }
     }
-
     // Get Commands
     else if (topic == MQTTTopic::CmdBypassGetValues) {
       mqttCmdSendBypassAllValues = true;
     } else if (topic == MQTTTopic::CmdGetvalues) {
       // Alle Values
       kwlControl.getTempSensors().forceSend();
+      kwlControl.getAntifreeze().forceSend();
       kwlControl.getFanControl().forceSendSpeed();
       kwlControl.getFanControl().forceSendMode();
       mqttCmdSendDht             = true;
@@ -402,175 +352,6 @@ private:
 };
 
 static LegacyMQTTHandler legacyMQTTHandler;
-
-void SetPreheater() {
-  // Das Vorheizregister wird durch ein PID geregelt
-  // Die Stellgröße darf zwischen 0..10V liegen
-  // Wenn der Zuluftventilator unter einer Schwelle des Tachosignals liegt, wird das Vorheizregister IMMER ausgeschaltet (SICHERHEIT)
-  // Schwelle: 1000 U/min
-
-  if (KWLConfig::serialDebugAntifreeze == 1) {
-    Serial.println (F("SetPreheater start"));
-  }
-
-  // Sicherheitsabfrage
-  if (kwlControl.getFanControl().getFan1().getSpeed() < 600 || kwlControl.getFanControl().getFan1().isOff()) {
-    // Sicherheitsabschaltung Vorheizer unter 600 Umdrehungen Zuluftventilator
-    techSetpointPreheater = 0;
-  }
-  if (mqttCmdSendAlwaysDebugPreheater) {
-    String out = "";
-    out =  "Preheater - M: ";
-    out += millis();
-    out += ", Gap: ";
-    out += abs(antifreezeTempUpperLimit - kwlControl.getTempSensors().get_t4_exhaust());
-    out += ", techSetpointPreheater: ";
-    out += techSetpointPreheater;
-    char _buffer[out.length()];
-    out.toCharArray(_buffer,out.length());
-    MessageHandler::publish(MQTTTopic::KwlDebugstatePreheater, _buffer);
-  }
-  // Setzen per PWM
-  analogWrite(KWLConfig::PinPreheaterPWM, techSetpointPreheater / 4);
-
-  // Setzen der Werte per DAC
-  byte HBy;
-  byte LBy;
-
-  // Preheater DAC
-  HBy = techSetpointPreheater / 256;        //HIGH-Byte berechnen
-  LBy = techSetpointPreheater - HBy * 256;  //LOW-Byte berechnen
-  Wire.beginTransmission(KWLConfig::DacI2COutAddr); // Start Übertragung zur ANALOG-OUT Karte
-  Wire.write(KWLConfig::DacChannelPreheater);        // PREHEATER schreiben
-  Wire.write(LBy);                          // LOW-Byte schreiben
-  Wire.write(HBy);                          // HIGH-Byte schreiben
-  Wire.endTransmission();                   // Ende
-}
-
-void DoActionAntiFreezeState() {
-  // Funktion wird ausgeführt, um AntiFreeze (Frostschutz) zu erreichen.
-
-  switch (antifreezeState) {
-
-    case antifreezePreheater:
-      PidPreheater.Compute();
-      break;
-
-    case antifreezeZuluftOff:
-      // Zuluft aus
-      if (KWLConfig::serialDebugAntifreeze == 1)
-        Serial.println (F("fan1 = 0"));
-      kwlControl.getFanControl().getFan1().off();
-      techSetpointPreheater = 0;
-      break;
-
-    case antifreezeFireplace:
-      // Feuerstättenmodus
-      // beide Lüfter aus
-      if (KWLConfig::serialDebugAntifreeze == 1) {
-        Serial.println (F("fan1 = 0"));
-        Serial.println (F("fan2 = 0"));
-      }
-      kwlControl.getFanControl().getFan1().off();
-      kwlControl.getFanControl().getFan2().off();
-      techSetpointPreheater = 0;
-      break;
-
-    default:
-      // Normal Mode without AntiFreeze
-      // Vorheizregister aus
-      techSetpointPreheater = 0;
-      break;
-  }
-}
-
-void loopAntiFreezeCheck() {
-  // Funktion wird regelmäßig zum Überprüfen ausgeführt
-  currentMillis = millis();
-  if (currentMillis - previousMillisAntifreeze >= intervalAntifreezeCheck) {
-    if (KWLConfig::serialDebugAntifreeze == 1)  Serial.println (F("loopAntiFreezeCheck start"));
-    previousMillisAntifreeze = currentMillis;
-
-    // antifreezeState = aktueller Status der AntiFrostSchaltung
-    // Es wird in jeden Status überprüft, ob die Bedingungen für einen Statuswechsel erfüllt sind
-    // Wenn ja, werden die einmaligen Aktionen (Setzen von Variablen) hier ausgeführt.
-    // siehe auch "/Docs/Programming/Zustandsänderung Antifreeze.jpg"
-    // Die regelmäßigen Aktionen für jedem Status werden in DoActionAntiFreezeState ausgeführt.
-    switch (antifreezeState) {
-
-      case antifreezeOff:  // antifreezeState = 0
-        if ((kwlControl.getTempSensors().get_t4_exhaust() <= antifreezeTemp) && (kwlControl.getTempSensors().get_t1_outside() < 0.0)
-            && (kwlControl.getTempSensors().get_t4_exhaust() > TempSensors::INVALID) && (kwlControl.getTempSensors().get_t1_outside() > TempSensors::INVALID))         // Wenn Sensoren fehlen, ist der Wert INVALID
-        {
-          // Neuer Status: antifreezePreheater
-          antifreezeState = antifreezePreheater;
-
-          PreheaterStartMillis = millis();
-          // Vorheizer einschalten
-          antifreezeTempUpperLimit  = antifreezeTemp + antifreezeHyst;
-          PidPreheater.SetMode(AUTOMATIC);  // Pid einschalten
-        }
-        break;
-
-      // Vorheizregister ist an
-      case  antifreezePreheater:  // antifreezeState = 1
-
-        if (kwlControl.getTempSensors().get_t4_exhaust() > antifreezeTemp + antifreezeHyst) {
-          // Neuer Status: antifreezeOff
-          antifreezeState = antifreezeOff;
-          PidPreheater.SetMode(MANUAL);
-        }
-
-        if ((currentMillis - PreheaterStartMillis > intervalAntiFreezeAlarmCheck) &&
-            (kwlControl.getTempSensors().get_t4_exhaust() <= antifreezeTemp) && (kwlControl.getTempSensors().get_t1_outside() < 0.0)
-            && (kwlControl.getTempSensors().get_t4_exhaust() > TempSensors::INVALID) && (kwlControl.getTempSensors().get_t1_outside() > TempSensors::INVALID)) {
-          // 10 Minuten vergangen seit antifreezeState == antifreezePreheater und Temperatur immer noch unter antifreezeTemp
-          if (KWLConfig::serialDebugAntifreeze == 1) Serial.println (F("10 Minuten vergangen seit antifreezeState == antifreezePreheater"));
-
-          switch (heatingAppCombUse) {
-            case 0:
-              // Neuer Status: antifreezeZuluftOff
-              antifreezeState = antifreezeZuluftOff;
-              PidPreheater.SetMode(MANUAL);
-              break;
-            case 1:
-              // Neuer Status: antifreezeFireplace
-              antifreezeState =  antifreezeFireplace;
-              PidPreheater.SetMode(MANUAL);
-              // Zeit speichern
-              heatingAppCombUseAntiFreezeStartTime = millis();
-              break;
-          }
-          break;
-
-        // Zuluftventilator ist aus, kein KAMIN angeschlossen
-        case antifreezeZuluftOff:  // antifreezeState = 2
-          if (kwlControl.getTempSensors().get_t4_exhaust() > antifreezeTemp + antifreezeHyst) {
-            // Neuer Status: antifreezeOff
-            antifreezeState = antifreezeOff;
-            PidPreheater.SetMode(MANUAL);
-          }
-          break;
-
-        // Zu- und Abluftventilator sind für vier Stunden aus, KAMINMODUS
-        case antifreezeFireplace:  // antifreezeState = 4
-          if (millis() - heatingAppCombUseAntiFreezeStartTime > heatingAppCombUseAntiFreezeInterval) {
-            // Neuer Status: antifreezeOff
-            antifreezeState = antifreezeOff;
-            PidPreheater.SetMode(MANUAL);
-          }
-          break;
-        }
-
-        if (KWLConfig::serialDebugAntifreeze == 1) {
-          Serial.print (F("millis: "));
-          Serial.println (millis());
-          Serial.print (F("antifreezeState: "));
-          Serial.println (antifreezeState);
-        }
-    }
-  }
-}
 
 void loopBypassSummerCheck() {
   // Bedingungen für Sommer Bypass überprüfen und Variable ggfs setzen
@@ -708,19 +489,28 @@ void loopCheckForErrors() {
   if (currentMillis - previousMillisCheckForErrors > intervalCheckForErrors) {
     previousMillisCheckForErrors = currentMillis;
 
-    if (KWLConfig::StandardKwlModeFactor[kwlControl.getFanControl().getVentilationMode()] != 0 && kwlControl.getFanControl().getFan1().getSpeed() < 10 && !antifreezeState && kwlControl.getFanControl().getFan2().getSpeed() < 10 ) {
+    if (KWLConfig::StandardKwlModeFactor[kwlControl.getFanControl().getVentilationMode()] != 0
+        && kwlControl.getFanControl().getFan1().getSpeed() < 10
+        && kwlControl.getAntifreeze().getState() == AntifreezeState::OFF
+        && kwlControl.getFanControl().getFan2().getSpeed() < 10 ) {
       ErrorText = "Beide Luefter ausgefallen";
       return;
     }
-    else if (KWLConfig::StandardKwlModeFactor[kwlControl.getFanControl().getVentilationMode()] != 0 && kwlControl.getFanControl().getFan1().getSpeed() < 10 && !antifreezeState ) {
+    else if (KWLConfig::StandardKwlModeFactor[kwlControl.getFanControl().getVentilationMode()] != 0
+             && kwlControl.getFanControl().getFan1().getSpeed() < 10
+             && kwlControl.getAntifreeze().getState() == AntifreezeState::OFF ) {
       ErrorText = "Zuluftluefter ausgefallen";
       return;
     }
-    else if (KWLConfig::StandardKwlModeFactor[kwlControl.getFanControl().getVentilationMode()] != 0 && kwlControl.getFanControl().getFan2().getSpeed() < 10 ) {
+    else if (KWLConfig::StandardKwlModeFactor[kwlControl.getFanControl().getVentilationMode()] != 0
+             && kwlControl.getFanControl().getFan2().getSpeed() < 10 ) {
       ErrorText = "Abluftluefter ausgefallen";
       return;
     }
-    else if (kwlControl.getTempSensors().get_t1_outside() == TempSensors::INVALID || kwlControl.getTempSensors().get_t2_inlet() == TempSensors::INVALID || kwlControl.getTempSensors().get_t3_outlet() == TempSensors::INVALID || kwlControl.getTempSensors().get_t4_exhaust() == TempSensors::INVALID) {
+    else if (kwlControl.getTempSensors().get_t1_outside() == TempSensors::INVALID
+             || kwlControl.getTempSensors().get_t2_inlet() == TempSensors::INVALID
+             || kwlControl.getTempSensors().get_t3_outlet() == TempSensors::INVALID
+             || kwlControl.getTempSensors().get_t4_exhaust() == TempSensors::INVALID) {
       ErrorText = "Temperatursensor(en) ausgefallen: ";
       if (kwlControl.getTempSensors().get_t1_outside() == TempSensors::INVALID) ErrorText += "T1 ";
       if (kwlControl.getTempSensors().get_t2_inlet() == TempSensors::INVALID) ErrorText += "T2 ";
@@ -738,15 +528,15 @@ void loopCheckForErrors() {
       InfoText += kwlControl.getFanControl().getVentilationCalibrationMode();
       InfoText += ".   Bitte warten...";
     }
-    else if (antifreezeState == antifreezePreheater) {
+    else if (kwlControl.getAntifreeze().getState() == AntifreezeState::PREHEATER) {
       InfoText = "Defroster: Vorheizregister eingeschaltet ";
-      InfoText += int(techSetpointPreheater / 10);
+      InfoText += int(kwlControl.getAntifreeze().getPreheaterState());
       InfoText += "%";
     }
-    else if (antifreezeState == antifreezeZuluftOff) {
+    else if (kwlControl.getAntifreeze().getState() == AntifreezeState::FAN_OFF) {
       InfoText = "Defroster: Zuluftventilator ausgeschaltet!";
     }
-    else if (antifreezeState == antifreezeFireplace) {
+    else if (kwlControl.getAntifreeze().getState() == AntifreezeState::FIREPLACE) {
       InfoText = "Defroster: Zu- und Abluftventilator AUS! (KAMIN)";
     }
     else if (bypassFlapsRunning == true) {
@@ -782,13 +572,6 @@ void initializeVariables()
   bypassManualSetpoint = kwlControl.getPersistentConfig().getBypassManualSetpoint();
   bypassMode = kwlControl.getPersistentConfig().getBypassMode();
 
-  // antifreeze
-  antifreezeHyst = kwlControl.getPersistentConfig().getBypassHystereseTemp(); // TODO variable name is wrong
-  antifreezeTempUpperLimit = antifreezeTemp + antifreezeHyst;
-
-  // heatingAppCombUse
-  heatingAppCombUse = kwlControl.getPersistentConfig().getHeatingAppCombUse();
-
   // Weiter geht es ab Speicherplatz 62dez ff
 }
 
@@ -812,7 +595,7 @@ void setup()
   SetupTouch();
   print_header();
 
-  // Init tracer which prints to both TFT and Serial.
+  // Init tracer which prints to both TFT and Serial.Í
   static MultiPrint initTracer(Serial, tft);
 
   if (KWLConfig::ControlFansDAC) {
@@ -828,7 +611,7 @@ void setup()
   SetCursor(0, 30);
   initTracer.println(F("Booting... "));
 
-  if (heatingAppCombUse == 1) {
+  if (kwlControl.getAntifreeze().getHeatingAppCombUse()) {
     initTracer.println(F("...System mit Feuerstaettenbetrieb"));
   }
 
@@ -879,10 +662,6 @@ void setup()
 
   SetupBackgroundScreen();   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
 
-  PidPreheater.SetOutputLimits(100, 1000);
-  PidPreheater.SetMode(MANUAL);
-  PidPreheater.SetSampleTime(1000 /* TODO use constant intervalSetFan */);  // SetFan ruft Preheater auf, deswegen hier intervalSetFan
-
   previousMillisTemp = millis();
 }
 // *** SETUP ENDE
@@ -893,7 +672,6 @@ void loop()
   kwlControl.getScheduler().loop();
   //loopWrite100Millis();
 
-  loopAntiFreezeCheck();
   loopBypassSummerCheck();
   loopBypassSummerSetFlaps();
   loopDHTRead();

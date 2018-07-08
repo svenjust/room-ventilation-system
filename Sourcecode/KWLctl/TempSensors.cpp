@@ -94,8 +94,7 @@ TempSensors::TempSensors() :
   t2_(KWLConfig::PinTemp2OneWireBus),
   t3_(KWLConfig::PinTemp3OneWireBus),
   t4_(KWLConfig::PinTemp4OneWireBus)
-{
-}
+{}
 
 void TempSensors::start(Scheduler& sched, Print& initTracer)
 {
@@ -192,20 +191,6 @@ void TempSensors::sendMQTT() {
     auto r3 = publish(MQTTTopic::KwlTemperaturAbluft, last_mqtt_t3_, 2, KWLConfig::RetainTemperature);
     auto r4 = publish(MQTTTopic::KwlTemperaturFortluft, last_mqtt_t4_, 2, KWLConfig::RetainTemperature);
     auto r5 = publish(MQTTTopic::KwlEffiency, getEfficiency(), KWLConfig::RetainTemperature);
-
-#if 0
-    // TODO revive after respective stuff moved in their components
-    if (antifreezeState) {
-      mqtt_client_.publish(MQTTTopic::KwlAntifreeze, "on");
-    } else {
-      mqtt_client_.publish(MQTTTopic::KwlAntifreeze, "off");
-    }
-    if (heatingAppCombUse == 1) {
-      mqtt_client_.publish(MQTTTopic::KwlHeatingAppCombUse, "YES");
-    } else {
-      mqtt_client_.publish(MQTTTopic::KwlHeatingAppCombUse, "NO");
-    }
-#endif
 
     // NOTE: in case we can't send something, force sending next time
     mqtt_ticks_ = 0;

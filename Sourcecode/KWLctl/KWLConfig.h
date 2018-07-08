@@ -144,6 +144,9 @@ public:
   /// Retain last fan speed reading in the MQTT broker.
   static const bool RetainFanSpeed;
 
+  /// Retain last antifreeze state reading in the MQTT broker.
+  static const bool RetainAntifreezeState;
+
   // *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N **************************************************
 
 
@@ -323,6 +326,8 @@ template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainFanMode = FinalConfig::RetainMeasurements;
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainFanSpeed = FinalConfig::RetainMeasurements;
+template<typename FinalConfig>
+const bool KWLDefaultConfig<FinalConfig>::RetainAntifreezeState = FinalConfig::RetainMeasurements;
 
 /*!
  * @brief Helper macro to add configuration for simple parameters in UserConfig.h.

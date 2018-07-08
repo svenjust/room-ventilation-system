@@ -100,7 +100,7 @@ void Fan::computeSpeed(int ventMode, FanCalculateSpeedMode calcMode)
 
 void Fan::setSpeed(int id, uint8_t pwmPin, uint8_t dacChannel)
 {
-  if (KWLConfig::serialDebugFan == 1) {
+  if (KWLConfig::serialDebugFan) {
     Serial.print(F("Fan "));
     Serial.print(id);
     Serial.print(F(": \tgap: "));

@@ -73,7 +73,7 @@ class TempSensors : private Task, private MessageHandler
   };
 
 public:
-  /// Construct sensor read loop on the given scheduler and send via MQTT client.
+  /// Construct sensor array.
   TempSensors();
 
   /// Start sensors.
@@ -92,7 +92,7 @@ public:
   inline double& get_t4_exhaust() { return t4_.get_t(); }
 
   /// Get efficiency of the heat exchange in %.
-  inline int getEfficiency() { return efficiency_; }
+  inline int getEfficiency() const { return efficiency_; }
 
   /// Force sending temperature messages via MQTT independent of timing.
   inline void forceSend() { force_send_ = true; }
@@ -112,8 +112,8 @@ private:
   uint8_t next_sensor_ = 0;   ///< Next sensor to talk to.
   bool force_send_ = true;    ///< Force sending temperatures via MQTT (initially true to send first measurement).
   uint8_t mqtt_ticks_ = 0;    ///< MQTT seconds ticks.
-  double last_mqtt_t1_ = INVALID;
-  double last_mqtt_t2_ = INVALID;
-  double last_mqtt_t3_ = INVALID;
-  double last_mqtt_t4_ = INVALID;
+  double last_mqtt_t1_ = INVALID; ///< Last T1 temperature sent via MQTT.
+  double last_mqtt_t2_ = INVALID; ///< Last T2 temperature sent via MQTT.
+  double last_mqtt_t3_ = INVALID; ///< Last T3 temperature sent via MQTT.
+  double last_mqtt_t4_ = INVALID; ///< Last T4 temperature sent via MQTT.
 };

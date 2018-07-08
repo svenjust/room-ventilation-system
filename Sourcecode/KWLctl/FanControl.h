@@ -43,6 +43,17 @@ enum class FanMode : uint8_t
 class FanControl : private Task, private MessageHandler
 {
 public:
+  FanControl(const FanControl&) = delete;
+  FanControl& operator==(const FanControl&) = delete;
+
+  /// Callback called when fan speed is set.
+  class SetSpeedCallback {
+  public:
+    /// Callback called when fan speed is set.
+    virtual void fanSpeedSet() = 0;
+    virtual ~SetSpeedCallback() {}
+  };
+
   /*!
    * @brief Construct fan control object.
    *
@@ -51,7 +62,7 @@ public:
    *        setting it. Typically used for antifreeze/preheater regulation and to turn off
    *        fans if no preheater installed.
    */
-  explicit FanControl(KWLPersistentConfig& config, void (*speedCallback)());
+  explicit FanControl(KWLPersistentConfig& config, SetSpeedCallback *speedCallback);
 
   /*!
    * @brief Start fans.
@@ -123,7 +134,7 @@ private:
   Fan fan1_;   ///< Control for fan 1 (intake).
   Fan fan2_;   ///< Control for fan 2 (exhaust).
 
-  void (*speed_callback_)();        ///< Callback to call when new tech points for fans computed.
+  SetSpeedCallback *speed_callback_;///< Callback to call when new tech points for fans computed.
   int ventilation_mode_;            ///< Current ventilation mode (0-n).
   FanMode mode_ = FanMode::Normal;  ///< Current operation mode.
   FanCalculateSpeedMode calc_speed_mode_ = FanCalculateSpeedMode::PROP;
