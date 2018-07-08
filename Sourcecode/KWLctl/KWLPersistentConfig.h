@@ -26,6 +26,8 @@
 
 #include "PersistentConfiguration.h"
 
+#include <stdint.h>
+
 /// EEPROM configuration version to expect/write.
 static constexpr unsigned KWL_EEPROM_VERSION = 49;
 
@@ -53,9 +55,11 @@ private:
   unsigned BypassHystereseTemp_;      // 12
   unsigned BypassManualSetpoint_;     // 14
   unsigned BypassMode_;               // 16
-  unsigned UnusedFiller_;             // 18
+  bool DST_;                          // 18
+  uint8_t UnusedFiller_;              // 19
   int FanPWMSetpoint_[10][2];         // 20-59
   unsigned HeatingAppCombUse_;        // 60
+  int16_t TimezoneMin_;               // 62
 
   /// Initialize with defaults, if version doesn't fit.
   void loadDefaults();
@@ -70,7 +74,9 @@ public:
   KWL_GETSET(BypassHystereseTemp)
   KWL_GETSET(BypassManualSetpoint)
   KWL_GETSET(BypassMode)
+  KWL_GETSET(DST)
   KWL_GETSET(HeatingAppCombUse)
+  KWL_GETSET(TimezoneMin)
 
   int getFanPWMSetpoint(unsigned fan, unsigned idx) { return FanPWMSetpoint_[idx][fan]; }
   void setFanPWMSetpoint(unsigned fan, unsigned idx, int pwm) { FanPWMSetpoint_[idx][fan] = pwm; update(FanPWMSetpoint_[idx][fan]); }

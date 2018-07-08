@@ -23,6 +23,8 @@
 
 #define KWL_COPY(name) name##_ = KWLConfig::Standard##name
 
+static_assert(sizeof(KWLPersistentConfig) == 64, "Persistent config size changed, ensure compatibility or increment version");
+
 void KWLPersistentConfig::loadDefaults()
 {
   KWL_COPY(SpeedSetpointFan1);
@@ -32,7 +34,9 @@ void KWLPersistentConfig::loadDefaults()
   KWL_COPY(BypassHystereseMinutes);
   KWL_COPY(BypassHystereseTemp);
   KWL_COPY(BypassManualSetpoint);
+  KWL_COPY(DST);
   KWL_COPY(BypassMode);
+  KWL_COPY(TimezoneMin);
 
   UnusedFiller_ = 0;
 
@@ -45,4 +49,8 @@ void KWLPersistentConfig::loadDefaults()
   }
 
   KWL_COPY(HeatingAppCombUse);
+
+  // "upgrade" existing config, if possible (all initialized to -1/0xff)
+  if (TimezoneMin_ == -1)
+    TimezoneMin_ = KWLConfig::StandardTimezoneMin;
 }

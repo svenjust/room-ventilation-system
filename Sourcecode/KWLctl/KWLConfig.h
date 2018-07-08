@@ -186,6 +186,11 @@ public:
   /// 0 = NO, 1 = YES
   static constexpr unsigned StandardHeatingAppCombUse       =    0;
 
+  /// Daylight savings time default settings.
+  static constexpr bool StandardDST                         = false;
+  /// Standard time zone offset in minutes (CET, GMT+1).
+  static constexpr int16_t StandardTimezoneMin              = 60;
+
   /*!
    * @brief Perform "factory reset" *at each startup*.
    *
