@@ -44,7 +44,7 @@ NetworkClient::NetworkClient(Scheduler& scheduler) :
   mqtt_client_(eth_client_)
 {}
 
-void NetworkClient::start(Print& initTracer)
+void NetworkClient::begin(Print& initTracer)
 {
   initTracer.println(F("Initialisierung Ethernet"));
   initEthernet();

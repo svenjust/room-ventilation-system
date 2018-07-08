@@ -57,7 +57,7 @@ Antifreeze::Antifreeze(Scheduler& scheduler, FanControl& fan, TempSensors& temp,
   heating_app_comb_use_(KWLConfig::StandardHeatingAppCombUse != 0)
 {}
 
-void Antifreeze::start(Print& /*initTracer*/)
+void Antifreeze::begin(Print& /*initTracer*/)
 {
   // antifreeze
   hysteresis_temp_delta_ = config_.getBypassHystereseTemp(); // TODO variable name is wrong

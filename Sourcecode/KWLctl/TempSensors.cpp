@@ -35,7 +35,7 @@ TempSensors::TempSensor::TempSensor(uint8_t pin) :
   sensor_(&onewire_ifc_)
 {}
 
-void TempSensors::TempSensor::start()
+void TempSensors::TempSensor::begin()
 {
   sensor_.begin();
   sensor_.setResolution(TEMPERATURE_PRECISION);
@@ -96,15 +96,15 @@ TempSensors::TempSensors() :
   t4_(KWLConfig::PinTemp4OneWireBus)
 {}
 
-void TempSensors::start(Scheduler& sched, Print& initTracer)
+void TempSensors::begin(Scheduler& sched, Print& initTracer)
 {
   initTracer.println(F("Initialisierung Temperatursensoren"));
 
   // initialize sensors and request temperature reading at startup
-  t1_.start();
-  t1_.start();
-  t2_.start();
-  t4_.start();
+  t1_.begin();
+  t1_.begin();
+  t2_.begin();
+  t4_.begin();
 
   // call regularly to update
   sched.addRepeated(*this, SCHEDULING_INTERVAL);

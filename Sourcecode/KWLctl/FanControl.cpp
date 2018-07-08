@@ -58,7 +58,7 @@ FanControl::FanControl(KWLPersistentConfig& config, SetSpeedCallback *speedCallb
   persistent_config_(config)
 {}
 
-void FanControl::start(Scheduler& sched, Print& initTrace)
+void FanControl::begin(Scheduler& sched, Print& initTrace)
 {
   initTrace.println(F("Initialisierung Ventilatoren"));
 
@@ -67,8 +67,8 @@ void FanControl::start(Scheduler& sched, Print& initTrace)
     fan1_.initPWM(i, persistent_config_.getFanPWMSetpoint(0, i));
     fan2_.initPWM(i, persistent_config_.getFanPWMSetpoint(1, i));
   }
-  fan1_.start(countUpFan1, persistent_config_.getSpeedSetpointFan1());
-  fan2_.start(countUpFan2, persistent_config_.getSpeedSetpointFan2());
+  fan1_.begin(countUpFan1, persistent_config_.getSpeedSetpointFan1());
+  fan2_.begin(countUpFan2, persistent_config_.getSpeedSetpointFan2());
 
   sched.addRepeated(*this, FAN_INTERVAL);
 }

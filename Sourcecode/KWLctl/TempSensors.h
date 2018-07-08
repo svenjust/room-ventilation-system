@@ -48,7 +48,7 @@ class TempSensors : private Task, private MessageHandler
     explicit TempSensor(uint8_t pin);
 
     /// Initialize the sensor.
-    void start();
+    void begin();
 
     /// Execute one loop, returns true if temperature read.
     bool loop();
@@ -77,7 +77,7 @@ public:
   TempSensors();
 
   /// Start sensors.
-  void start(Scheduler& sched, Print& initTrace);
+  void begin(Scheduler& sched, Print& initTrace);
 
   /// Constant for invalid temperature.
   static constexpr double INVALID = -127.0;

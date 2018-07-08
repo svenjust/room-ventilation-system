@@ -70,7 +70,7 @@ public:
    * @param sched scheduler to use for scheduling events.
    * @param initTrace initial tracer for printing startup messages.
    */
-  void start(Scheduler& sched, Print& initTrace);
+  void begin(Scheduler& sched, Print& initTrace);
 
   /// Get current fan mode (normal or calibration).
   inline FanMode getMode() { return mode_; }

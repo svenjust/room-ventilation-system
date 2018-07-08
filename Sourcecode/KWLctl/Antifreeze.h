@@ -63,7 +63,7 @@ public:
   explicit Antifreeze(Scheduler& scheduler, FanControl& fan, TempSensors& temp, KWLPersistentConfig& config);
 
   /// Start the handler.
-  void start(Print& initTracer);
+  void begin(Print& initTracer);
 
   /// Get current state of antifreeze settings.
   AntifreezeState getState() const { return antifreeze_state_; }

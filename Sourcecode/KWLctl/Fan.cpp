@@ -37,7 +37,7 @@ Fan::Fan(uint8_t id, uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin) :
   pid_(&current_speed_, &tech_setpoint_, &speed_setpoint_, consKp, consKi, consKd, P_ON_M, DIRECT)
 {}
 
-void Fan::start(void (*countUp)(), unsigned standardSpeed)
+void Fan::begin(void (*countUp)(), unsigned standardSpeed)
 {
   standard_speed_ = standardSpeed;
 

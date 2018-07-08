@@ -43,7 +43,7 @@ public:
   explicit NetworkClient(Scheduler& scheduler);
 
   /// Start network client.
-  void start(Print& initTracer);
+  void begin(Print& initTracer);
 
   /// Check if the global MQTT client is already installed.
   static bool hasClient() { return s_client_ != nullptr; }

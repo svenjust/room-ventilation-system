@@ -205,12 +205,12 @@ public:
   {}
 
   /// Start the controller.
-  void start(Print& initTracer) {
-    persistent_config_.start(initTracer, KWLConfig::FACTORY_RESET_EEPROM);
-    network_client_.start(initTracer);
-    temp_sensors_.start(scheduler_, initTracer);
-    fan_control_.start(scheduler_, initTracer);
-    antifreeze_.start(initTracer);
+  void begin(Print& initTracer) {
+    persistent_config_.begin(initTracer, KWLConfig::FACTORY_RESET_EEPROM);
+    network_client_.begin(initTracer);
+    temp_sensors_.begin(scheduler_, initTracer);
+    fan_control_.begin(scheduler_, initTracer);
+    antifreeze_.begin(initTracer);
     ntp_.begin();
   }
 
@@ -603,7 +603,7 @@ void setup()
     initTracer.println(F("Initialisierung DAC"));
   }
 
-  kwlControl.start(initTracer);
+  kwlControl.begin(initTracer);
 
   initializeVariables();
 

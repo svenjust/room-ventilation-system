@@ -59,7 +59,7 @@ public:
    * @param countUp interrupt routine which calls interrupt() for this fan to count RPM.
    * @param standardSpeed standard speed to use initially (in RPM).
    */
-  void start(void (*countUp)(), unsigned standardSpeed);
+  void begin(void (*countUp)(), unsigned standardSpeed);
 
   /// Get current speed (RPM) of this fan.
   inline unsigned getSpeed() const { return unsigned(current_speed_); }

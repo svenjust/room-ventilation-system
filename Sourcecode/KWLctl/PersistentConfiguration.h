@@ -55,7 +55,7 @@ protected:
    * @param load_defaults reference to loadDefaults() of the actual config.
    * @param reset if set, unconditionally reset EEPROM contents and load it with defaults.
    */
-  void start(Print& out, unsigned int size, unsigned int version, LoadFnc load_defaults, bool reset = false);
+  void begin(Print& out, unsigned int size, unsigned int version, LoadFnc load_defaults, bool reset = false);
 
   /*!
    * @brief Update a member in the EEPROM.
@@ -96,7 +96,7 @@ private:
  * @brief Helper to define a persistent configuration in EEPROM easily.
  *
  * Simply define your own class deriving from this configuration and
- * add members you'd like to store in EEPROM. Initially, call start()
+ * add members you'd like to store in EEPROM. Initially, call begin()
  * to load the configuration. Later, after updating a member, call
  * update() method to update it in EEPROM as well.
  *
@@ -133,8 +133,8 @@ public:
    * @param out stream for printing debugging messages.
    * @param reset if set, unconditionally reset EEPROM contents and load it with defaults.
    */
-  void start(Print& out, bool reset = false) {
-    PersistentConfigurationBase::start(out, sizeof(T), Version, static_cast<LoadFnc>(&T::loadDefaults), reset);
+  void begin(Print& out, bool reset = false) {
+    PersistentConfigurationBase::begin(out, sizeof(T), Version, static_cast<LoadFnc>(&T::loadDefaults), reset);
   }
 
   /*!
