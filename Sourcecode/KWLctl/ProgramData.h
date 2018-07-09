@@ -33,7 +33,10 @@ class HMS;
 class ProgramData
 {
 public:
-  /// Bitmask with weekdays to run the program.
+  /// Validity flag stored in high bit of weekdays.
+  static constexpr uint8_t VALID_FLAG = 0x80;
+
+  /// Bitmask with weekdays to run the program. Flag in high bit to indicate validity.
   uint8_t weekdays_;
   /// Fan mode to set.
   uint8_t fan_mode_;

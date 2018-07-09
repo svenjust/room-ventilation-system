@@ -311,6 +311,8 @@ public:
   static constexpr bool serialDebugDisplay = false;
   // Debugausgaben für die Sensoren.
   static constexpr bool serialDebugSensor = false;
+  // Debugausgaben für das Programm.
+  static constexpr bool serialDebugProgram = false;
   // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 };
 

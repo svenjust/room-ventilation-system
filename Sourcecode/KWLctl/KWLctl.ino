@@ -69,6 +69,7 @@
 #include "TempSensors.h"
 #include "FanControl.h"
 #include "Antifreeze.h"
+#include "ProgramManager.h"
 #include "KWLPersistentConfig.h"
 
 #include "KWLConfig.h"
@@ -201,7 +202,8 @@ public:
     network_client_(scheduler_),
     fan_control_(persistent_config_, this),
     antifreeze_(scheduler_, fan_control_, temp_sensors_, persistent_config_),
-    ntp_(udp_, KWLConfig::NetworkNTPServer)
+    ntp_(udp_, KWLConfig::NetworkNTPServer),
+    program_manager_(persistent_config_, fan_control_, ntp_)
   {}
 
   /// Start the controller.
@@ -212,6 +214,7 @@ public:
     fan_control_.begin(scheduler_, initTracer);
     antifreeze_.begin(initTracer);
     ntp_.begin();
+    program_manager_.begin(scheduler_);
   }
 
   /// Get persistent configuration.
@@ -258,6 +261,8 @@ private:
   EthernetUDP udp_;
   /// NTP protocol.
   MicroNTP ntp_;  // will be moved to timed program handling routines and made a task
+  /// Program manager to set daily/weekly programs.
+  ProgramManager program_manager_;
 };
 
 KWLControl kwlControl;
