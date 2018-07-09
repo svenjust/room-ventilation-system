@@ -309,7 +309,7 @@ void loopMqttSendTemp() {
       if (serialDebug == 1) {
         Serial.println("TOPICKwlEffiency: " + String(EffiencyKwl));
       }
-      if (antifreezeState) {
+     if (antifreezeState) {
         mqttClient.publish(TOPICKwlAntifreeze, "on");
       } else {
         mqttClient.publish(TOPICKwlAntifreeze, "off");
@@ -318,7 +318,7 @@ void loopMqttSendTemp() {
         mqttClient.publish(TOPICKwlHeatingAppCombUse, "YES");
       } else {
         mqttClient.publish(TOPICKwlHeatingAppCombUse, "NO");
-      }
+      } 
     }
   }
 }

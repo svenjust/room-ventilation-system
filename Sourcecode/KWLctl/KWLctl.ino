@@ -166,10 +166,10 @@ int      kwlMode                            = 2;                            // S
 
 
 // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************
-#define serialDebug              0 // 1 = Allgemeine Debugausgaben auf der seriellen Schnittstelle aktiviert
+#define serialDebug              1 // 1 = Allgemeine Debugausgaben auf der seriellen Schnittstelle aktiviert
 #define serialDebugFan           0 // 1 = Debugausgaben für die Lüfter auf der seriellen Schnittstelle aktiviert
 #define serialDebugAntifreeze    0 // 1 = Debugausgaben für die Antifreezeschaltung auf der seriellen Schnittstelle aktiviert
-#define serialDebugSummerbypass  1 // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
+#define serialDebugSummerbypass  0 // 1 = Debugausgaben für die Summerbypassschaltung auf der seriellen Schnittstelle aktiviert
 #define serialDebugDisplay       0 // 1 = Debugausgaben für die Displayanzeige
 #define serialDebugSensor        0 // 1 = Debugausgaben für die Sensoren
 // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
@@ -238,7 +238,6 @@ const char *TOPICCmdHeatingAppCombUse       = "d15/set/kwl/heatingapp/combinedUs
 const char *TOPICHeartbeat                  = "d15/state/kwl/heartbeat";
 const char *TOPICFan1Speed                  = "d15/state/kwl/fan1/speed";
 const char *TOPICFan2Speed                  = "d15/state/kwl/fan2/speed";
-const char *TOPICKwlOnline                  = "d15/state/kwl/heartbeat";
 const char *TOPICStateKwlMode               = "d15/state/kwl/lueftungsstufe";
 const char *TOPICKwlTemperaturAussenluft    = "d15/state/kwl/aussenluft/temperatur";
 const char *TOPICKwlTemperaturZuluft        = "d15/state/kwl/zuluft/temperatur";
@@ -396,7 +395,7 @@ unsigned long intervalTGS2600Read            = 30000;
 
 unsigned long intervalMqttFan                = 5000;
 unsigned long intervalMqttMode               = 300000; // 5 * 60 * 1000; 5 Minuten
-unsigned long intervalMqttTemp               = 5000;
+unsigned long intervalMqttTemp               = 60000;
 unsigned long intervalMqttMHZ14              = 60000;
 unsigned long intervalMqttVOC                = 60000;
 unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minuten
