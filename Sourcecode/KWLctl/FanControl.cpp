@@ -200,7 +200,7 @@ void FanControl::speedCalibrationStep()
   } else {
     if (!calibration_pwm_in_progress_) {
       // Erster Durchlauf der Kalibrierung
-      Serial.println ("Erster Durchlauf für Stufe, calibration_pwm_in_progress_");
+      Serial.println(F("Erster Durchlauf für Stufe, calibration_pwm_in_progress_"));
       calibration_pwm_in_progress_ = true;
       calibration_pwm_start_time_us_ = getScheduleTime();
       fan1_.prepareCalibration();

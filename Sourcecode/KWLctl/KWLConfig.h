@@ -53,9 +53,7 @@
 class IPAddress;
 class HardwareSerial;
 
-extern HardwareSerial Serial2;
-
-/// Helper to construct IP as a literal.
+/// Helper to construct IP address as a literal.
 class IPAddressLiteral
 {
 public:
@@ -71,12 +69,12 @@ private:
   byte ip[4];
 };
 
-/// Helper to construct IP as a literal.
+/// Helper to construct MAC address as a literal.
 class MACAddressLiteral
 {
 public:
   constexpr MACAddressLiteral(byte a, byte b, byte c, byte d, byte e, byte f) : mac{a, b, c, d, e,f} {}
-  void copy_to(byte* out) const { out[0] = mac[0]; out[1] = mac[1]; out[2] = mac[2]; out[3] = mac[3]; out[4] = mac[4]; out[5] = mac[6]; }
+  void copy_to(byte* out) const { out[0] = mac[0]; out[1] = mac[1]; out[2] = mac[2]; out[3] = mac[3]; out[4] = mac[4]; out[5] = mac[5]; }
 private:
   byte mac[6];
 };

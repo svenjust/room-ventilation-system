@@ -585,7 +585,7 @@ void loopWrite100Millis() {
   currentMillis = millis();
   if (currentMillis - previous100Millis > 100) {
     previous100Millis = currentMillis;
-    Serial.print ("Timestamp: ");
+    Serial.print (F("Timestamp: "));
     Serial.println ((long)currentMillis);
   }
 }
