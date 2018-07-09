@@ -67,7 +67,7 @@
 #include <DHT_U.h>
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
-#define strVersion "v0.15"
+#define strVersion "v0.16"
 
 
 // ***************************************************  A N S T E U E R U N G   P W M oder D A C   ***************************************************
@@ -281,6 +281,7 @@ const char *TOPICKwlDebugsetTemperaturFortluft   = "d15/debugset/kwl/fortluft/te
 boolean mqttCmdSendTemp                        = false;
 boolean mqttCmdSendDht                         = false;
 boolean mqttCmdSendMHZ14                       = false;
+boolean mqttCmdSendVOC                         = false;
 boolean mqttCmdSendFans                        = false;
 boolean mqttCmdSendBypassState                 = false;
 boolean mqttCmdSendBypassAllValues             = false;
@@ -397,9 +398,11 @@ unsigned long intervalMqttFan                = 5000;
 unsigned long intervalMqttMode               = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttTemp               = 5000;
 unsigned long intervalMqttMHZ14              = 60000;
+unsigned long intervalMqttVOC                = 60000;
 unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttFanOversampling    = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttMHZ14Oversampling  = 300000; // 5 * 60 * 1000; 5 Minuten
+unsigned long intervalMqttVOCOversampling    = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttBypassState        = 900000; //15 * 60 * 1000; 15 Minuten
 
 unsigned long previousMillisFan                   = 0;
@@ -423,6 +426,8 @@ unsigned long previousMillisMqttDht               = 0;
 unsigned long previousMillisMqttDhtOversampling   = 0;
 unsigned long previousMillisMqttMHZ14             = 0;
 unsigned long previousMillisMqttMHZ14Oversampling = 0;
+unsigned long previousMillisMqttVOC               = 0;
+unsigned long previousMillisMqttVOCOversampling   = 0;
 unsigned long previousMillisMqttBypassState       = 0;
 
 unsigned long previous100Millis                   = 0;
@@ -489,6 +494,7 @@ float SendMqttDHT2Temp = 0;    // Temperatur Abluft
 float SendMqttDHT2Hum  = 0;    // Temperatur Fortluft
 
 int   SendMqttMHZ14CO2 = 0;    // CO2 Wert
+int   SendMqttVOC      = 0;    // VOC Wert
 
 
 // DHT Sensoren
@@ -664,6 +670,7 @@ void mqttReceiveMsg(char* topic, byte* payload, unsigned int length) {
     mqttCmdSendFans            = true;
     mqttCmdSendBypassAllValues = true;
     mqttCmdSendMHZ14           = true;
+    mqttCmdSendVOC             = true;
   }
 
   // Debug Messages, den folgenden Block in der produktiven Version auskommentieren
@@ -1582,6 +1589,8 @@ void loop()
   loopMqttSendFan();
   loopMqttSendTemp();
   loopMqttSendDHT();
+  loopMqttSendCo2();
+  loopMqttSendVOC();
   loopMqttSendBypass();
 
   loopDisplayUpdate();

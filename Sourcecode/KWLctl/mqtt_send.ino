@@ -207,7 +207,7 @@ void loopMqttSendDHT() {
 }
 
 void loopMqttSendCo2() {
-  // Senden der DHT Temperaturen und Humidity per Mqtt
+  // Senden des CO2 Messwertes per Mqtt
   // Bedingung: a) alle x Sekunden, wenn Differenz Sensor > 20
   //            b) alle intervalMqttMHZ14Oversampling/1000 Sekunden (Standard 10 Minuten)
   //            c) mqttCmdSendMHZ14 == true
@@ -228,6 +228,34 @@ void loopMqttSendCo2() {
         mqttClient.publish(TOPICKwlCO2Abluft, buffer);
         if (serialDebug == 1) {
           Serial.println("TOPICKwlCO2Abluft: " + String(MHZ14_CO2_ppm));
+        }
+      }
+    }
+  }
+}
+
+void loopMqttSendVOC() {
+  // Senden des VOC Messwertes per Mqtt
+  // Bedingung: a) alle x Sekunden, wenn Differenz Sensor > 10
+  //            b) alle intervalMqttMHZ14Oversampling/1000 Sekunden (Standard 10 Minuten)
+  //            c) mqttCmdSendMHZ14 == true
+  currentMillis = millis();
+  if ((currentMillis - previousMillisMqttVOC > intervalMqttVOC) || mqttCmdSendVOC) {
+    previousMillisMqttVOC = currentMillis;
+    if ((abs(TGS2600_VOC - SendMqttVOC) > 10)
+        || (currentMillis - previousMillisMqttVOCOversampling > intervalMqttVOCOversampling)
+        || mqttCmdSendVOC)  {
+
+      mqttCmdSendVOC = false;
+      SendMqttVOC = TGS2600_VOC;
+
+      intervalMqttVOCOversampling = currentMillis;
+
+      if (TGS2600IsAvailable) {
+        dtostrf(TGS2600_VOC, 6, 0, buffer);
+        mqttClient.publish(TOPICKwlVOCAbluft, buffer);
+        if (serialDebug == 1) {
+          Serial.println("TOPICKwlVOCAbluft: " + String(TGS2600_VOC));
         }
       }
     }
