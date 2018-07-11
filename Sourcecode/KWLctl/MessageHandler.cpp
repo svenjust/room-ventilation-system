@@ -67,6 +67,13 @@ bool MessageHandler::publish(const char* topic, long payload, bool retained)
   return publish(topic, buffer, retained);
 }
 
+bool MessageHandler::publish(const char* topic, unsigned long payload, bool retained)
+{
+  char buffer[16];
+  ultoa(payload, buffer, 10);
+  return publish(topic, buffer, retained);
+}
+
 bool MessageHandler::publish(const char* topic, double payload, unsigned char precision, bool retained)
 {
   char buffer[16];

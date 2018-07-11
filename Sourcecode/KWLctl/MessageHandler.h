@@ -75,6 +75,40 @@ public:
    * @brief Publish a message.
    *
    * @param topic message topic.
+   * @param payload message payload (integer).
+   * @param retained if set, retain the message on the server for quick read upon client connect.
+   * @return @c true, if published successfully, @c false otherwise.
+   */
+  static bool publish(const char* topic, int payload, bool retained = false) {
+    return publish(topic, long(payload), retained);
+  }
+
+  /*!
+   * @brief Publish a message.
+   *
+   * @param topic message topic.
+   * @param payload message payload (unsigned integer).
+   * @param retained if set, retain the message on the server for quick read upon client connect.
+   * @return @c true, if published successfully, @c false otherwise.
+   */
+  static bool publish(const char* topic, unsigned long payload, bool retained = false);
+
+  /*!
+   * @brief Publish a message.
+   *
+   * @param topic message topic.
+   * @param payload message payload (unsigned integer).
+   * @param retained if set, retain the message on the server for quick read upon client connect.
+   * @return @c true, if published successfully, @c false otherwise.
+   */
+  static bool publish(const char* topic, unsigned int payload, bool retained = false) {
+    return publish(topic, static_cast<unsigned long>(payload), retained);
+  }
+
+  /*!
+   * @brief Publish a message.
+   *
+   * @param topic message topic.
    * @param payload message payload (floating point).
    * @param precision number of decimal places to display.
    * @param retained if set, retain the message on the server for quick read upon client connect.

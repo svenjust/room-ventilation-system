@@ -23,6 +23,7 @@
 #include "MicroNTP.h"
 #include "FanControl.h"
 #include "MQTTTopic.hpp"
+#include "StringView.h"
 
 /// Check current program every 5s.
 static constexpr unsigned long PROGRAM_INTERVAL = 5000000;
