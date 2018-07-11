@@ -20,7 +20,6 @@
 
 #include "NetworkClient.h"
 #include "MessageHandler.h"
-#include "Scheduler.h"
 #include "KWLConfig.h"
 #include "MQTTTopic.hpp"
 
@@ -38,9 +37,8 @@ static constexpr unsigned long MQTT_HEARTBEAT_PERIOD = KWLConfig::HeartbeatPerio
 
 PubSubClient* NetworkClient::s_client_ = nullptr;
 
-NetworkClient::NetworkClient(Scheduler& scheduler) :
-  Task(F("NetworkClient")),
-  scheduler_(scheduler),
+NetworkClient::NetworkClient() :
+  Task(F("NetworkClient"), *this, &NetworkClient::run, &NetworkClient::poll),
   mqtt_client_(eth_client_)
 {}
 
@@ -79,7 +77,7 @@ bool NetworkClient::mqttConnect()
     // subscribe
     subscribed_command_ = mqtt_client_.subscribe(MQTTTopic::Command.load());
     subscribed_debug_ = mqtt_client_.subscribe(MQTTTopic::CommandDebug.load());
-    scheduler_.add(*this, 1); // next run should send heartbeat
+    runOnce(1); // next run should send heartbeat
   }
   last_mqtt_reconnect_attempt_time_ = micros();
   Serial.print(F("MQTT connect end at "));
@@ -93,7 +91,7 @@ bool NetworkClient::mqttConnect()
   }
 }
 
-bool NetworkClient::poll()
+void NetworkClient::poll()
 {
   Ethernet.maintain();
   auto current_time = micros();
@@ -103,7 +101,7 @@ bool NetworkClient::poll()
       lan_ok_ = false;
       initEthernet(); // nothing more to do now
       last_lan_reconnect_attempt_time_ = current_time;
-      return true;
+      return;
     }
     // have Ethernet, do other checks
   } else {
@@ -120,7 +118,7 @@ bool NetworkClient::poll()
         initEthernet();
         last_lan_reconnect_attempt_time_ = current_time;
       }
-      return true;
+      return;
     }
   }
 
@@ -129,7 +127,7 @@ bool NetworkClient::poll()
       Serial.println(F("MQTT disconnected, attempting to connect"));
       mqtt_ok_ = mqttConnect();
       if (!mqtt_ok_)
-        return true; // couldn't connect now, cannot continue
+        return; // couldn't connect now, cannot continue
     }
     // have MQTT receive messages
   } else {
@@ -138,9 +136,9 @@ bool NetworkClient::poll()
       // new reconnect attempt
       mqtt_ok_ = mqttConnect();
       if (!mqtt_ok_)
-        return true;
+        return;
     } else {
-      return true; // not connected
+      return; // not connected
     }
   }
 
@@ -152,15 +150,14 @@ bool NetworkClient::poll()
 
   // now MQTT messages can be received
   mqtt_client_.loop();
-  return true;
 }
 
 void NetworkClient::run()
 {
   // once connected or after timeout, publish an announcement
   if (!MessageHandler::publish(MQTTTopic::Heartbeat, F("online"), true)) {
-    scheduler_.add(*this, 100000);  // try again in 100ms
+    runOnce(100000);  // try again in 100ms
   } else if (!isRepeated()) {
-    scheduler_.addRepeated(*this, MQTT_HEARTBEAT_PERIOD);
+    runRepeated(MQTT_HEARTBEAT_PERIOD);
   }
 }

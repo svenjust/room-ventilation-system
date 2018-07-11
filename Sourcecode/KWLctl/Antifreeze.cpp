@@ -19,9 +19,9 @@
  */
 
 #include "Antifreeze.h"
-#include "Scheduler.h"
 #include "KWLConfig.h"
 #include "KWLPersistentConfig.h"
+#include "StringView.h"
 #include "TempSensors.h"
 #include "FanControl.h"
 #include "MQTTTopic.hpp"
@@ -47,9 +47,8 @@ static constexpr long MAX_TEMP_HYSTERESIS = 10;
 // PID REGLER
 static constexpr double heaterKp = 50, heaterKi = 0.1, heaterKd = 0.025;
 
-Antifreeze::Antifreeze(Scheduler& scheduler, FanControl& fan, TempSensors& temp, KWLPersistentConfig& config) :
-  Task(F("Antifreeze")),
-  scheduler_(scheduler),
+Antifreeze::Antifreeze(FanControl& fan, TempSensors& temp, KWLPersistentConfig& config) :
+  Task(F("Antifreeze"), *this, &Antifreeze::run),
   fan_(fan),
   temp_(temp),
   config_(config),
@@ -91,7 +90,7 @@ void Antifreeze::setHeatingAppCombUse(bool on)
 void Antifreeze::forceSend()
 {
   force_send_ = true;
-  scheduler_.add(*this, 1); // run on next scheduler run to send MQTT messages
+  runRepeated(1, INTERVAL_ANTIFREEZE_CHECK);
 }
 
 void Antifreeze::run()
@@ -194,7 +193,7 @@ void Antifreeze::run()
   if (force_send_)
     sendMQTT();
   else if (!isRepeated()) // safety measure: ensure we'll get called ultimately
-    scheduler_.addRepeated(*this, INTERVAL_ANTIFREEZE_CHECK);
+    runRepeated(INTERVAL_ANTIFREEZE_CHECK);
 }
 
 void Antifreeze::setPreheater()
@@ -246,10 +245,10 @@ void Antifreeze::sendMQTT()
   if (!r1 || !r2) {
     // error sending, try later in 100ms
     force_send_ = true;
-    scheduler_.add(*this, 100000);
+    runRepeated(100000, INTERVAL_ANTIFREEZE_CHECK);
   } else if (!isRepeated()) {
     // restart normal scheduling after sending MQTT message
-    scheduler_.addRepeated(*this, INTERVAL_ANTIFREEZE_CHECK);
+    runRepeated(INTERVAL_ANTIFREEZE_CHECK);
   }
 }
 

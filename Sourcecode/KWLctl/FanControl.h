@@ -24,7 +24,7 @@
  */
 #pragma once
 
-#include "Scheduler.h"
+#include "Task.h"
 #include "Fan.h"
 #include "MessageHandler.h"
 
@@ -68,10 +68,9 @@ public:
   /*!
    * @brief Start fans.
    *
-   * @param sched scheduler to use for scheduling events.
    * @param initTrace initial tracer for printing startup messages.
    */
-  void begin(Scheduler& sched, Print& initTrace);
+  void begin(Print& initTrace);
 
   /// Get current fan mode (normal or calibration).
   inline FanMode getMode() { return mode_; }
@@ -110,7 +109,7 @@ private:
   static void countUpFan1();
   static void countUpFan2();
 
-  virtual void run() override;
+  void run();
 
   /// Sets fan speed based on ventilation mode.
   void speedUpdate();

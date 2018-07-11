@@ -23,8 +23,8 @@
  */
 #pragma once
 
-#include "Scheduler.h"
-#include "NetworkClient.h"
+#include "Task.h"
+#include "MessageHandler.h"
 
 #include <OneWire.h>            // OneWire Temperatursensoren
 #include <DallasTemperature.h>  // https://www.milesburton.com/Dallas_Temperature_Control_Library
@@ -80,7 +80,7 @@ public:
   TempSensors();
 
   /// Start sensors.
-  void begin(Scheduler& sched, Print& initTrace);
+  void begin(Print& initTrace);
 
   /// Constant for invalid temperature.
   static constexpr double INVALID = -127.0;
@@ -110,7 +110,7 @@ public:
   inline void forceSend() { force_send_ = true; }
 
 private:
-  virtual void run() override;
+  void run();
   virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override;
 
   /// Send messages via MQTT.

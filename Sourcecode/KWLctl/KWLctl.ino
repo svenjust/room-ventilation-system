@@ -63,7 +63,7 @@
 #include "MultiPrint.h"
 #include "NetworkClient.h"
 #include "Relay.h"
-#include "Scheduler.h"
+#include "Task.h"
 #include "TempSensors.h"
 #include "FanControl.h"
 #include "Antifreeze.h"
@@ -160,14 +160,13 @@ unsigned long currentMillis                       = 0;
 
 
 /// Class comprising all modules for the control of the ventilation system.
-class KWLControl : private FanControl::SetSpeedCallback
+class KWLControl : private FanControl::SetSpeedCallback, private MessageHandler
 {
 public:
   KWLControl() :
-    network_client_(scheduler_),
     fan_control_(persistent_config_, this),
-    bypass_(scheduler_, persistent_config_, temp_sensors_),
-    antifreeze_(scheduler_, fan_control_, temp_sensors_, persistent_config_),
+    bypass_(persistent_config_, temp_sensors_),
+    antifreeze_(fan_control_, temp_sensors_, persistent_config_),
     ntp_(udp_, KWLConfig::NetworkNTPServer),
     program_manager_(persistent_config_, fan_control_, ntp_)
   {}
@@ -176,12 +175,12 @@ public:
   void begin(Print& initTracer) {
     persistent_config_.begin(initTracer, KWLConfig::FACTORY_RESET_EEPROM);
     network_client_.begin(initTracer);
-    temp_sensors_.begin(scheduler_, initTracer);
-    fan_control_.begin(scheduler_, initTracer);
+    temp_sensors_.begin(initTracer);
+    fan_control_.begin(initTracer);
     bypass_.begin(initTracer);
     antifreeze_.begin(initTracer);
     ntp_.begin();
-    program_manager_.begin(scheduler_);
+    program_manager_.begin();
   }
 
   /// Get persistent configuration.
@@ -205,9 +204,6 @@ public:
   /// Get NTP client.
   MicroNTP& getNTP() { return ntp_; }
 
-  /// Get task scheduler.
-  Scheduler& getScheduler() { return scheduler_; }
-
 private:
   virtual void fanSpeedSet() override {
     // this callback is called after computing new PWM tech points
@@ -215,10 +211,30 @@ private:
     antifreeze_.doActionAntiFreezeState();
   }
 
+  virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override
+  {
+    if (topic == MQTTTopic::KwlDebugsetSchedulerGetvalues) {
+      // send statistics for scheduler
+      char buffer[150];
+      for (auto i = Task::begin(); i != Task::end(); ++i) {
+        i->getStatistics().toString(buffer, sizeof(buffer));
+        publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
+      }
+      Task::getSchedulerStatistics().toString(buffer, sizeof(buffer));
+      publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
+      Task::getAllTasksStatistics().toString(buffer, sizeof(buffer));
+      publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
+    } else if (topic == MQTTTopic::KwlDebugsetSchedulerResetvalues) {
+      // reset maximum runtimes for all tasks
+      Task::resetAllMaxima();
+    } else {
+      return false;
+    }
+    return true;
+  }
+
   /// Persistent configuration.
   KWLPersistentConfig persistent_config_;
-  /// Task scheduler
-  Scheduler scheduler_;
   /// Global MQTT client.
   NetworkClient network_client_;
   /// Set of temperature sensors
@@ -471,7 +487,7 @@ void setup()
 // *** LOOP START ***
 void loop()
 {
-  kwlControl.getScheduler().loop();
+  Task::loop();
   //loopWrite100Millis();
 
   loopDHTRead();

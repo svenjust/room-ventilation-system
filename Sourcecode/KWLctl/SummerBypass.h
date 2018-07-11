@@ -59,11 +59,10 @@ public:
   /*!
    * @brief Construct summer bypass control object.
    *
-   * @param sched scheduler to use for scheduling events.
    * @param config configuration to read/write.
    * @param temp temperature sensors.
    */
-  SummerBypass(Scheduler& sched, KWLPersistentConfig& config, const TempSensors& temp);
+  SummerBypass(KWLPersistentConfig& config, const TempSensors& temp);
 
   /*!
    * @brief Start summer bypass.
@@ -88,7 +87,7 @@ public:
   static const __FlashStringHelper* toString(SummerBypassFlapState state);
 
 private:
-  virtual void run() override;
+  void run();
   virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override;
 
   /// Start moving the flap to the desired position.
@@ -97,8 +96,6 @@ private:
   /// Send MQTT message upon change or when timer hits.
   void sendMqtt();
 
-  /// Task scheduler.
-  Scheduler& scheduler_;
   /// Persistent configuration.
   KWLPersistentConfig& config_;
   /// Temperature sensor array.

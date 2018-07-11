@@ -40,7 +40,7 @@ public:
   NetworkClient& operator=(const NetworkClient&) = delete;
 
   /// Construct network client.
-  explicit NetworkClient(Scheduler& scheduler);
+  NetworkClient();
 
   /// Start network client.
   void begin(Print& initTracer);
@@ -64,15 +64,13 @@ private:
   /// Initialize MQTT connection.
   bool mqttConnect();
 
-  virtual bool poll() override;
+  void poll();
 
-  virtual void run() override;
+  void run();
 
   /// Static link to the client to be used by MessageHandler to publish messages.
   static PubSubClient* s_client_;
 
-  /// Scheduler scheduling tasks.
-  Scheduler& scheduler_;
   /// Ethernet client for MQTT client.
   EthernetClient eth_client_;
   /// MQTT client.

@@ -19,6 +19,7 @@
 
 #include "TempSensors.h"
 #include "MQTTTopic.hpp"
+#include "StringView.h"
 
 #include "KWLConfig.h"
 
@@ -89,14 +90,14 @@ void TempSensors::TempSensor::retry()
 }
 
 TempSensors::TempSensors() :
-  Task(F("TempSensors")),
+  Task(F("TempSensors"), *this, &TempSensors::run),
   t1_(KWLConfig::PinTemp1OneWireBus),
   t2_(KWLConfig::PinTemp2OneWireBus),
   t3_(KWLConfig::PinTemp3OneWireBus),
   t4_(KWLConfig::PinTemp4OneWireBus)
 {}
 
-void TempSensors::begin(Scheduler& sched, Print& initTracer)
+void TempSensors::begin(Print& initTracer)
 {
   initTracer.println(F("Initialisierung Temperatursensoren"));
 
@@ -107,7 +108,7 @@ void TempSensors::begin(Scheduler& sched, Print& initTracer)
   t4_.begin();
 
   // call regularly to update
-  sched.addRepeated(*this, SCHEDULING_INTERVAL);
+  runRepeated(SCHEDULING_INTERVAL);
 }
 
 void TempSensors::run()

@@ -43,7 +43,7 @@ public:
   ProgramManager(KWLPersistentConfig& config, FanControl& fan, const MicroNTP& ntp);
 
   /// Start the program manager.
-  void begin(Scheduler& scheduler);
+  void begin();
 
   /// Reset program, so the next run will choose current program.
   void resetProgram() { current_program_ = -1; }
@@ -55,7 +55,8 @@ public:
   void setProgram(unsigned index, const ProgramData& program);
 
 private:
-  virtual void run() override;
+  void run();
+
   virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override;
 
   /// Send program data via MQTT.

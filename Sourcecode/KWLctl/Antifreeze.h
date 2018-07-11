@@ -55,12 +55,11 @@ public:
   /*!
    * @brief Construct antifreeze control object.
    *
-   * @param scheduler scheduler for scheduling tasks.
    * @param fan fan control.
    * @param temp temperature sensor array.
    * @param config configuration to read/write.
    */
-  explicit Antifreeze(Scheduler& scheduler, FanControl& fan, TempSensors& temp, KWLPersistentConfig& config);
+  explicit Antifreeze(FanControl& fan, TempSensors& temp, KWLPersistentConfig& config);
 
   /// Start the handler.
   void begin(Print& initTracer);
@@ -84,7 +83,7 @@ public:
   void forceSend();
 
 private:
-  virtual void run() override;
+  void run();
   virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override;
 
   /// Set preheater output signal.
@@ -93,7 +92,6 @@ private:
   /// Send messages via MQTT.
   void sendMQTT();
 
-  Scheduler& scheduler_;
   FanControl& fan_;
   TempSensors& temp_;
   KWLPersistentConfig& config_;

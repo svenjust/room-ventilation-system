@@ -18,7 +18,7 @@
  */
 
 #include "ProgramManager.h"
-#include "Scheduler.h"
+#include "KWLConfig.h"
 #include "KWLPersistentConfig.h"
 #include "MicroNTP.h"
 #include "FanControl.h"
@@ -29,15 +29,15 @@
 static constexpr unsigned long PROGRAM_INTERVAL = 5000000;
 
 ProgramManager::ProgramManager(KWLPersistentConfig& config, FanControl& fan, const MicroNTP& ntp) :
-  Task(F("ProgramManager")),
+  Task(F("ProgramManager"), *this, &ProgramManager::run),
   config_(config),
   fan_(fan),
   ntp_(ntp)
 {}
 
-void ProgramManager::begin(Scheduler& scheduler)
+void ProgramManager::begin()
 {
-  scheduler.addRepeated(*this, PROGRAM_INTERVAL);
+  runRepeated(PROGRAM_INTERVAL);
 }
 
 const ProgramData& ProgramManager::getProgram(unsigned index)
@@ -243,7 +243,7 @@ void ProgramManager::mqttSendProgram(unsigned index)
   buffer[10] = ' ';
   HMS(prog.end_h_, prog.end_m_).writeHM(buffer + 11);
   buffer[16] = ' ';
-  buffer[17] = prog.fan_mode_ + '0';
+  buffer[17] = char(prog.fan_mode_ + '0');
   buffer[18] = ' ';
   char* p = buffer + 19;
   for (uint8_t bit = 1; bit < ProgramData::VALID_FLAG; bit <<= 1)

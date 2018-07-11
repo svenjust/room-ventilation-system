@@ -19,7 +19,6 @@
  */
 
 #include "SummerBypass.h"
-#include "Scheduler.h"
 #include "MQTTTopic.hpp"
 #include "StringView.h"
 #include "TempSensors.h"
@@ -38,9 +37,8 @@ static constexpr unsigned long BYPASS_FLAPS_DRIVE_TIME = 120 * 1000000UL;
 /// Maximum hysteresis temperature, which makes sense.
 static constexpr long MAX_TEMP_HYSTERESIS = 10;
 
-SummerBypass::SummerBypass(Scheduler& sched, KWLPersistentConfig& config, const TempSensors& temp) :
-  Task(F("SummerBypass")),
-  scheduler_(sched),
+SummerBypass::SummerBypass(KWLPersistentConfig& config, const TempSensors& temp) :
+  Task(F("SummerBypass"), *this, &SummerBypass::run),
   config_(config),
   temp_(temp),
   rel_bypass_power_(KWLConfig::PinBypassPower),
@@ -69,7 +67,7 @@ void SummerBypass::begin(Print& initTrace)
   rel_bypass_power_.off();
   rel_bypass_direction_.off();
 
-  scheduler_.addRepeated(*this, INTERVAL_BYPASS_CHECK);
+  runRepeated(INTERVAL_BYPASS_CHECK);
 }
 
 const __FlashStringHelper* SummerBypass::toString(SummerBypassFlapState state)

@@ -52,7 +52,7 @@ static constexpr unsigned long TIMEOUT_PWM_CALIBRATION = 300000000;
 
 
 FanControl::FanControl(KWLPersistentConfig& config, SetSpeedCallback *speedCallback) :
-  Task(F("FanControl")),
+  Task(F("FanControl"), *this, &FanControl::run),
   fan1_(1, KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho),
   fan2_(2, KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho),
   speed_callback_(speedCallback),
@@ -60,7 +60,7 @@ FanControl::FanControl(KWLPersistentConfig& config, SetSpeedCallback *speedCallb
   persistent_config_(config)
 {}
 
-void FanControl::begin(Scheduler& sched, Print& initTrace)
+void FanControl::begin(Print& initTrace)
 {
   initTrace.println(F("Initialisierung Ventilatoren"));
 
@@ -72,7 +72,7 @@ void FanControl::begin(Scheduler& sched, Print& initTrace)
   fan1_.begin(countUpFan1, persistent_config_.getSpeedSetpointFan1());
   fan2_.begin(countUpFan2, persistent_config_.getSpeedSetpointFan2());
 
-  sched.addRepeated(*this, FAN_INTERVAL);
+  runRepeated(FAN_INTERVAL);
 }
 
 void FanControl::setVentilationMode(int mode)
