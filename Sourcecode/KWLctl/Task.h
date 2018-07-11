@@ -51,6 +51,17 @@ protected:
   /// Check if the task is scheduled repeatedly.
   bool isRepeated() { return interval_ != 0; }
 
+protected:
+  /*!
+   * @brief Set interval for the task inside run() method.
+   *
+   * After the run() method completes, the task will be scheduled with this
+   * interval (first time after run() returns).
+   *
+   * @param interval scheduling interval in microseconds.
+   */
+  void setInterval(unsigned long interval) { interval_ = interval; }
+
 private:
   friend class Scheduler;
 
