@@ -55,11 +55,11 @@ private:
   unsigned BypassTempAbluftMin_;      // 6
   unsigned BypassTempAussenluftMin_;  // 8
   unsigned BypassHystereseMinutes_;   // 10
-  unsigned BypassHystereseTemp_;      // 12
+  unsigned AntifreezeHystereseTemp_;  // 12
   unsigned BypassManualSetpoint_;     // 14
   unsigned BypassMode_;               // 16
   bool DST_;                          // 18
-  uint8_t UnusedFiller_;              // 19
+  uint8_t BypassHysteresisTemp_;      // 19
   int FanPWMSetpoint_[10][2];         // 20-59
   unsigned HeatingAppCombUse_;        // 60
   int16_t TimezoneMin_;               // 62
@@ -78,9 +78,10 @@ public:
   KWL_GETSET(BypassTempAbluftMin)
   KWL_GETSET(BypassTempAussenluftMin)
   KWL_GETSET(BypassHystereseMinutes)
-  KWL_GETSET(BypassHystereseTemp)
+  KWL_GETSET(BypassHysteresisTemp)
   KWL_GETSET(BypassManualSetpoint)
   KWL_GETSET(BypassMode)
+  KWL_GETSET(AntifreezeHystereseTemp)
   KWL_GETSET(DST)
   KWL_GETSET(HeatingAppCombUse)
   KWL_GETSET(TimezoneMin)

@@ -145,6 +145,12 @@ public:
   /// Retain last antifreeze state reading in the MQTT broker.
   static const bool RetainAntifreezeState;
 
+  /// Retain last bypass state reading in the MQTT broker.
+  static const bool RetainBypassState;
+
+  /// Retain last bypass configuration state reading in the MQTT broker.
+  static const bool RetainBypassConfigState;
+
   // *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N **************************************************
 
 
@@ -178,12 +184,14 @@ public:
   /// Hystereszeit für eine Umstellung des Bypasses im Automatik Betrieb.
   static constexpr unsigned StandardBypassHystereseMinutes  =   60;
   /// Hysteretemperatur für eine Umstellung des Bypasses im Automatik Betrieb.
-  static constexpr unsigned StandardBypassHystereseTemp     =    3;
+  static constexpr unsigned StandardBypassHysteresisTemp    =    2;
   /// Stellung der Bypassklappen im manuellen Betrieb (1 = Close).
   static constexpr unsigned StandardBypassManualSetpoint    =    1;
   /// Automatik oder manueller Betrieb der Bypassklappe (0 = Auto).
   // Im Automatikbetrieb steuert diese Steuerung die Bypass-Klappe, im manuellen Betrieb wird die Bypass-Klappe durch mqtt-Kommandos gesteuert.
   static constexpr unsigned StandardBypassMode              =    0;
+  /// Hysteretemperatur für Steuerung von Antifreeze.
+  static constexpr unsigned StandardAntifreezeHystereseTemp =    3;
   /// 0 = NO, 1 = YES
   static constexpr unsigned StandardHeatingAppCombUse       =    0;
 
@@ -328,6 +336,10 @@ template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainFanSpeed = FinalConfig::RetainMeasurements;
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainAntifreezeState = FinalConfig::RetainMeasurements;
+template<typename FinalConfig>
+const bool KWLDefaultConfig<FinalConfig>::RetainBypassState = FinalConfig::RetainMeasurements;
+template<typename FinalConfig>
+const bool KWLDefaultConfig<FinalConfig>::RetainBypassConfigState = FinalConfig::RetainMeasurements;
 
 /*!
  * @brief Helper macro to add configuration for simple parameters in UserConfig.h.

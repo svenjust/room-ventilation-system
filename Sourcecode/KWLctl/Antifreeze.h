@@ -98,7 +98,7 @@ private:
   TempSensors& temp_;
   KWLPersistentConfig& config_;
   AntifreezeState antifreeze_state_ = AntifreezeState::OFF;
-  unsigned hysteresis_temp_delta_ = 2;
+  unsigned hysteresis_temp_delta_;
   double antifreeze_temp_upper_limit_;
   double tech_setpoint_preheater_   = 0.0;      // Analogsignal 0..1000 für Vorheizer
   unsigned long preheater_start_time_ms_ = 0;      // Beginn der Vorheizung

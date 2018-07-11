@@ -32,13 +32,12 @@ void KWLPersistentConfig::loadDefaults()
   KWL_COPY(BypassTempAbluftMin);
   KWL_COPY(BypassTempAussenluftMin);
   KWL_COPY(BypassHystereseMinutes);
-  KWL_COPY(BypassHystereseTemp);
+  KWL_COPY(BypassHysteresisTemp);
   KWL_COPY(BypassManualSetpoint);
   KWL_COPY(DST);
   KWL_COPY(BypassMode);
+  KWL_COPY(AntifreezeHystereseTemp);
   KWL_COPY(TimezoneMin);
-
-  UnusedFiller_ = 0;
 
   if (KWLConfig::StandardModeCnt > 10) {
     Serial.println(F("ERROR: StandardModeCnt too big, max. 10 supported"));
@@ -66,7 +65,11 @@ void KWLPersistentConfig::migrate()
     DST_ = KWLConfig::StandardDST;
     update(DST_);
   }
-
+  if (BypassHysteresisTemp_ == 0xff) {
+    Serial.println(F("Config migration: setting bypass hysteresis temperature"));
+    BypassHysteresisTemp_ = KWLConfig::StandardBypassHysteresisTemp;
+    update(BypassHysteresisTemp_);
+  }
   if (programs_[0].start_h_ == 0xff) {
     Serial.println(F("Config migration: clearing programs"));
     memset(programs_, 0, sizeof(programs_));

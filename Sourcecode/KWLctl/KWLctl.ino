@@ -56,8 +56,6 @@
 #include <MCUFRIEND_kbv.h>      // TFT
 #include <TouchScreen.h>        // Touch
 #include <SPI.h>
-#include <PubSubClient.h>       // mqtt Client
-#include <PID_v1.h>             // PID-Regler für die Drehzahlregelung
 #include <Wire.h>
 #include <DHT.h>
 #include <DHT_U.h>
@@ -70,6 +68,7 @@
 #include "FanControl.h"
 #include "Antifreeze.h"
 #include "ProgramManager.h"
+#include "SummerBypass.h"
 #include "KWLPersistentConfig.h"
 
 #include "KWLConfig.h"
@@ -121,15 +120,10 @@ TSPoint tp;
 // ***************************************************  E N D E   T T F   U N D   T O U C H  ********************************************************
 
 
-Relay relBypassPower(KWLConfig::PinBypassPower);
-Relay relBypassDirection(KWLConfig::PinBypassDirection);
-
 // Sind die folgenden Variablen auf true, werden beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
 // anschliessend wird die Variable wieder auf false gesetzt
 boolean mqttCmdSendDht                         = false;
 boolean mqttCmdSendMHZ14                       = false;
-boolean mqttCmdSendBypassState                 = false;
-boolean mqttCmdSendBypassAllValues             = false;
 boolean mqttCmdSendMode                        = false;
 boolean mqttCmdSendConfig                      = false;
 
@@ -139,32 +133,8 @@ String TEMPAsString;            // Ausgelesene Wert als String
 String ErrorText;               // Textvariable für Fehlermeldung
 String InfoText;                // Textvariable für Infomeldung
 
-// Start - Variablen für Bypass ///////////////////////////////////////////
-#define bypassMode_Auto         0
-#define bypassMode_Manual       1
-#define bypassFlapState_Unknown 0
-#define bypassFlapState_Close   1
-#define bypassFlapState_Open    2
-
-int  bypassManualSetpoint        = KWLConfig::StandardBypassManualSetpoint;   // Standardstellung Bypass
-int  bypassMode                  = KWLConfig::StandardBypassMode;             // Automatische oder Manuelle Steuerung der Bypass-Klappe
-int  bypassFlapState             = bypassFlapState_Unknown;           // aktuelle Stellung der Bypass-Klappe
-int  bypassFlapStateDriveRunning = bypassFlapState_Unknown;
-int  bypassTempAbluftMin         = KWLConfig::StandardBypassTempAbluftMin;
-int  bypassTempAussenluftMin     = KWLConfig::StandardBypassTempAussenluftMin;
-int  bypassHystereseMinutes      = KWLConfig::StandardBypassHystereseMinutes;
-int  bypassFlapSetpoint          = KWLConfig::StandardBypassManualSetpoint;
-
-unsigned long bypassLastChangeMillis   = 0;                       // Letzte Änderung für Hysterese
-long          bypassFlapsDriveTime = 120000; // 120 * 1000;       // Fahrzeit (ms) der Klappe zwischen den Stellungen Open und Close
-boolean       bypassFlapsRunning = false;                         // True, wenn Klappe fährt
-unsigned long bypassFlapsStartTime = 0;                           // Startzeit für den Beginn Klappenwechsels
-// Ende  - Variablen für Bypass ///////////////////////////////////////////
-
 
 // Definitionen für das Scheduling
-unsigned long intervalBypassSummerCheck      = 60000;   // Zeitraum zum Check der Bedingungen für BypassSummerCheck, 1 Minuten
-unsigned long intervalBypassSummerSetFlaps   = 60000;   // 60000;  // 1 * 60 * 1000 Zeitraum zum Fahren des Bypasses, 1 Minuten
 unsigned long intervalCheckForErrors         = 1000;
 unsigned long intervalDHTRead                = 10000;
 unsigned long intervalMHZ14Read              = 10000;
@@ -174,10 +144,6 @@ unsigned long intervalMqttTemp               = 5000;
 unsigned long intervalMqttMHZ14              = 60000;
 unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttMHZ14Oversampling  = 300000; // 5 * 60 * 1000; 5 Minuten
-unsigned long intervalMqttBypassState        = 900000; //15 * 60 * 1000; 15 Minuten
-
-unsigned long previousMillisBypassSummerCheck     = 0;
-unsigned long previousMillisBypassSummerSetFlaps  = 0;
 unsigned long previousMillisCheckForErrors        = 0;
 unsigned long previousMillisDHTRead               = 0;
 unsigned long previousMillisMHZ14Read             = 0;
@@ -187,7 +153,6 @@ unsigned long previousMillisMqttDht               = 0;
 unsigned long previousMillisMqttDhtOversampling   = 0;
 unsigned long previousMillisMqttMHZ14             = 0;
 unsigned long previousMillisMqttMHZ14Oversampling = 0;
-unsigned long previousMillisMqttBypassState       = 0;
 
 unsigned long previous100Millis                   = 0;
 unsigned long previousMillisTemp                  = 0;
@@ -201,6 +166,7 @@ public:
   KWLControl() :
     network_client_(scheduler_),
     fan_control_(persistent_config_, this),
+    bypass_(scheduler_, persistent_config_, temp_sensors_),
     antifreeze_(scheduler_, fan_control_, temp_sensors_, persistent_config_),
     ntp_(udp_, KWLConfig::NetworkNTPServer),
     program_manager_(persistent_config_, fan_control_, ntp_)
@@ -212,6 +178,7 @@ public:
     network_client_.begin(initTracer);
     temp_sensors_.begin(scheduler_, initTracer);
     fan_control_.begin(scheduler_, initTracer);
+    bypass_.begin(initTracer);
     antifreeze_.begin(initTracer);
     ntp_.begin();
     program_manager_.begin(scheduler_);
@@ -228,6 +195,9 @@ public:
 
   /// Get fan controlling object.
   FanControl& getFanControl() { return fan_control_; }
+
+  /// Get bypass controlling object.
+  SummerBypass& getBypass() { return bypass_; }
 
   /// Get antifreeze control.
   Antifreeze& getAntifreeze() { return antifreeze_; }
@@ -255,6 +225,8 @@ private:
   TempSensors temp_sensors_;
   /// Fan control.
   FanControl fan_control_;
+  /// Summer bypass object.
+  SummerBypass bypass_;
   /// Antifreeze/preheater control.
   Antifreeze antifreeze_;
   /// UDP handler for NTP.
@@ -317,37 +289,15 @@ private:
         delay (1000);
         asm volatile ("jmp 0");
       }
-    } else if (topic == MQTTTopic::CmdBypassHystereseMinutes) {
-      int i = s.toInt();
-      bypassHystereseMinutes = i;
-      kwlControl.getPersistentConfig().setBypassHystereseMinutes(i);
-    } else if (topic == MQTTTopic::CmdBypassManualFlap) {
-      if (s == F("open"))
-        bypassManualSetpoint = bypassFlapState_Open;
-      if (s == F("close"))
-        bypassManualSetpoint = bypassFlapState_Close;
-      // Stellung Bypassklappe bei manuellem Modus
-    } else if (topic == MQTTTopic::CmdBypassMode) {
-      // Auto oder manueller Modus
-      if (s == F("auto"))   {
-        bypassMode = bypassMode_Auto;
-        mqttCmdSendBypassState = true;
-      } else if (s == F("manual")) {
-        bypassMode = bypassMode_Manual;
-        mqttCmdSendBypassState = true;
-      }
-    }
     // Get Commands
-    else if (topic == MQTTTopic::CmdBypassGetValues) {
-      mqttCmdSendBypassAllValues = true;
     } else if (topic == MQTTTopic::CmdGetvalues) {
       // Alle Values
       kwlControl.getTempSensors().forceSend();
       kwlControl.getAntifreeze().forceSend();
       kwlControl.getFanControl().forceSendSpeed();
       kwlControl.getFanControl().forceSendMode();
+      kwlControl.getBypass().forceSend();
       mqttCmdSendDht             = true;
-      mqttCmdSendBypassAllValues = true;
       mqttCmdSendMHZ14           = true;
     } else {
       return false;
@@ -357,135 +307,6 @@ private:
 };
 
 static LegacyMQTTHandler legacyMQTTHandler;
-
-void loopBypassSummerCheck() {
-  // Bedingungen für Sommer Bypass überprüfen und Variable ggfs setzen
-  currentMillis = millis();
-  if (currentMillis - previousMillisBypassSummerCheck >= intervalBypassSummerCheck) {
-    if (KWLConfig::serialDebugSummerbypass == 1) {
-      Serial.println(F("BypassSummerCheck"));
-    }
-    previousMillisBypassSummerCheck = currentMillis;
-    // Auto oder Manual?
-    if (bypassMode == bypassMode_Auto) {
-      if (KWLConfig::serialDebugSummerbypass == 1) {
-        Serial.println(F("bypassMode_Auto"));
-      }
-      // Automatic
-      // Hysterese überprüfen
-      if (currentMillis - bypassLastChangeMillis >= (bypassHystereseMinutes * 60L * 1000L)) {
-        if (KWLConfig::serialDebugSummerbypass == 1) {
-          Serial.println(F("Time to Check"));
-          Serial.print(F("TEMP1_Aussenluft       : "));
-          Serial.println(kwlControl.getTempSensors().get_t1_outside());
-          Serial.print(F("TEMP3_Abluft           : "));
-          Serial.println(kwlControl.getTempSensors().get_t3_outlet());
-          Serial.print(F("bypassTempAbluftMin    : "));
-          Serial.println(bypassTempAbluftMin);
-          Serial.print(F("bypassTempAussenluftMin: "));
-          Serial.println(bypassTempAussenluftMin);
-        }
-        if ((kwlControl.getTempSensors().get_t1_outside() > TempSensors::INVALID) && (kwlControl.getTempSensors().get_t3_outlet() > TempSensors::INVALID)) {
-          if ((kwlControl.getTempSensors().get_t1_outside()    < kwlControl.getTempSensors().get_t3_outlet() - 2)
-              && (kwlControl.getTempSensors().get_t3_outlet()     > bypassTempAbluftMin)
-              && (kwlControl.getTempSensors().get_t1_outside() > bypassTempAussenluftMin)) {
-            //ok, dann Klappe öffen
-            if (bypassFlapSetpoint != bypassFlapState_Open) {
-              if (KWLConfig::serialDebugSummerbypass == 1) {
-                Serial.println(F("Klappe öffen"));
-              }
-              bypassFlapSetpoint = bypassFlapState_Open;
-              bypassLastChangeMillis = millis();
-            }
-          } else {
-            //ok, dann Klappe schliessen
-            if (bypassFlapSetpoint != bypassFlapState_Close) {
-              if (KWLConfig::serialDebugSummerbypass == 1) {
-                Serial.println(F("Klappe schliessen"));
-              }
-              bypassFlapSetpoint = bypassFlapState_Close;
-              bypassLastChangeMillis = millis();
-            }
-          }
-        }
-      }
-    } else {
-      // Manuelle Schaltung
-      if (bypassManualSetpoint != bypassFlapSetpoint) {
-        bypassFlapSetpoint = bypassManualSetpoint;
-      }
-    }
-  }
-}
-
-void loopBypassSummerSetFlaps() {
-  // Klappe gemäß bypassFlapSetpoint setzen
-  currentMillis = millis();
-  if (currentMillis - previousMillisBypassSummerSetFlaps >= intervalBypassSummerSetFlaps) {
-    if (KWLConfig::serialDebugSummerbypass == 1) {
-      Serial.println(F("loopBypassSummerSetFlaps"));
-      Serial.print(F("bypassFlapSetpoint: "));
-      Serial.println(bypassFlapSetpoint);
-      Serial.print(F("bypassFlapState: "));
-      Serial.println(bypassFlapState);
-      Serial.print(F("bypassFlapStateDriveRunning: "));
-      Serial.println(bypassFlapStateDriveRunning);
-    }
-    previousMillisBypassSummerSetFlaps = currentMillis;
-    if (bypassFlapSetpoint != bypassFlapState) {    // bypassFlapState wird NACH erfolgter Fahrt gesetzt
-      if ((bypassFlapsStartTime == 0)  || (millis() - bypassFlapsStartTime > bypassFlapsDriveTime)) {
-        if (!bypassFlapsRunning) {
-          if (KWLConfig::serialDebugSummerbypass == 1) {
-            Serial.println(F("Jetzt werden die Relais angesteuert"));
-          }
-          // Jetzt werden die Relais angesteuert
-          if (bypassFlapSetpoint == bypassFlapState_Close) {
-
-            // Erst Richtung, dann Power
-            relBypassDirection.off();
-            relBypassPower.on();
-
-            bypassFlapsRunning = true;
-            bypassFlapStateDriveRunning = bypassFlapState_Close;
-            bypassFlapsStartTime = millis();
-          } else if (bypassFlapSetpoint == bypassFlapState_Open) {
-
-            // Erst Richtung, dann Power
-            relBypassDirection.on();
-            relBypassPower.on();
-
-            bypassFlapsRunning = true;
-            bypassFlapStateDriveRunning = bypassFlapState_Open;
-            bypassFlapsStartTime = millis();
-          }
-        } else {
-          if (KWLConfig::serialDebugSummerbypass == 1) {
-            Serial.println(F("Klappe wurde gefahren, jetzt abschalten"));
-          }
-          // Klappe wurde gefahren, jetzt abschalten
-          // Relais ausschalten
-          // Erst Power, dann Richtung beim Ausschalten
-          relBypassDirection.off();
-          relBypassPower.off();
-
-          bypassFlapsRunning = false;
-          bypassFlapState = bypassFlapStateDriveRunning;
-          bypassLastChangeMillis = millis();
-          // MQTT senden
-          mqttCmdSendBypassState = true;
-        }
-        Serial.println(F("Nach der Schleife"));
-        Serial.println(F("loopBypassSummerSetFlaps"));
-        Serial.print(F("bypassFlapSetpoint: "));
-        Serial.println(bypassFlapSetpoint);
-        Serial.print(F("bypassFlapState: "));
-        Serial.println(bypassFlapState);
-        Serial.print(F("bypassFlapStateDriveRunning: "));
-        Serial.println(bypassFlapStateDriveRunning);
-      }
-    }
-  }
-}
 
 void loopCheckForErrors() {
   // In dieser Funktion wird auf verschiedene Fehler getestet und der gravierenste Fehler wird in die Variable ErrorText geschrieben
@@ -544,10 +365,10 @@ void loopCheckForErrors() {
     else if (kwlControl.getAntifreeze().getState() == AntifreezeState::FIREPLACE) {
       InfoText = "Defroster: Zu- und Abluftventilator AUS! (KAMIN)";
     }
-    else if (bypassFlapsRunning == true) {
-      if (bypassFlapStateDriveRunning == bypassFlapState_Close) {
+    else if (kwlControl.getBypass().isRunning() == true) {
+      if (kwlControl.getBypass().getTargetState() == SummerBypassFlapState::CLOSED) {
         InfoText = "Sommer-Bypassklappe wird geschlossen.";
-      } else if (bypassFlapStateDriveRunning == bypassFlapState_Open) {
+      } else if (kwlControl.getBypass().getTargetState() == SummerBypassFlapState::OPEN) {
         InfoText = "Sommer-Bypassklappe wird geoeffnet.";
       }
     }
@@ -561,25 +382,6 @@ void loopCheckForErrors() {
 /**********************************************************************
   Setup Routinen
 **********************************************************************/
-
-/****************************************
-  Werte auslesen und Variablen zuweisen *
-  **************************************/
-void initializeVariables()
-{
-  Serial.println();
-  Serial.println(F("initializeVariables"));
-
-  // bypass
-  bypassTempAbluftMin = kwlControl.getPersistentConfig().getBypassTempAbluftMin();
-  bypassTempAussenluftMin = kwlControl.getPersistentConfig().getBypassTempAussenluftMin();
-  bypassHystereseMinutes = kwlControl.getPersistentConfig().getBypassHystereseMinutes();
-  bypassManualSetpoint = kwlControl.getPersistentConfig().getBypassManualSetpoint();
-  bypassMode = kwlControl.getPersistentConfig().getBypassMode();
-
-  // Weiter geht es ab Speicherplatz 62dez ff
-}
-
 
 void loopWrite100Millis() {
   currentMillis = millis();
@@ -604,13 +406,12 @@ void setup()
   static MultiPrint initTracer(Serial, tft);
 
   if (KWLConfig::ControlFansDAC) {
+    // TODO Also if using Preheater DAC, but no Fan DAC
     Wire.begin();               // I2C-Pins definieren
     initTracer.println(F("Initialisierung DAC"));
   }
 
   kwlControl.begin(initTracer);
-
-  initializeVariables();
 
   Serial.println();
   SetCursor(0, 30);
@@ -619,10 +420,6 @@ void setup()
   if (kwlControl.getAntifreeze().getHeatingAppCombUse()) {
     initTracer.println(F("...System mit Feuerstaettenbetrieb"));
   }
-
-  // Relais Ansteuerung Bypass
-  relBypassPower.off();
-  relBypassDirection.off();
 
   // DHT Sensoren
   dht1.begin();
@@ -677,15 +474,12 @@ void loop()
   kwlControl.getScheduler().loop();
   //loopWrite100Millis();
 
-  loopBypassSummerCheck();
-  loopBypassSummerSetFlaps();
   loopDHTRead();
   loopMHZ14Read();
   loopVocRead();
   loopCheckForErrors();
 
   loopMqttSendDHT();
-  loopMqttSendBypass();
 
   loopDisplayUpdate();
   loopTouch();

@@ -53,6 +53,7 @@ Antifreeze::Antifreeze(Scheduler& scheduler, FanControl& fan, TempSensors& temp,
   fan_(fan),
   temp_(temp),
   config_(config),
+  hysteresis_temp_delta_(KWLConfig::StandardAntifreezeHystereseTemp),
   pid_preheater_(&temp_.get_t4_exhaust(), &tech_setpoint_preheater_, &antifreeze_temp_upper_limit_, heaterKp, heaterKi, heaterKd, P_ON_M, DIRECT),
   heating_app_comb_use_(KWLConfig::StandardHeatingAppCombUse != 0)
 {}
@@ -60,7 +61,7 @@ Antifreeze::Antifreeze(Scheduler& scheduler, FanControl& fan, TempSensors& temp,
 void Antifreeze::begin(Print& /*initTracer*/)
 {
   // antifreeze
-  hysteresis_temp_delta_ = config_.getBypassHystereseTemp(); // TODO variable name is wrong
+  hysteresis_temp_delta_ = config_.getAntifreezeHystereseTemp(); // TODO variable name is wrong
   antifreeze_temp_upper_limit_ = EXHAUST_ANTIFREEZE_TEMP_THRESHOLD + hysteresis_temp_delta_;
 
   pid_preheater_.SetOutputLimits(100, 1000);
@@ -300,7 +301,7 @@ bool Antifreeze::mqttReceiveMsg(const StringView& topic, const char* payload, un
       i = MAX_TEMP_HYSTERESIS;
     hysteresis_temp_delta_ = unsigned(i);
     antifreeze_temp_upper_limit_ = EXHAUST_ANTIFREEZE_TEMP_THRESHOLD + hysteresis_temp_delta_;
-    config_.setBypassHystereseTemp(hysteresis_temp_delta_);
+    config_.setAntifreezeHystereseTemp(hysteresis_temp_delta_);
   } else if (topic == MQTTTopic::CmdHeatingAppCombUse) {
     if (s == F("YES"))
       setHeatingAppCombUse(true);
