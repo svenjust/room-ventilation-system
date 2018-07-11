@@ -57,7 +57,7 @@ public:
 private:
   void run();
 
-  virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override;
+  virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) override;
 
   /// Send program data via MQTT.
   void mqttSendProgram(unsigned index);

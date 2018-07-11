@@ -137,9 +137,8 @@ bool ProgramData::matches(HMS hms) const
   return true;
 }
 
-bool ProgramManager::mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length)
+bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  StringView s(payload, length);
   if (topic == MQTTTopic::CmdGetProgram) {
     // TODO get specific program or ALL
     if (s == F("all")) {
@@ -157,7 +156,7 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const char* payload
     // Weekday flags are optional, if not set, run every day.
     unsigned slot, enabled, start_h, start_m, end_h, end_m, mode;
     char wd_buf[8];
-    int rc = sscanf(payload, "%u %u %u:%u %u:%u %u %7s",
+    int rc = sscanf(s.c_str(), "%u %u %u:%u %u:%u %u %7s",
                     &slot, &enabled, &start_h, &start_m, &end_h, &end_m, &mode, wd_buf);
     if (rc < 7) {
       if (KWLConfig::serialDebugProgram) {

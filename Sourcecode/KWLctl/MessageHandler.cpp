@@ -85,6 +85,7 @@ void MessageHandler::mqttMessageReceived(char* topic, uint8_t* payload, unsigned
 {
   payload[length] = 0;  // ensure NUL termination
   const StringView topicStr(topic);
+  const StringView s(reinterpret_cast<const char*>(payload), length);
   if (KWLConfig::serialDebug) {
     Serial.print(F("MQTT receive "));
     Serial.write(topicStr.c_str(), topicStr.length());
@@ -96,7 +97,7 @@ void MessageHandler::mqttMessageReceived(char* topic, uint8_t* payload, unsigned
 
   auto handler = s_first_handler;
   while (handler) {
-    if (handler->mqttReceiveMsg(topicStr, reinterpret_cast<const char*>(payload), length))
+    if (handler->mqttReceiveMsg(topicStr, s))
       return;
     handler = handler->next_;
   }

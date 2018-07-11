@@ -211,9 +211,32 @@ private:
     antifreeze_.doActionAntiFreezeState();
   }
 
-  virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override
+  virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) override
   {
-    if (topic == MQTTTopic::KwlDebugsetSchedulerGetvalues) {
+    // Set Values
+    if (topic == MQTTTopic::CmdResetAll) {
+      if (s == F("YES"))   {
+        Serial.println(F("Speicherbereich wird gelöscht"));
+        getPersistentConfig().factoryReset();
+        // Reboot
+        Serial.println(F("Reboot"));
+        delay (1000);
+        asm volatile ("jmp 0");
+      }
+    } else if (topic == MQTTTopic::KwlDebugsetSchedulerResetvalues) {
+      // reset maximum runtimes for all tasks
+      Task::resetAllMaxima();
+    // Get Commands
+    } else if (topic == MQTTTopic::CmdGetvalues) {
+      // Alle Values
+      getTempSensors().forceSend();
+      getAntifreeze().forceSend();
+      getFanControl().forceSendSpeed();
+      getFanControl().forceSendMode();
+      getBypass().forceSend();
+      mqttCmdSendDht             = true;
+      mqttCmdSendMHZ14           = true;
+    } else if (topic == MQTTTopic::KwlDebugsetSchedulerGetvalues) {
       // send statistics for scheduler
       char buffer[150];
       for (auto i = Task::begin(); i != Task::end(); ++i) {
@@ -224,9 +247,6 @@ private:
       publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
       Task::getAllTasksStatistics().toString(buffer, sizeof(buffer));
       publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
-    } else if (topic == MQTTTopic::KwlDebugsetSchedulerResetvalues) {
-      // reset maximum runtimes for all tasks
-      Task::resetAllMaxima();
     } else {
       return false;
     }
@@ -286,43 +306,6 @@ float   TGS2600_VOC   = -1.0;
 
 // Ende Definition
 ///////////////////////////////////////
-
-class LegacyMQTTHandler : public MessageHandler
-{
-private:
-  virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override
-  {
-    // handle message arrived
-    StringView s(payload, length);
-
-    // Set Values
-    if (topic == MQTTTopic::CmdResetAll) {
-      if (s == F("YES"))   {
-        Serial.println(F("Speicherbereich wird gelöscht"));
-        kwlControl.getPersistentConfig().factoryReset();
-        // Reboot
-        Serial.println(F("Reboot"));
-        delay (1000);
-        asm volatile ("jmp 0");
-      }
-    // Get Commands
-    } else if (topic == MQTTTopic::CmdGetvalues) {
-      // Alle Values
-      kwlControl.getTempSensors().forceSend();
-      kwlControl.getAntifreeze().forceSend();
-      kwlControl.getFanControl().forceSendSpeed();
-      kwlControl.getFanControl().forceSendMode();
-      kwlControl.getBypass().forceSend();
-      mqttCmdSendDht             = true;
-      mqttCmdSendMHZ14           = true;
-    } else {
-      return false;
-    }
-    return true;
-  }
-};
-
-static LegacyMQTTHandler legacyMQTTHandler;
 
 void loopCheckForErrors() {
   // In dieser Funktion wird auf verschiedene Fehler getestet und der gravierenste Fehler wird in die Variable ErrorText geschrieben

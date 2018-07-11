@@ -289,9 +289,8 @@ void Antifreeze::doActionAntiFreezeState()
   setPreheater();
 }
 
-bool Antifreeze::mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length)
+bool Antifreeze::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  StringView s(payload, length);
   if (topic == MQTTTopic::CmdAntiFreezeHyst) {
     auto i = s.toInt();
     if (i < 0)

@@ -182,9 +182,8 @@ void SummerBypass::run()
   sendMqtt();
 }
 
-bool SummerBypass::mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length)
+bool SummerBypass::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  StringView s(payload, length);
   if (topic == MQTTTopic::CmdBypassGetValues) {
     forceSend(true);
   } else if (topic == MQTTTopic::CmdBypassHystereseMinutes) {

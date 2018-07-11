@@ -137,7 +137,7 @@ void TempSensors::run()
   sendMQTT();
 }
 
-bool TempSensors::mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int /*length*/)
+bool TempSensors::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
   if (topic == MQTTTopic::CmdGetTemp) {
     forceSend();
@@ -145,19 +145,19 @@ bool TempSensors::mqttReceiveMsg(const StringView& topic, const char* payload, u
 #ifdef DEBUG
   // TODO this should also disable updating temperatures via sensors
   else if (topic == MQTTTopic::KwlDebugsetTemperaturAussenluft) {
-    get_t1_outside() = strtod(payload, nullptr);
+    get_t1_outside() = s.toDouble();
     forceSend();
   }
   else if (topic == MQTTTopic::KwlDebugsetTemperaturZuluft) {
-    get_t2_inlet() = strtod(payload, nullptr);
+    get_t2_inlet() = s.toDouble();
     forceSend();
   }
   else if (topic == MQTTTopic::KwlDebugsetTemperaturAbluft) {
-    get_t3_outlet() = strtod(payload, nullptr);
+    get_t3_outlet() = s.toDouble();
     forceSend();
   }
   else if (topic == MQTTTopic::KwlDebugsetTemperaturFortluft) {
-    get_t4_exhaust() = strtod(payload, nullptr);
+    get_t4_exhaust() = s.toDouble();
     forceSend();
   }
 #endif

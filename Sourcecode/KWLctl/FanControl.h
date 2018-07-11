@@ -129,7 +129,7 @@ private:
   /// Save current PWM settings to EEPROM.
   void storePWMSettingsToEEPROM();
 
-  virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override;
+  virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) override;
 
   Fan fan1_;   ///< Control for fan 1 (intake).
   Fan fan2_;   ///< Control for fan 2 (exhaust).

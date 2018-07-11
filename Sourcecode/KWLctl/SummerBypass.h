@@ -88,7 +88,7 @@ public:
 
 private:
   void run();
-  virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) override;
+  virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) override;
 
   /// Start moving the flap to the desired position.
   void startMoveFlap();

@@ -136,11 +136,10 @@ private:
    * @brief Try to handle received message.
    *
    * @param topic MQTT topic.
-   * @param payload payload of the MQTT message (NUL-terminated after length).
-   * @param length length of the payload.
+   * @param s payload of the MQTT message (NUL-terminated string view).
    * @return @c true, if the message was handled, @c false otherwise (e.g., for other component).
    */
-  virtual bool mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length) = 0;
+  virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) = 0;
 
   /*!
    * @brief Handle a new message. Calls all registered handlers.

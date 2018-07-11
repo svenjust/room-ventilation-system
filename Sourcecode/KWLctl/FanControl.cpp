@@ -268,9 +268,8 @@ void FanControl::storePWMSettingsToEEPROM()
   }
 }
 
-bool FanControl::mqttReceiveMsg(const StringView& topic, const char* payload, unsigned int length)
+bool FanControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  const StringView s(payload, length);
   if (topic == MQTTTopic::CmdFan1Speed) {
     // Drehzahl Lüfter 1
     unsigned i = unsigned(s.toInt());
