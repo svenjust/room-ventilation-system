@@ -54,6 +54,9 @@ class TempSensors : private Task, private MessageHandler
     bool loop();
 
     /// Get measured temperature or INVALID.
+    inline double get_t() const { return t_; }
+
+    /// Get measured temperature or INVALID.
     inline double& get_t() { return t_; }
 
   private:
@@ -81,6 +84,15 @@ public:
 
   /// Constant for invalid temperature.
   static constexpr double INVALID = -127.0;
+
+  /// Get the temperature of outside air being pulled into the device (or INVALID if not available).
+  inline double get_t1_outside() const { return t1_.get_t(); }
+  /// Get the temperature of inlet air being pushed into the house (or INVALID if not available).
+  inline double get_t2_inlet() const { return t2_.get_t(); }
+  /// Get the temperature of outlet air being pulled from the house (or INVALID if not available).
+  inline double get_t3_outlet() const { return t3_.get_t(); }
+  /// Get the temperature of exhaust air being pushed to outside (or INVALID if not available).
+  inline double get_t4_exhaust() const { return t4_.get_t(); }
 
   /// Get the temperature of outside air being pulled into the device (or INVALID if not available).
   inline double& get_t1_outside() { return t1_.get_t(); }
