@@ -122,7 +122,7 @@ void TempSensors::run()
     default: t = &t4_; next_sensor_ = 0; break;
   }
   auto new_temp = t->loop();
-  if (new_temp || force_send_) {
+  if (new_temp) {
     // compute efficiency
     auto diff_out = get_t3_outlet() - get_t1_outside();
     if (abs(diff_out) > 0.1) {
@@ -134,7 +134,20 @@ void TempSensors::run()
     }
   }
 
-  sendMQTT();
+  // Send the temperatures via MQTT:
+  //   - if max time reached, send,
+  //   - if min time reached and min difference found, send,
+  //   - else wait for the next call.
+  ++mqtt_ticks_;
+  if (mqtt_ticks_ >= KWLConfig::MaxIntervalMqttTemp ||
+      (mqtt_ticks_ >= KWLConfig::MinIntervalMqttTemp && new_temp && (
+         (abs(get_t1_outside() - last_mqtt_t1_) > KWLConfig::MinDiffMqttTemp) ||
+         (abs(get_t2_inlet() - last_mqtt_t2_) > KWLConfig::MinDiffMqttTemp) ||
+         (abs(get_t3_outlet() - last_mqtt_t3_) > KWLConfig::MinDiffMqttTemp) ||
+         (abs(get_t4_exhaust() - last_mqtt_t4_) > KWLConfig::MinDiffMqttTemp)
+      ))
+     )
+    sendMQTT();
 }
 
 bool TempSensors::mqttReceiveMsg(const StringView& topic, const StringView& s)
@@ -168,34 +181,24 @@ bool TempSensors::mqttReceiveMsg(const StringView& topic, const StringView& s)
 }
 
 void TempSensors::sendMQTT() {
-  // Send the temperatures via MQTT:
-  //   - if forced, send,
-  //   - if max time reached, send,
-  //   - if min time reached and min difference found, send,
-  //   - else wait for the next call.
-  ++mqtt_ticks_;
-  if (mqtt_ticks_ >= KWLConfig::MaxIntervalMqttTemp || force_send_ ||
-      (mqtt_ticks_ >= KWLConfig::MinIntervalMqttTemp && (
-         (abs(get_t1_outside() - last_mqtt_t1_) > KWLConfig::MinDiffMqttTemp) ||
-         (abs(get_t2_inlet() - last_mqtt_t2_) > KWLConfig::MinDiffMqttTemp) ||
-         (abs(get_t3_outlet() - last_mqtt_t3_) > KWLConfig::MinDiffMqttTemp) ||
-         (abs(get_t4_exhaust() - last_mqtt_t4_) > KWLConfig::MinDiffMqttTemp)
-      ))
-     ) {
-    last_mqtt_t1_ = get_t1_outside();
-    last_mqtt_t2_ = get_t2_inlet();
-    last_mqtt_t3_ = get_t3_outlet();
-    last_mqtt_t4_ = get_t4_exhaust();
+  last_mqtt_t1_ = get_t1_outside();
+  last_mqtt_t2_ = get_t2_inlet();
+  last_mqtt_t3_ = get_t3_outlet();
+  last_mqtt_t4_ = get_t4_exhaust();
+  mqtt_ticks_ = 0;
 
-    auto r1 = publish(MQTTTopic::KwlTemperaturAussenluft, last_mqtt_t1_, 2, KWLConfig::RetainTemperature);
-    auto r2 = publish(MQTTTopic::KwlTemperaturZuluft, last_mqtt_t2_, 2, KWLConfig::RetainTemperature);
-    auto r3 = publish(MQTTTopic::KwlTemperaturAbluft, last_mqtt_t3_, 2, KWLConfig::RetainTemperature);
-    auto r4 = publish(MQTTTopic::KwlTemperaturFortluft, last_mqtt_t4_, 2, KWLConfig::RetainTemperature);
-    auto r5 = publish(MQTTTopic::KwlEffiency, getEfficiency(), KWLConfig::RetainTemperature);
-
-    // NOTE: in case we can't send something, force sending next time
-    mqtt_ticks_ = 0;
-    force_send_ = !(r1 && r2 && r3 && r4 && r5);
-  }
+  uint8_t bitmask = 31;
+  publish_task_.publish([this, bitmask]() mutable {
+    if (!publish_if(bitmask, uint8_t(1), MQTTTopic::KwlTemperaturAussenluft, last_mqtt_t1_, 2, KWLConfig::RetainTemperature))
+      return false;
+    if (!publish_if(bitmask, uint8_t(2), MQTTTopic::KwlTemperaturZuluft, last_mqtt_t2_, 2, KWLConfig::RetainTemperature))
+      return false;
+    if (!publish_if(bitmask, uint8_t(4), MQTTTopic::KwlTemperaturAbluft, last_mqtt_t3_, 2, KWLConfig::RetainTemperature))
+      return false;
+    if (!publish_if(bitmask, uint8_t(8), MQTTTopic::KwlTemperaturFortluft, last_mqtt_t4_, 2, KWLConfig::RetainTemperature))
+      return false;
+    if (!publish_if(bitmask, uint8_t(16), MQTTTopic::KwlEffiency, getEfficiency(), KWLConfig::RetainTemperature))
+      return false;
+    return true;
+  });
 }
-

@@ -231,22 +231,32 @@ private:
       // Alle Values
       getTempSensors().forceSend();
       getAntifreeze().forceSend();
-      getFanControl().forceSendSpeed();
-      getFanControl().forceSendMode();
+      getFanControl().forceSend();
       getBypass().forceSend();
       mqttCmdSendDht             = true;
       mqttCmdSendMHZ14           = true;
     } else if (topic == MQTTTopic::KwlDebugsetSchedulerGetvalues) {
       // send statistics for scheduler
-      char buffer[150];
-      for (auto i = Task::begin(); i != Task::end(); ++i) {
-        i->getStatistics().toString(buffer, sizeof(buffer));
-        publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
-      }
-      Task::getSchedulerStatistics().toString(buffer, sizeof(buffer));
-      publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
-      Task::getAllTasksStatistics().toString(buffer, sizeof(buffer));
-      publish(MQTTTopic::KwlDebugstateScheduler, buffer, false);
+      auto i = Task::begin();
+      uint8_t bitmask = 3;
+      scheduler_publish_.publish([i, bitmask]() mutable {
+        char buffer[150];
+        // first send all tasks
+        while (i != Task::end()) {
+          i->getStatistics().toString(buffer, sizeof(buffer));
+          if (!publish(MQTTTopic::KwlDebugstateScheduler, buffer, false))
+            return false;
+          ++i;
+        }
+        // tasks sent, now send overall info
+        Task::getSchedulerStatistics().toString(buffer, sizeof(buffer));
+        if (!publish_if(bitmask, uint8_t(1), MQTTTopic::KwlDebugstateScheduler, buffer, false))
+          return false;
+        Task::getAllTasksStatistics().toString(buffer, sizeof(buffer));
+        if (!publish_if(bitmask, uint8_t(2), MQTTTopic::KwlDebugstateScheduler, buffer, false))
+          return false;
+        return true;
+      });
     } else {
       return false;
     }
@@ -271,6 +281,8 @@ private:
   MicroNTP ntp_;  // will be moved to timed program handling routines and made a task
   /// Program manager to set daily/weekly programs.
   ProgramManager program_manager_;
+  /// Task to send all scheduler infos reliably.
+  PublishTask scheduler_publish_;
 };
 
 KWLControl kwlControl;

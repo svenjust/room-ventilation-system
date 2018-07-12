@@ -140,16 +140,24 @@ bool ProgramData::matches(HMS hms) const
 bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
   if (topic == MQTTTopic::CmdGetProgram) {
-    // TODO get specific program or ALL
+    // get specific program or ALL
     if (s == F("all")) {
       // send all programs
-      for (unsigned i = 0; i < PROGRAM_COUNT; ++i)
-        mqttSendProgram(i);
+      unsigned i = 0;
+      publisher_.publish([this, i]() mutable {
+        while (i < PROGRAM_COUNT) {
+          if (!mqttSendProgram(i))
+            return false; // continue next time
+          ++i;
+        }
+        return true;  // all sent
+      });
     } else {
-      mqttSendProgram(unsigned(s.toInt()));
+      unsigned i = unsigned(s.toInt());
+      publisher_.publish([this, i]() { return mqttSendProgram(i); });
     }
   } else if (topic == MQTTTopic::CmdSetProgram) {
-    // TODO set specific program
+    // set specific program
     // Parse program string "## F HH:MM HH:MM M xxxxxxx", where ## is slot number,
     // F is flag 0 or 1 whether it's enabled, M is fan mode and xxxxxxx are flags for
     // weekdays indicating whether to run program on a given weekday (0 or 1).
@@ -224,10 +232,10 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s
   return true;
 }
 
-void ProgramManager::mqttSendProgram(unsigned index)
+bool ProgramManager::mqttSendProgram(unsigned index)
 {
   if (index >= PROGRAM_COUNT)
-    return;
+    return true;
   auto& prog = config_.getProgram(index);
   // Build program string "## F HH:MM HH:MM M xxxxxxx", where ## is slot number,
   // F is flag 0 or 1 whether it's enabled, M is fan mode and xxxxxxx are flags
@@ -248,6 +256,6 @@ void ProgramManager::mqttSendProgram(unsigned index)
   for (uint8_t bit = 1; bit < ProgramData::VALID_FLAG; bit <<= 1)
     *p++ = (prog.weekdays_ & bit) ? '1' : '0';
   *p = 0;
-  publish(MQTTTopic::KwlProgram, buffer, false);
+  return publish(MQTTTopic::KwlProgram, buffer, false);
 }
 

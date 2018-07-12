@@ -26,6 +26,7 @@
 
 #include "StringView.h"
 #include "Task.h"
+#include "MessageHandler.h"
 
 #include <Ethernet.h>
 #include <PubSubClient.h>
@@ -87,4 +88,6 @@ private:
   bool subscribed_command_ = false;
   /// Subscribe flag for debug commands.
   bool subscribed_debug_ = false;
+  /// Task to publish MQTT heartbeat message.
+  PublishTask publish_task_;
 };

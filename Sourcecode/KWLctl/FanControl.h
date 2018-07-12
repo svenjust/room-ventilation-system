@@ -94,10 +94,10 @@ public:
   inline Fan& getFan2() { return fan2_; }
 
   /// Force sending mode message via MQTT independent of timing.
-  inline void forceSendMode() { force_send_mode_ = true; }
+  inline void forceSendMode() { mqtt_send_flags_ |= MQTT_SEND_MODE; sendMQTT(); }
 
   /// Force sending speed message via MQTT independent of timing.
-  inline void forceSendSpeed() { force_send_speed_ = true; }
+  inline void forceSend() { mqtt_send_flags_ |= MQTT_SEND_MODE | MQTT_SEND_FAN1 | MQTT_SEND_FAN2; sendMQTT(); }
 
   /// Starts speed calibration.
   void speedCalibrationStart();
@@ -131,6 +131,9 @@ private:
 
   virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) override;
 
+  /// Send requested messages, if any.
+  void sendMQTT();
+
   Fan fan1_;   ///< Control for fan 1 (intake).
   Fan fan2_;   ///< Control for fan 2 (exhaust).
 
@@ -147,11 +150,15 @@ private:
 
   KWLPersistentConfig& persistent_config_;      ///< Configuration.
 
-  bool force_send_mode_ = false;    ///< Force sending mode on the next run.
-  bool force_send_speed_ = false;   ///< Force sending speed on the next run.
+  static constexpr uint8_t MQTT_SEND_MODE = 1;
+  static constexpr uint8_t MQTT_SEND_FAN1 = 2;
+  static constexpr uint8_t MQTT_SEND_FAN2 = 4;
+
   int send_mode_countdown_ = 0;     ///< Countdown until sending mode (in run intervals).
   int send_fan_countdown_ = 0;      ///< Countdown until sending fan state (in run intervals).
   int send_fan_oversampling_countdown_ = 0; ///< Countdown until sending fan state unconditionally.
   int last_sent_fan1_speed_ = 0;    ///< Last reported fan 1 speed.
   int last_sent_fan2_speed_ = 0;    ///< Last reported fan 2 speed.
+  PublishTask mqtt_publish_;        ///< Task to reliably send values.
+  uint8_t mqtt_send_flags_ = 0;     ///< Pending stuff to send.
 };

@@ -60,10 +60,11 @@ private:
   virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) override;
 
   /// Send program data via MQTT.
-  void mqttSendProgram(unsigned index);
+  bool mqttSendProgram(unsigned index);
 
   KWLPersistentConfig& config_; ///< Persistent configuration.
   FanControl& fan_;             ///< Fan control to set mode.
   const MicroNTP& ntp_;         ///< Time service.
   int8_t current_program_ = -1; ///< Index of currently-running program.
+  PublishTask publisher_;       ///< Task to publish all programs.
 };

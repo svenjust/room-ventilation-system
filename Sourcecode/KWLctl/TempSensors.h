@@ -107,7 +107,7 @@ public:
   inline int getEfficiency() const { return efficiency_; }
 
   /// Force sending temperature messages via MQTT independent of timing.
-  inline void forceSend() { force_send_ = true; }
+  inline void forceSend() { sendMQTT(); }
 
 private:
   void run();
@@ -122,10 +122,10 @@ private:
   TempSensor t4_; ///< Temperature of exhaust air being pushed to the outside.
   int efficiency_ = 0;        ///< Current efficiency of heat exchange.
   uint8_t next_sensor_ = 0;   ///< Next sensor to talk to.
-  bool force_send_ = true;    ///< Force sending temperatures via MQTT (initially true to send first measurement).
   uint8_t mqtt_ticks_ = 0;    ///< MQTT seconds ticks.
   double last_mqtt_t1_ = INVALID; ///< Last T1 temperature sent via MQTT.
   double last_mqtt_t2_ = INVALID; ///< Last T2 temperature sent via MQTT.
   double last_mqtt_t3_ = INVALID; ///< Last T3 temperature sent via MQTT.
   double last_mqtt_t4_ = INVALID; ///< Last T4 temperature sent via MQTT.
+  PublishTask publish_task_;      ///< Task to publish measurements.
 };

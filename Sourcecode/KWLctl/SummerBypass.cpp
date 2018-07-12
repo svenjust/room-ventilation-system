@@ -48,8 +48,7 @@ SummerBypass::SummerBypass(KWLPersistentConfig& config, const TempSensors& temp)
   temp_outside_min_(KWLConfig::StandardBypassTempAussenluftMin),
   temp_diff_min_(KWLConfig::StandardBypassHysteresisTemp),
   manual_flap_setpoint_(SummerBypassFlapState(KWLConfig::StandardBypassManualSetpoint)),  // Standardstellung Bypass
-  hysteresis_minutes_(KWLConfig::StandardBypassHystereseMinutes),
-  mqtt_send_all_(KWLConfig::RetainBypassConfigState)
+  hysteresis_minutes_(KWLConfig::StandardBypassHystereseMinutes)
 {}
 
 void SummerBypass::begin(Print& initTrace)
@@ -68,6 +67,15 @@ void SummerBypass::begin(Print& initTrace)
   rel_bypass_direction_.off();
 
   runRepeated(INTERVAL_BYPASS_CHECK);
+
+  if (KWLConfig::RetainBypassConfigState)
+    sendMQTT(true);
+}
+
+void SummerBypass::forceSend(bool all_values)
+{
+  mqtt_countdown_ = 0;
+  sendMQTT(all_values);
 }
 
 const __FlashStringHelper* SummerBypass::toString(SummerBypassFlapState state)
@@ -103,7 +111,7 @@ void SummerBypass::run()
       Serial.print(F(" motor running; flap going to "));
     }
     Serial.println(toString(flap_setpoint_));
-    sendMqtt();
+    sendMQTT();
     setInterval(INTERVAL_BYPASS_CHECK);
     return;
   }
@@ -129,11 +137,11 @@ void SummerBypass::run()
         Serial.print(F(" T1/T3 SENSOR ERROR"));
     }
     if (KWLConfig::serialDebugSummerbypass) {
-      Serial.print(F(" auto check T1_outside="));
+      Serial.print(F(" auto check T1="));
       Serial.print(temp_.get_t1_outside());
       Serial.print('>');
       Serial.print(temp_outside_min_);
-      Serial.print(F(" && T3_outlet="));
+      Serial.print(F(" && T3="));
       Serial.print(temp_.get_t3_outlet());
       Serial.print('>');
       Serial.print(temp_outlet_min_);
@@ -179,7 +187,9 @@ void SummerBypass::run()
       Serial.println(F(" no change"));
     setInterval(INTERVAL_BYPASS_CHECK);
   }
-  sendMqtt();
+  if (--mqtt_countdown_ <= 0 || mqtt_state_ != state_) {
+    sendMQTT();
+  }
 }
 
 bool SummerBypass::mqttReceiveMsg(const StringView& topic, const StringView& s)
@@ -249,30 +259,25 @@ void SummerBypass::startMoveFlap()
   bypass_motor_running_ = true;
 }
 
-void SummerBypass::sendMqtt()
+void SummerBypass::sendMQTT(bool all_values)
 {
-  if (--mqtt_countdown_ <= 0 || mqtt_state_ != state_) {
-    mqtt_state_ = state_;
-    if (MessageHandler::publish(MQTTTopic::KwlBypassState, toString(mqtt_state_), KWLConfig::RetainBypassState))
-      mqtt_countdown_ = INTERVAL_MQTT_BYPASS_STATE / INTERVAL_BYPASS_CHECK;
-    else
-      mqtt_countdown_ = 1;  // could not send now, retry next time
-  }
+  mqtt_countdown_ = INTERVAL_MQTT_BYPASS_STATE / INTERVAL_BYPASS_CHECK;
+  mqtt_state_ = state_;
 
-  // Senden der Bypass - Einstellung per Mqtt
-  // Bedingung: a) mqttCmdSendBypassAllValues == true
-  if (mqtt_send_all_) {
-    // TODO handle more intelligently
-    mqtt_send_all_ = false;
-
-    // TODO what about retain here? probably not, since it's on-request
-    if (bypass_mode_ == SummerBypassMode::AUTO) {
-      MessageHandler::publish(MQTTTopic::KwlBypassMode, F("auto"), KWLConfig::RetainBypassConfigState);
-    } else if (bypass_mode_ == SummerBypassMode::USER) {
-      MessageHandler::publish(MQTTTopic::KwlBypassMode, F("manual"), KWLConfig::RetainBypassConfigState);
-    }
-    MessageHandler::publish(MQTTTopic::KwlBypassTempAbluftMin, temp_outlet_min_, KWLConfig::RetainBypassConfigState);
-    MessageHandler::publish(MQTTTopic::KwlBypassTempAussenluftMin, temp_outside_min_, KWLConfig::RetainBypassConfigState);
-    MessageHandler::publish(MQTTTopic::KwlBypassHystereseMinutes, hysteresis_minutes_, KWLConfig::RetainBypassConfigState);
-  }
+  uint8_t bitmask = all_values ? 31 : 1;
+  publish_task_.publish([this, bitmask]() mutable {
+    if (!publish_if(bitmask, uint8_t(1), MQTTTopic::KwlBypassState, toString(mqtt_state_), KWLConfig::RetainBypassState))
+      return false;
+    if (!publish_if(bitmask, uint8_t(2), MQTTTopic::KwlBypassMode,
+                    (bypass_mode_ == SummerBypassMode::AUTO) ? F("auto") : F("manual"),
+                    KWLConfig::RetainBypassConfigState))
+      return false;
+    if (!publish_if(bitmask, uint8_t(4), MQTTTopic::KwlBypassTempAbluftMin, temp_outlet_min_, KWLConfig::RetainBypassConfigState))
+      return false;
+    if (!publish_if(bitmask, uint8_t(8), MQTTTopic::KwlBypassTempAussenluftMin, temp_outside_min_, KWLConfig::RetainBypassConfigState))
+      return false;
+    if (!publish_if(bitmask, uint8_t(16), MQTTTopic::KwlBypassHystereseMinutes, hysteresis_minutes_, KWLConfig::RetainBypassConfigState))
+      return false;
+    return true;
+  });
 }

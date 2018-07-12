@@ -69,7 +69,8 @@ void Antifreeze::begin(Print& /*initTracer*/)
 
   heating_app_comb_use_ = (config_.getHeatingAppCombUse() != 0);
 
-  forceSend();  // will schedule immediate MQTT send, which then starts normal loop
+  runRepeated(INTERVAL_ANTIFREEZE_CHECK);
+  sendMQTT();
 }
 
 void Antifreeze::setHeatingAppCombUse(bool on)
@@ -89,8 +90,7 @@ void Antifreeze::setHeatingAppCombUse(bool on)
 
 void Antifreeze::forceSend()
 {
-  force_send_ = true;
-  runRepeated(1, INTERVAL_ANTIFREEZE_CHECK);
+  sendMQTT();
 }
 
 void Antifreeze::run()
@@ -104,6 +104,7 @@ void Antifreeze::run()
   // Wenn ja, werden die einmaligen Aktionen (Setzen von Variablen) hier ausgeführt.
   // siehe auch "/Docs/Programming/Zustandsänderung Antifreeze.jpg"
   // Die regelmäßigen Aktionen für jedem Status werden in DoActionAntiFreezeState ausgeführt.
+  bool send_mqtt = false;
   switch (antifreeze_state_) {
 
     case AntifreezeState::OFF:
@@ -115,7 +116,7 @@ void Antifreeze::run()
       {
         // Neuer Status: AntifreezeState::PREHEATER
         antifreeze_state_ = AntifreezeState::PREHEATER;
-        force_send_ = true;
+        send_mqtt = true;
 
         // Vorheizer einschalten
         antifreeze_temp_upper_limit_  = EXHAUST_ANTIFREEZE_TEMP_THRESHOLD + hysteresis_temp_delta_;
@@ -132,7 +133,7 @@ void Antifreeze::run()
       if (temp_.get_t4_exhaust() > EXHAUST_ANTIFREEZE_TEMP_THRESHOLD + hysteresis_temp_delta_) {
         // Neuer Status: AntifreezeState::OFF
         antifreeze_state_ = AntifreezeState::OFF;
-        force_send_ = true;
+        send_mqtt = true;
         pid_preheater_.SetMode(MANUAL);
         if (KWLConfig::serialDebugAntifreeze)
           Serial.println(F("Antifreeze: threshold reached; state = OFF"));
@@ -145,7 +146,7 @@ void Antifreeze::run()
         if (heating_app_comb_use_) {
           // Neuer Status: AntifreezeState::FIREPLACE
           antifreeze_state_ =  AntifreezeState::FIREPLACE;
-          force_send_ = true;
+          send_mqtt = true;
           pid_preheater_.SetMode(MANUAL);
           // Zeit speichern
           heating_app_comb_use_antifreeze_start_time_ms_ = millis();
@@ -154,7 +155,7 @@ void Antifreeze::run()
         } else {
           // Neuer Status: AntifreezeState::FAN_OFF
           antifreeze_state_ = AntifreezeState::FAN_OFF;
-          force_send_ = true;
+          send_mqtt = true;
           pid_preheater_.SetMode(MANUAL);
           if (KWLConfig::serialDebugAntifreeze)
             Serial.println(F("Antifreeze: preheater timeout; state = FAN_OFF"));
@@ -166,7 +167,7 @@ void Antifreeze::run()
         if (temp_.get_t4_exhaust() > EXHAUST_ANTIFREEZE_TEMP_THRESHOLD + hysteresis_temp_delta_) {
           // Neuer Status: AntifreezeState::OFF
           antifreeze_state_ = AntifreezeState::OFF;
-          force_send_ = true;
+          send_mqtt = true;
           pid_preheater_.SetMode(MANUAL);
         }
         break;
@@ -176,7 +177,7 @@ void Antifreeze::run()
         if (millis() - heating_app_comb_use_antifreeze_start_time_ms_ > INTERVAL_HEATING_APP_COMB_USE_ANTIFREEZE) {
           // Neuer Status: AntifreezeState::OFF
           antifreeze_state_ = AntifreezeState::OFF;
-          force_send_ = true;
+          send_mqtt = true;
           pid_preheater_.SetMode(MANUAL);
         }
         break;
@@ -190,10 +191,8 @@ void Antifreeze::run()
     Serial.println(uint8_t(antifreeze_state_));
   }
 
-  if (force_send_)
+  if (send_mqtt)
     sendMQTT();
-  else if (!isRepeated()) // safety measure: ensure we'll get called ultimately
-    runRepeated(INTERVAL_ANTIFREEZE_CHECK);
 }
 
 void Antifreeze::setPreheater()
@@ -240,16 +239,18 @@ void Antifreeze::setPreheater()
 
 void Antifreeze::sendMQTT()
 {
-  auto r1 = publish(MQTTTopic::KwlAntifreeze, (antifreeze_state_ != AntifreezeState::OFF) ? F("on") : F("off"), KWLConfig::RetainAntifreezeState);
-  auto r2 = publish(MQTTTopic::KwlHeatingAppCombUse, heating_app_comb_use_ ? F("YES") : F("NO"), KWLConfig::RetainAntifreezeState);
-  if (!r1 || !r2) {
-    // error sending, try later in 100ms
-    force_send_ = true;
-    runRepeated(100000, INTERVAL_ANTIFREEZE_CHECK);
-  } else if (!isRepeated()) {
-    // restart normal scheduling after sending MQTT message
-    runRepeated(INTERVAL_ANTIFREEZE_CHECK);
-  }
+  uint8_t bitmask = 3;
+  mqtt_publish_.publish([this, bitmask]() mutable {
+    if (!publish_if(bitmask, uint8_t(1), MQTTTopic::KwlAntifreeze,
+                    (antifreeze_state_ != AntifreezeState::OFF) ? F("on") : F("off"),
+                    KWLConfig::RetainAntifreezeState))
+      return false;
+    if (!publish_if(bitmask, uint8_t(2), MQTTTopic::KwlHeatingAppCombUse,
+                    heating_app_comb_use_ ? F("YES") : F("NO"),
+                    KWLConfig::RetainAntifreezeState))
+      return false;
+    return true;
+  });
 }
 
 void Antifreeze::doActionAntiFreezeState()

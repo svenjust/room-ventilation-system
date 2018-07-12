@@ -81,7 +81,7 @@ public:
   SummerBypassFlapState getTargetState() const { return flap_setpoint_; }
 
   /// Force sending state via MQTT.
-  void forceSend(bool all_values = false) { mqtt_countdown_ = 0; mqtt_send_all_ = all_values; }
+  void forceSend(bool all_values = false);
 
   /// Format state.
   static const __FlashStringHelper* toString(SummerBypassFlapState state);
@@ -94,7 +94,7 @@ private:
   void startMoveFlap();
 
   /// Send MQTT message upon change or when timer hits.
-  void sendMqtt();
+  void sendMQTT(bool all_values = false);
 
   /// Persistent configuration.
   KWLPersistentConfig& config_;
@@ -127,7 +127,7 @@ private:
   /// How long to wait before potentially changing bypass again.
   unsigned hysteresis_minutes_;
   /// Countdown for MQTT send.
-  int8_t mqtt_countdown_ = 0;  // force initial send state
-  /// Flag whether to send all data.
-  bool mqtt_send_all_;
+  int8_t mqtt_countdown_ = 0;
+  /// Task to publish MQTT values.
+  PublishTask publish_task_;
 };

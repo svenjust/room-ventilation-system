@@ -116,42 +116,33 @@ void FanControl::run()
   }
 
   // publish any measurements, if necessary
-  if (force_send_mode_ || --send_mode_countdown_ <= 0) {
-    if (publish(MQTTTopic::StateKwlMode, ventilation_mode_, KWLConfig::RetainFanMode)) {
-      send_mode_countdown_ = int(MODE_MQTT_INTERVAL / FAN_INTERVAL);
-      force_send_mode_ = false;
-    } else {
-      force_send_mode_ = true;  // retry next time on failure
-    }
+  bool send_mqtt = false;
+  if (--send_mode_countdown_ <= 0) {
+    send_mode_countdown_ = int(MODE_MQTT_INTERVAL / FAN_INTERVAL);
+    mqtt_send_flags_ |= MQTT_SEND_MODE;
+    send_mqtt = true;
   }
-  if (--send_fan_oversampling_countdown_ <= 0)
-    force_send_speed_ = true;
-  if (force_send_speed_ || --send_fan_countdown_ <= 0) {
+  if (--send_fan_oversampling_countdown_ <= 0) {
+    send_fan_oversampling_countdown_ = int(FAN_MQTT_INTERVAL_OVERSAMPLING / FAN_INTERVAL);
+    send_fan_countdown_ = int(FAN_MQTT_INTERVAL / FAN_INTERVAL);
+    mqtt_send_flags_ |= MQTT_SEND_FAN1 | MQTT_SEND_FAN2;
+    send_mqtt = true;
+  }
+  if (--send_fan_countdown_ <= 0) {
     int fan1 = int(fan1_.getSpeed());
     int fan2 = int(fan2_.getSpeed());
-    if (!force_send_speed_) {
-      // check whether we need to send data
-      if (abs(fan1 - last_sent_fan1_speed_) >= MIN_SPEED_DIFF ||
-          abs(fan2 - last_sent_fan2_speed_) >= MIN_SPEED_DIFF) {
-        force_send_speed_ = true;
-      } else {
-        send_fan_countdown_ = int(FAN_MQTT_INTERVAL / FAN_INTERVAL);
-      }
-    }
-    if (force_send_speed_) {
-      // yep, really sending now
-      auto r1 = publish(MQTTTopic::Fan1Speed, fan1, KWLConfig::RetainFanSpeed);
-      auto r2 = publish(MQTTTopic::Fan2Speed, fan2, KWLConfig::RetainFanSpeed);
-      last_sent_fan1_speed_ = fan1;
-      last_sent_fan2_speed_ = fan2;
-      if (r1 && r2) {
-        // succeeded
-        force_send_speed_ = false;
-        send_fan_countdown_ = int(FAN_MQTT_INTERVAL / FAN_INTERVAL);
-        send_fan_oversampling_countdown_ = int(FAN_MQTT_INTERVAL_OVERSAMPLING / FAN_INTERVAL);
-      } // else force send stays set and will retry next time
+    // check whether we need to send data
+    if (abs(fan1 - last_sent_fan1_speed_) >= MIN_SPEED_DIFF ||
+        abs(fan2 - last_sent_fan2_speed_) >= MIN_SPEED_DIFF) {
+      send_fan_oversampling_countdown_ = int(FAN_MQTT_INTERVAL_OVERSAMPLING / FAN_INTERVAL);
+      send_fan_countdown_ = int(FAN_MQTT_INTERVAL / FAN_INTERVAL);
+      mqtt_send_flags_ |= MQTT_SEND_FAN1 | MQTT_SEND_FAN2;
+      send_mqtt = true;
     }
   }
+
+  if (send_mqtt)
+    sendMQTT();
 }
 
 void FanControl::speedUpdate()
@@ -292,8 +283,7 @@ bool FanControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
     if (s == F("YES"))
       speedCalibrationStart();
   } else if (topic == MQTTTopic::CmdGetSpeed) {
-    forceSendSpeed();
-    forceSendMode();
+    forceSend();
 #ifdef DEBUG
   } else if (topic == MQTTTopic::KwlDebugsetFan1Getvalues) {
     if (s == F("on"))
@@ -311,7 +301,6 @@ bool FanControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
       int value = int(s.toInt());
       fan1_.debugSet(ventilation_mode_, value);
       speedUpdate();
-      forceSendSpeed();
     }
   } else if (topic == MQTTTopic::KwlDebugsetFan2PWM) {
     // update PWM value for the current state
@@ -319,7 +308,6 @@ bool FanControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
       int value = int(s.toInt());
       fan2_.debugSet(ventilation_mode_, value);
       speedUpdate();
-      forceSendSpeed();
     }
   } else if (topic == MQTTTopic::KwlDebugsetFanPWMStore) {
     // store calibration data in EEPROM
@@ -329,4 +317,22 @@ bool FanControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
     return false;
   }
   return true;
+}
+
+void FanControl::sendMQTT()
+{
+  int fan1 = int(fan1_.getSpeed());
+  int fan2 = int(fan2_.getSpeed());
+  last_sent_fan1_speed_ = fan1;
+  last_sent_fan2_speed_ = fan2;
+  auto mode = ventilation_mode_;
+  mqtt_publish_.publish([this, fan1, fan2, mode]() {
+    if (!publish_if(mqtt_send_flags_, MQTT_SEND_MODE, MQTTTopic::StateKwlMode, mode, KWLConfig::RetainFanMode))
+      return false;
+    if (!publish_if(mqtt_send_flags_, MQTT_SEND_FAN1, MQTTTopic::Fan1Speed, fan1, KWLConfig::RetainFanSpeed))
+      return false;
+    if (!publish_if(mqtt_send_flags_, MQTT_SEND_FAN2, MQTTTopic::Fan2Speed, fan2, KWLConfig::RetainFanSpeed))
+      return false;
+    return true;  // all done
+  });
 }

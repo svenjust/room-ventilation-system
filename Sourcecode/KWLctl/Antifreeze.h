@@ -103,6 +103,6 @@ private:
   unsigned long heating_app_comb_use_antifreeze_start_time_ms_ = 0;
   PID pid_preheater_;
   bool heating_app_comb_use_; ///< Flag whether we are using the ventilation system combined with heating appliance.
-  bool force_send_ = true;    ///< Force sending MQTT messages (initially true to send initial state).
+  PublishTask mqtt_publish_;
 };
 

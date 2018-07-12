@@ -77,7 +77,7 @@ bool NetworkClient::mqttConnect()
     // subscribe
     subscribed_command_ = mqtt_client_.subscribe(MQTTTopic::Command.load());
     subscribed_debug_ = mqtt_client_.subscribe(MQTTTopic::CommandDebug.load());
-    runOnce(1); // next run should send heartbeat
+    runRepeated(1, MQTT_HEARTBEAT_PERIOD); // next run should send heartbeat
   }
   last_mqtt_reconnect_attempt_time_ = micros();
   Serial.print(F("MQTT connect end at "));
@@ -87,6 +87,7 @@ bool NetworkClient::mqttConnect()
     return true;
   } else {
     Serial.println(F(" [failed]"));
+    cancel();
     return false;
   }
 }
@@ -99,6 +100,7 @@ void NetworkClient::poll()
     if (Ethernet.localIP()[0] == 0) {
       Serial.println(F("LAN disconnected, attempting to connect"));
       lan_ok_ = false;
+      cancel();
       initEthernet(); // nothing more to do now
       last_lan_reconnect_attempt_time_ = current_time;
       return;
@@ -125,6 +127,7 @@ void NetworkClient::poll()
   if (mqtt_ok_) {
     if (!mqtt_client_.connected()) {
       Serial.println(F("MQTT disconnected, attempting to connect"));
+      cancel();
       mqtt_ok_ = mqttConnect();
       if (!mqtt_ok_)
         return; // couldn't connect now, cannot continue
@@ -157,9 +160,5 @@ void NetworkClient::poll()
 void NetworkClient::run()
 {
   // once connected or after timeout, publish an announcement
-  if (!MessageHandler::publish(MQTTTopic::Heartbeat, F("online"), true)) {
-    runOnce(100000);  // try again in 100ms
-  } else if (!isRepeated()) {
-    runRepeated(MQTT_HEARTBEAT_PERIOD);
-  }
+  publish_task_.publish(MQTTTopic::Heartbeat, F("online"), true);
 }
