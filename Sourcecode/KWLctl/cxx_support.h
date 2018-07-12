@@ -61,3 +61,8 @@ using index_sequence = integer_sequence<unsigned, Ints...>;
 template<unsigned N>
 using make_index_sequence = make_integer_sequence<unsigned, N>;
 
+inline void *operator new(unsigned /*size*/, void *ptr)
+{
+    return ptr;
+}
+

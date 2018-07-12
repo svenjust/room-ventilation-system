@@ -25,7 +25,27 @@
 #include <PubSubClient.h>
 #include <stdlib.h>
 
+PublishTask* PublishTask::s_first_task_ = nullptr;
 MessageHandler* MessageHandler::s_first_handler = nullptr;
+
+PublishTask::PublishTask() :
+  next_(s_first_task_)
+{
+  s_first_task_ = this;
+}
+
+void PublishTask::loop()
+{
+  auto cur = s_first_task_;
+  while (cur) {
+    if (cur->invoker_) {
+      auto res = cur->invoker_(cur->closure_space_);
+      if (res)
+        cur->invoker_ = nullptr;  // sent successfully
+    }
+    cur = cur->next_;
+  }
+}
 
 MessageHandler::MessageHandler() : next_(s_first_handler)
 {
@@ -76,8 +96,8 @@ bool MessageHandler::publish(const char* topic, unsigned long payload, bool reta
 
 bool MessageHandler::publish(const char* topic, double payload, unsigned char precision, bool retained)
 {
-  char buffer[16];
-  dtostrf(payload, sizeof(buffer) - 1, precision, buffer);
+  char buffer[32];
+  dtostrf(payload, 1, precision, buffer);
   return publish(topic, buffer, retained);
 }
 

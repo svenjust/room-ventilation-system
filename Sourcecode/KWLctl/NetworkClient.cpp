@@ -150,6 +150,8 @@ void NetworkClient::poll()
 
   // now MQTT messages can be received
   mqtt_client_.loop();
+  // ...and send back anything still in queue
+  PublishTask::loop();
 }
 
 void NetworkClient::run()
