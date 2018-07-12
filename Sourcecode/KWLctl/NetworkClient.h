@@ -31,6 +31,9 @@
 #include <Ethernet.h>
 #include <PubSubClient.h>
 
+class MicroNTP;
+class KWLPersistentConfig;
+
 /*!
  * @brief Client to communicate with MQTT protocol over Ethernet.
  */
@@ -41,7 +44,7 @@ public:
   NetworkClient& operator=(const NetworkClient&) = delete;
 
   /// Construct network client.
-  NetworkClient();
+  NetworkClient(KWLPersistentConfig& config, MicroNTP& ntp);
 
   /// Start network client.
   void begin(Print& initTracer);
@@ -76,6 +79,10 @@ private:
   EthernetClient eth_client_;
   /// MQTT client.
   PubSubClient mqtt_client_;
+  /// Persistent configuration.
+  KWLPersistentConfig& config_;
+  /// NTP client to report online as timestamp.
+  MicroNTP& ntp_;
   /// Last time when LAN started a reconnect attempt.
   unsigned long last_mqtt_reconnect_attempt_time_ = 0;
   /// Last time when MQTT started a reconnect attempt.

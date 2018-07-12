@@ -164,10 +164,11 @@ class KWLControl : private FanControl::SetSpeedCallback, private MessageHandler
 {
 public:
   KWLControl() :
+    ntp_(udp_, KWLConfig::NetworkNTPServer),
+    network_client_(persistent_config_, ntp_),
     fan_control_(persistent_config_, this),
     bypass_(persistent_config_, temp_sensors_),
     antifreeze_(fan_control_, temp_sensors_, persistent_config_),
-    ntp_(udp_, KWLConfig::NetworkNTPServer),
     program_manager_(persistent_config_, fan_control_, ntp_)
   {}
 
@@ -265,6 +266,10 @@ private:
 
   /// Persistent configuration.
   KWLPersistentConfig persistent_config_;
+  /// UDP handler for NTP.
+  EthernetUDP udp_;
+  /// NTP protocol.
+  MicroNTP ntp_;
   /// Global MQTT client.
   NetworkClient network_client_;
   /// Set of temperature sensors
@@ -275,10 +280,6 @@ private:
   SummerBypass bypass_;
   /// Antifreeze/preheater control.
   Antifreeze antifreeze_;
-  /// UDP handler for NTP.
-  EthernetUDP udp_;
-  /// NTP protocol.
-  MicroNTP ntp_;  // will be moved to timed program handling routines and made a task
   /// Program manager to set daily/weekly programs.
   ProgramManager program_manager_;
   /// Task to send all scheduler infos reliably.

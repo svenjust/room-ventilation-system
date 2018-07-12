@@ -21,7 +21,9 @@
 #include "NetworkClient.h"
 #include "MessageHandler.h"
 #include "KWLConfig.h"
+#include "KWLPersistentConfig.h"
 #include "MQTTTopic.hpp"
+#include "MicroNTP.h"
 
 #include <Ethernet.h>
 #include <PubSubClient.h>
@@ -37,9 +39,11 @@ static constexpr unsigned long MQTT_HEARTBEAT_PERIOD = KWLConfig::HeartbeatPerio
 
 PubSubClient* NetworkClient::s_client_ = nullptr;
 
-NetworkClient::NetworkClient() :
+NetworkClient::NetworkClient(KWLPersistentConfig& config, MicroNTP& ntp) :
   Task(F("NetworkClient"), *this, &NetworkClient::run, &NetworkClient::poll),
-  mqtt_client_(eth_client_)
+  mqtt_client_(eth_client_),
+  config_(config),
+  ntp_(ntp)
 {}
 
 void NetworkClient::begin(Print& initTracer)
@@ -160,5 +164,15 @@ void NetworkClient::poll()
 void NetworkClient::run()
 {
   // once connected or after timeout, publish an announcement
-  publish_task_.publish(MQTTTopic::Heartbeat, F("online"), true);
+  if (KWLConfig::HeartbeatTimestamp && ntp_.hasTime()) {
+    auto time = ntp_.currentTimeHMS(config_.getTimezoneMin() * 60, config_.getDST());
+    publish_task_.publish([time](){
+      char buffer[9];
+      time.writeHMS(buffer);
+      buffer[8] = 0;
+      return MessageHandler::publish(MQTTTopic::Heartbeat, buffer, true);
+    });
+  } else {
+    publish_task_.publish(MQTTTopic::Heartbeat, F("online"), true);
+  }
 }

@@ -128,29 +128,6 @@ public:
   /// Passwort für den MQTT Broker.
   static constexpr const char* NetworkMQTTPassword = nullptr;
 
-  // MQTT retain settings:
-
-  /// Default for retain last measurements reading in the MQTT broker.
-  static constexpr bool RetainMeasurements = true;
-
-  /// Retain last temperature reading in the MQTT broker.
-  static const bool RetainTemperature;
-
-  /// Retain last fan mode reading in the MQTT broker.
-  static const bool RetainFanMode;
-
-  /// Retain last fan speed reading in the MQTT broker.
-  static const bool RetainFanSpeed;
-
-  /// Retain last antifreeze state reading in the MQTT broker.
-  static const bool RetainAntifreezeState;
-
-  /// Retain last bypass state reading in the MQTT broker.
-  static const bool RetainBypassState;
-
-  /// Retain last bypass configuration state reading in the MQTT broker.
-  static const bool RetainBypassConfigState;
-
   // *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N **************************************************
 
 
@@ -294,12 +271,36 @@ public:
   /// Period for sending heartbeat messages.
   static constexpr uint8_t HeartbeatPeriod = 30;
 
+  /// Send timestamp as heartbeat.
+  static constexpr bool HeartbeatTimestamp = false;
+
   /// At most how often to send temperature messages via MQTT, in seconds.
   static constexpr uint8_t MinIntervalMqttTemp = 5;
   /// At least how often to send temperature messages via MQTT, in seconds.
   static constexpr uint8_t MaxIntervalMqttTemp = 60;
   /// Minimum change in temperature to report per MQTT.
   static constexpr double MinDiffMqttTemp = 0.1;
+
+  /// Default for retain last measurements reading in the MQTT broker.
+  static constexpr bool RetainMeasurements = true;
+
+  /// Retain last temperature reading in the MQTT broker.
+  static const bool RetainTemperature;
+
+  /// Retain last fan mode reading in the MQTT broker.
+  static const bool RetainFanMode;
+
+  /// Retain last fan speed reading in the MQTT broker.
+  static const bool RetainFanSpeed;
+
+  /// Retain last antifreeze state reading in the MQTT broker.
+  static const bool RetainAntifreezeState;
+
+  /// Retain last bypass state reading in the MQTT broker.
+  static const bool RetainBypassState;
+
+  /// Retain last bypass configuration state reading in the MQTT broker.
+  static const bool RetainBypassConfigState;
 
 
   // ************************************** E N D E   M Q T T   R E P O R T I N G ***********************************************************************
