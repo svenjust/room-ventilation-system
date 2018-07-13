@@ -88,8 +88,8 @@ int           LastDisplaySpeedTachoFan1   = 0;
 int           LastDisplaySpeedTachoFan2   = 0;
 int           LastDisplaykwlMode          = 0;
 int           LastEffiencyKwl             = 0;
-String        LastErrorText               = "";
-String        LastInfoText                = "";
+unsigned      LastErrorBits               = 0;
+unsigned      LastInfoBits                = 0;
 double LastDisplayT1 = 0, LastDisplayT2 = 0, LastDisplayT3 = 0, LastDisplayT4 = 0;
 double LastDisplayDHT1Temp = 0, LastDisplayDHT2Temp = 0, LastDisplayMHZ14_CO2_ppm = 0, LastDisplayTGS2600 = 0;
 
@@ -834,34 +834,39 @@ void loopDisplayUpdate() {
         break;
     }
 
-    Serial.println(ErrorText);
-    if (ErrorText.length() > 0 ) {
-      if (ErrorText != LastErrorText || updateDisplayNow) {
+    unsigned errors = kwlControl.getErrors();
+    unsigned infos = kwlControl.getInfos();
+    if (errors != 0 ) {
+      if (errors != LastErrorBits || updateDisplayNow) {
         // Neuer Fehler
         tft.fillRect(0, 300, 480, 21, colErrorBackColor );
         tft.setTextColor(colErrorFontColor );
         tft.setFont(&FreeSans9pt7b);  // Kleiner Font
         tft.setCursor(18, 301 + baselineSmall);
-        tft.print(ErrorText);
-        LastErrorText = ErrorText;
+        char buffer[80];
+        kwlControl.errorsToString(buffer, sizeof(buffer));
+        tft.print(buffer);
+        LastErrorBits = errors;
         tft.setFont(&FreeSans12pt7b);  // Mittlerer Font
       }
-    } else if (InfoText.length() > 0 ) {
-      if (InfoText != LastInfoText || updateDisplayNow) {
+    } else if (infos != 0) {
+      if (infos != LastInfoBits || updateDisplayNow) {
         // Neuer Fehler
         tft.fillRect(0, 300, 480, 21, colInfoBackColor );
         tft.setTextColor(colInfoFontColor );
         tft.setFont(&FreeSans9pt7b);  // Kleiner Font
         tft.setCursor(18, 301 + baselineSmall);
-        tft.print(InfoText);
-        LastInfoText = InfoText;
+        char buffer[80];
+        kwlControl.infosToString(buffer, sizeof(buffer));
+        tft.print(buffer);
+        LastInfoBits = infos;
         tft.setFont(&FreeSans12pt7b);  // Mittlerer Font
       }
     }
-    else if (ErrorText.length() == 0 && InfoText.length() == 0) {
+    else if (errors == 0 && infos == 0) {
       tft.fillRect(0, 300, 480, 20, colBackColor );
-      LastErrorText = "";
-      LastInfoText = "";
+      LastErrorBits = 0;
+      LastInfoBits = 0;
     }
     updateDisplayNow = false;
     previousMillisDisplayUpdate = currentMillis;

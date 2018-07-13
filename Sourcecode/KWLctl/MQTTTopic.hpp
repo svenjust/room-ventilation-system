@@ -58,6 +58,7 @@ namespace MQTTTopic
   constexpr auto CmdGetProgram              = makeFlashStringLiteral("d15/set/kwl/getProgram");
 
   constexpr auto Heartbeat                  = makeFlashStringLiteral("d15/state/kwl/heartbeat");
+  constexpr auto StatusBits                 = makeFlashStringLiteral("d15/state/kwl/statusbits");
   constexpr auto Fan1Speed                  = makeFlashStringLiteral("d15/state/kwl/fan1/speed");
   constexpr auto Fan2Speed                  = makeFlashStringLiteral("d15/state/kwl/fan2/speed");
   constexpr auto KwlOnline                  = makeFlashStringLiteral("d15/state/kwl/heartbeat");

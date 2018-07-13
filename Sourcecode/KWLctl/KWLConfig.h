@@ -302,6 +302,8 @@ public:
   /// Retain last bypass configuration state reading in the MQTT broker.
   static const bool RetainBypassConfigState;
 
+  /// Retain last status bits readings in the MQTT broker.
+  static const bool RetainStatusBits;
 
   // ************************************** E N D E   M Q T T   R E P O R T I N G ***********************************************************************
 
@@ -341,6 +343,8 @@ template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainBypassState = FinalConfig::RetainMeasurements;
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainBypassConfigState = FinalConfig::RetainMeasurements;
+template<typename FinalConfig>
+const bool KWLDefaultConfig<FinalConfig>::RetainStatusBits = FinalConfig::RetainMeasurements;
 
 /*!
  * @brief Helper macro to add configuration for simple parameters in UserConfig.h.

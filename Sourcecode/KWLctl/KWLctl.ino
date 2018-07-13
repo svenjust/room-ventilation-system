@@ -127,11 +127,7 @@ boolean mqttCmdSendMHZ14                       = false;
 boolean mqttCmdSendMode                        = false;
 boolean mqttCmdSendConfig                      = false;
 
-char   TEMPChar[10];            // Hilfsvariable zu Konvertierung
 char   buffer[7];               // the ASCII of the integer will be stored in this char array
-String TEMPAsString;            // Ausgelesene Wert als String
-String ErrorText;               // Textvariable für Fehlermeldung
-String InfoText;                // Textvariable für Infomeldung
 
 
 // Definitionen für das Scheduling
@@ -144,7 +140,6 @@ unsigned long intervalMqttTemp               = 5000;
 unsigned long intervalMqttMHZ14              = 60000;
 unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minuten
 unsigned long intervalMqttMHZ14Oversampling  = 300000; // 5 * 60 * 1000; 5 Minuten
-unsigned long previousMillisCheckForErrors        = 0;
 unsigned long previousMillisDHTRead               = 0;
 unsigned long previousMillisMHZ14Read             = 0;
 unsigned long previousMillisTGS2600Read           = 0;
@@ -160,10 +155,37 @@ unsigned long currentMillis                       = 0;
 
 
 /// Class comprising all modules for the control of the ventilation system.
-class KWLControl : private FanControl::SetSpeedCallback, private MessageHandler
+class KWLControl : private FanControl::SetSpeedCallback, private MessageHandler, private Task
 {
 public:
+  /// Fan 1 is not working.
+  static constexpr unsigned ERROR_BIT_FAN1    = 0x0001;
+  /// Fan 2 is not working.
+  static constexpr unsigned ERROR_BIT_FAN2    = 0x0002;
+  /// T1 sensor is not working.
+  static constexpr unsigned ERROR_BIT_T1      = 0x0010;
+  /// T2 sensor is not working.
+  static constexpr unsigned ERROR_BIT_T2      = 0x0020;
+  /// T3 sensor is not working.
+  static constexpr unsigned ERROR_BIT_T3      = 0x0040;
+  /// T4 sensor is not working.
+  static constexpr unsigned ERROR_BIT_T4      = 0x0080;
+
+  /// Mask to extract information type from info bits.
+  static constexpr unsigned INFO_TYPE_MASK    = 0xff00;
+  /// Mask to extract information value from info bits.
+  static constexpr unsigned INFO_VALUE_MASK   = 0x00ff;
+  /// Calibration in progress, value == calibration mode.
+  static constexpr unsigned INFO_CALIBRATION  = 0x0100;
+  /// Preheater in use, value == strength in %.
+  static constexpr unsigned INFO_PREHEATER    = 0x0200;
+  /// Antifreeze in use, fan is off, value == 0 normal, 1 == fireplace (both off).
+  static constexpr unsigned INFO_ANTIFREEZE   = 0x0300;
+  /// Bypass is opening or closing, value == 0 for closing, 1 for opening.
+  static constexpr unsigned INFO_BYPASS       = 0x0400;
+
   KWLControl() :
+    Task(F("KWLControl"), *this, &KWLControl::run, &KWLControl::poll),
     ntp_(udp_, KWLConfig::NetworkNTPServer),
     network_client_(persistent_config_, ntp_),
     fan_control_(persistent_config_, this),
@@ -182,6 +204,9 @@ public:
     antifreeze_.begin(initTracer);
     ntp_.begin();
     program_manager_.begin();
+
+    // run error check loop every second, but give some time to initialize first
+    runRepeated(8000000, 1000000);
   }
 
   /// Get persistent configuration.
@@ -204,6 +229,86 @@ public:
 
   /// Get NTP client.
   MicroNTP& getNTP() { return ntp_; }
+
+  /// Get set of ERROR_BIT_* bits to describe any error situations.
+  unsigned getErrors() const { return errors_; }
+
+  /*!
+   * @brief Materialize error message to the provided buffer.
+   *
+   * @param buffer,size buffer where to materialize the message.
+   */
+  void errorsToString(char* buffer, size_t size) {
+    buffer[0] = 0;
+    if ((errors_ & (ERROR_BIT_FAN1 | ERROR_BIT_FAN2)) == (ERROR_BIT_FAN1 | ERROR_BIT_FAN2))
+      strlcpy(buffer, FL("Beide Luefter ausgefallen"), size);
+    else if (errors_ & ERROR_BIT_FAN1) {
+      strlcpy(buffer, FL("Zuluftluefter ausgefallen"), size);
+    }
+    else if (errors_ & ERROR_BIT_FAN2) {
+      strlcpy(buffer, FL("Abluftluefter ausgefallen"), size);
+    }
+
+    if (errors_ & (ERROR_BIT_T1 | ERROR_BIT_T2 | ERROR_BIT_T3 | ERROR_BIT_T4)) {
+      if (errors_ & (ERROR_BIT_FAN1 | ERROR_BIT_FAN2))
+        strlcat(buffer, FL("; "), size);
+      strlcat(buffer, FL("Temperatursensor(en) ausgefallen:"), size);
+      if (errors_ & ERROR_BIT_T1) strlcat(buffer, FL(" T1"), size);
+      if (errors_ & ERROR_BIT_T2) strlcat(buffer, FL(" T2"), size);
+      if (errors_ & ERROR_BIT_T3) strlcat(buffer, FL(" T3"), size);
+      if (errors_ & ERROR_BIT_T4) strlcat(buffer, FL(" T4"), size);
+    }
+    buffer[size - 1] = 0;
+  }
+
+  /// Get set of INFO_* status to describe any additional information.
+  unsigned getInfos() const { return info_; }
+
+  /*!
+   * @brief Materialize info message to the provided buffer.
+   *
+   * @param buffer,size buffer where to materialize the message.
+   */
+  void infosToString(char* buffer, size_t size) {
+    unsigned value = info_ & INFO_VALUE_MASK;
+    switch (info_ & INFO_TYPE_MASK) {
+    case INFO_CALIBRATION:
+    {
+      char tmp[6];
+      itoa(int(value), tmp, 10);
+      strlcpy(buffer, FL("Luefter werden kalibriert fuer Stufe "), size);
+      strlcat(buffer, tmp, size);
+      strlcat(buffer, FL(". Bitte warten..."), size);
+      break;
+    }
+
+    case INFO_PREHEATER:
+    {
+      char tmp[6];
+      snprintf(tmp, sizeof(tmp), "%u%", value);
+      strlcpy(buffer, FL("Defroster: Vorheizregister eingeschaltet "), size);
+      strlcat(buffer, tmp, size);
+      break;
+    }
+
+    case INFO_ANTIFREEZE:
+      if (value == 0)
+        strlcpy(buffer, FL("Defroster: Zuluftventilator ausgeschaltet!"), size);
+      else
+        strlcpy(buffer, FL("Defroster: Zu- und Abluftventilator AUS! (KAMIN)"), size);
+      break;
+
+    case INFO_BYPASS:
+      if (value == 0)
+        strlcpy(buffer, FL("Sommer-Bypassklappe wird geschlossen."), size);
+      else
+        strlcpy(buffer, FL("Sommer-Bypassklappe wird geoeffnet."), size);
+      break;
+
+    default:
+      buffer[0] = 0;
+    }
+  }
 
 private:
   virtual void fanSpeedSet() override {
@@ -264,6 +369,56 @@ private:
     return true;
   }
 
+  void run()
+  {
+    // In dieser Funktion wird auf verschiedene Fehler getestet und Felherbitmap gesets.
+    // Fehlertext wird auf das Display geschrieben.
+
+    unsigned local_err = 0;
+    if (KWLConfig::StandardKwlModeFactor[fan_control_.getVentilationMode()] > 0.01) {
+      if (fan_control_.getFan1().getSpeed() < 10 && antifreeze_.getState() == AntifreezeState::OFF)
+        local_err |= ERROR_BIT_FAN1;
+      if (fan_control_.getFan2().getSpeed() < 10)
+        local_err |= ERROR_BIT_FAN2;
+    }
+    if (temp_sensors_.get_t1_outside() <= TempSensors::INVALID)
+      local_err |= ERROR_BIT_T1;
+    if (temp_sensors_.get_t2_inlet() <= TempSensors::INVALID)
+      local_err |= ERROR_BIT_T2;
+    if (temp_sensors_.get_t3_outlet() <= TempSensors::INVALID)
+      local_err |= ERROR_BIT_T3;
+    if (temp_sensors_.get_t4_exhaust() <= TempSensors::INVALID)
+      local_err |= ERROR_BIT_T4;
+
+    unsigned local_info = 0;
+    if (fan_control_.getMode() == FanMode::Calibration)
+      local_info = INFO_CALIBRATION | unsigned(fan_control_.getVentilationCalibrationMode());
+    else if (antifreeze_.getState() == AntifreezeState::PREHEATER)
+      local_info = INFO_PREHEATER | unsigned(antifreeze_.getPreheaterState());
+    else if (antifreeze_.getState() == AntifreezeState::FAN_OFF)
+      local_info = INFO_ANTIFREEZE;
+    else if (antifreeze_.getState() == AntifreezeState::FIREPLACE)
+      local_info = INFO_ANTIFREEZE | 1;
+    else if (bypass_.isRunning())
+      local_info = INFO_BYPASS | ((bypass_.getTargetState() == SummerBypassFlapState::OPEN) ? 1 : 0);
+
+    if (errors_ != local_err || info_ != local_info) {
+      // publish status via MQTT
+      error_publish_.publish([local_err, local_info]() {
+        char buffer[11];
+        snprintf(buffer, sizeof(buffer), "0x%04X%04X", local_err, local_info);
+        return publish(MQTTTopic::StatusBits, buffer, KWLConfig::RetainStatusBits);
+      });
+      errors_ = local_err;
+      info_ = local_info;
+    }
+  }
+
+  void poll()
+  {
+    ntp_.loop();
+  }
+
   /// Persistent configuration.
   KWLPersistentConfig persistent_config_;
   /// UDP handler for NTP.
@@ -284,6 +439,12 @@ private:
   ProgramManager program_manager_;
   /// Task to send all scheduler infos reliably.
   PublishTask scheduler_publish_;
+  /// Task to send errors.
+  PublishTask error_publish_;
+  /// Current error state.
+  unsigned errors_ = 0;
+  /// Current info state.
+  unsigned info_ = 0;
 };
 
 KWLControl kwlControl;
@@ -319,77 +480,6 @@ float   TGS2600_VOC   = -1.0;
 
 // Ende Definition
 ///////////////////////////////////////
-
-void loopCheckForErrors() {
-  // In dieser Funktion wird auf verschiedene Fehler getestet und der gravierenste Fehler wird in die Variable ErrorText geschrieben
-  // ErrorText wird auf das Display geschrieben.
-  currentMillis = millis();
-  if (currentMillis - previousMillisCheckForErrors > intervalCheckForErrors) {
-    previousMillisCheckForErrors = currentMillis;
-
-    if (KWLConfig::StandardKwlModeFactor[kwlControl.getFanControl().getVentilationMode()] != 0
-        && kwlControl.getFanControl().getFan1().getSpeed() < 10
-        && kwlControl.getAntifreeze().getState() == AntifreezeState::OFF
-        && kwlControl.getFanControl().getFan2().getSpeed() < 10 ) {
-      ErrorText = "Beide Luefter ausgefallen";
-      return;
-    }
-    else if (KWLConfig::StandardKwlModeFactor[kwlControl.getFanControl().getVentilationMode()] != 0
-             && kwlControl.getFanControl().getFan1().getSpeed() < 10
-             && kwlControl.getAntifreeze().getState() == AntifreezeState::OFF ) {
-      ErrorText = "Zuluftluefter ausgefallen";
-      return;
-    }
-    else if (KWLConfig::StandardKwlModeFactor[kwlControl.getFanControl().getVentilationMode()] != 0
-             && kwlControl.getFanControl().getFan2().getSpeed() < 10 ) {
-      ErrorText = "Abluftluefter ausgefallen";
-      return;
-    }
-    else if (kwlControl.getTempSensors().get_t1_outside() == TempSensors::INVALID
-             || kwlControl.getTempSensors().get_t2_inlet() == TempSensors::INVALID
-             || kwlControl.getTempSensors().get_t3_outlet() == TempSensors::INVALID
-             || kwlControl.getTempSensors().get_t4_exhaust() == TempSensors::INVALID) {
-      ErrorText = "Temperatursensor(en) ausgefallen: ";
-      if (kwlControl.getTempSensors().get_t1_outside() == TempSensors::INVALID) ErrorText += "T1 ";
-      if (kwlControl.getTempSensors().get_t2_inlet() == TempSensors::INVALID) ErrorText += "T2 ";
-      if (kwlControl.getTempSensors().get_t3_outlet() == TempSensors::INVALID) ErrorText += "T3 ";
-      if (kwlControl.getTempSensors().get_t4_exhaust() == TempSensors::INVALID) ErrorText += "T4 ";
-    }
-    else
-    {
-      ErrorText = "";
-    }
-
-    // InfoText
-    if (kwlControl.getFanControl().getMode() == FanMode::Calibration) {
-      InfoText = "Luefter werden kalibriert fuer Stufe ";
-      InfoText += kwlControl.getFanControl().getVentilationCalibrationMode();
-      InfoText += ".   Bitte warten...";
-    }
-    else if (kwlControl.getAntifreeze().getState() == AntifreezeState::PREHEATER) {
-      InfoText = "Defroster: Vorheizregister eingeschaltet ";
-      InfoText += int(kwlControl.getAntifreeze().getPreheaterState());
-      InfoText += "%";
-    }
-    else if (kwlControl.getAntifreeze().getState() == AntifreezeState::FAN_OFF) {
-      InfoText = "Defroster: Zuluftventilator ausgeschaltet!";
-    }
-    else if (kwlControl.getAntifreeze().getState() == AntifreezeState::FIREPLACE) {
-      InfoText = "Defroster: Zu- und Abluftventilator AUS! (KAMIN)";
-    }
-    else if (kwlControl.getBypass().isRunning() == true) {
-      if (kwlControl.getBypass().getTargetState() == SummerBypassFlapState::CLOSED) {
-        InfoText = "Sommer-Bypassklappe wird geschlossen.";
-      } else if (kwlControl.getBypass().getTargetState() == SummerBypassFlapState::OPEN) {
-        InfoText = "Sommer-Bypassklappe wird geoeffnet.";
-      }
-    }
-    else
-    {
-      InfoText = "";
-    }
-  }
-}
 
 /**********************************************************************
   Setup Routinen
@@ -489,14 +579,11 @@ void loop()
   loopDHTRead();
   loopMHZ14Read();
   loopVocRead();
-  loopCheckForErrors();
 
   loopMqttSendDHT();
 
   loopDisplayUpdate();
   loopTouch();
-
-  kwlControl.getNTP().loop();
 }
 // *** LOOP ENDE ***
 
