@@ -153,6 +153,14 @@ unsigned long previous100Millis                   = 0;
 unsigned long previousMillisTemp                  = 0;
 unsigned long currentMillis                       = 0;
 
+// forwards
+void loopDisplayUpdate();
+void loopTouch();
+void loopDHTRead();
+void loopMHZ14Read();
+void loopVocRead();
+void loopMqttSendDHT();
+
 
 /// Class comprising all modules for the control of the ventilation system.
 class KWLControl : private FanControl::SetSpeedCallback, private MessageHandler, private Task
@@ -191,7 +199,10 @@ public:
     fan_control_(persistent_config_, this),
     bypass_(persistent_config_, temp_sensors_),
     antifreeze_(fan_control_, temp_sensors_, persistent_config_),
-    program_manager_(persistent_config_, fan_control_, ntp_)
+    program_manager_(persistent_config_, fan_control_, ntp_),
+    display_update_(F("DisplayUpdate"), *this, &KWLControl::dummy, &KWLControl::displayUpdate),
+    process_touch_(F("ProcessTouch"), *this, &KWLControl::dummy, &KWLControl::processTouch),
+    extra_sensors_(F("ExtraSensors"), *this, &KWLControl::dummy, &KWLControl::extraSensors)
   {}
 
   /// Start the controller.
@@ -419,6 +430,26 @@ private:
     ntp_.loop();
   }
 
+  void displayUpdate() {
+    loopDisplayUpdate();
+  }
+
+  void processTouch() {
+    loopTouch();
+  }
+
+  void extraSensors() {
+    loopDHTRead();
+    loopMHZ14Read();
+    loopVocRead();
+
+    loopMqttSendDHT();
+  }
+
+  void dummy() {
+    // NOP, just to satisfy task reqs
+  }
+
   /// Persistent configuration.
   KWLPersistentConfig persistent_config_;
   /// UDP handler for NTP.
@@ -445,6 +476,12 @@ private:
   unsigned errors_ = 0;
   /// Current info state.
   unsigned info_ = 0;
+  /// Task to update display.
+  Task display_update_;
+  /// Task to process touch input.
+  Task process_touch_;
+  /// Task to process extra sensors.
+  Task extra_sensors_;
 };
 
 KWLControl kwlControl;
@@ -575,15 +612,6 @@ void loop()
 {
   Task::loop();
   //loopWrite100Millis();
-
-  loopDHTRead();
-  loopMHZ14Read();
-  loopVocRead();
-
-  loopMqttSendDHT();
-
-  loopDisplayUpdate();
-  loopTouch();
 }
 // *** LOOP ENDE ***
 
