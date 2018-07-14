@@ -23,10 +23,8 @@
 #include "KWLConfig.h"
 #include "KWLPersistentConfig.h"
 #include "MQTTTopic.hpp"
-#include "MicroNTP.h"
 
-#include <Ethernet.h>
-#include <PubSubClient.h>
+#include <MicroNTP.h>
 
 /// Interval for checking LAN network OK (10 seconds).
 static constexpr unsigned long LAN_CHECK_INTERVAL = 10000000;

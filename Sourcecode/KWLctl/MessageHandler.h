@@ -24,10 +24,8 @@
 #pragma once
 
 #include "FlashStringLiteral.h"
-#include "cxx_support.h"
 
 class StringView;
-class __FlashStringHelper;
 
 /*!
  * @brief Task used to publish MQTT messages asynchronously.

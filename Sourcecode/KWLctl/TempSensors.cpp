@@ -23,9 +23,6 @@
 
 #include "KWLConfig.h"
 
-#include <PubSubClient.h>
-#include <Arduino.h>
-
 /// Precision of temperature reading (9-12 bits; 12 bits is 0.0625C, 9 bits is 0.5C).
 static constexpr uint8_t TEMPERATURE_PRECISION = 12;
 /// Scheduling interval for temperature sensor query (1s).

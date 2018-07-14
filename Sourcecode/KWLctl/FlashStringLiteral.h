@@ -96,8 +96,9 @@ private:
  * so it can be used directly in routines expecting a string in Flash.
  * Using FlashStringLiteral::load() method, it is possible to create a temporary
  * on stack containing the string in RAM, so it can be passed as
- * <tt>const char*</tt> as necessary. Just pay attention to lifecycle of the
- * temporary.
+ * <tt>const char*</tt> as necessary. Just pay attention to the lifecycle of
+ * the temporary (destroyed at statement end, i.e., the returned buffer is
+ * only valid until statement end).
  */
 template<unsigned len>
 constexpr FlashStringLiteral<len> makeFlashStringLiteral(const char (&s)[len]) {

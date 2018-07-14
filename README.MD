@@ -20,3 +20,13 @@ Die Steuerung ist per LAN (W5100) erreichbar. Als Protokoll wird mqtt verwendet.
 Codeteile stammen von:
 - Tachosignal auslesen wie
   https://forum.arduino.cc/index.php?topic=145226.msg1102102#msg1102102
+
+Um das Projekt zu bauen müssen folgende Voraussetzungen erfüllt sein:
+  - Folgende Libraries müssen installiert werden: SPI, EEPROM, PubSubClient,
+    Adafruit_GFX_Library, DHT_sensor_library, PID, Adafruit_TouchScreen,
+    DallasTemperature, Adafruit_Unified_Sensor, MCUFRIEND_kbv, OneWire,
+    Wire, Ethernet
+  - Das Projekt bring eigene Libraries mit. Diese müssen ebenfalls installiert
+    werden, am einfachsten als symbolische Links. Der Skript link_libs.sh
+    linkt die Libraries an die (hoffentlich) richtige Stelle.
+

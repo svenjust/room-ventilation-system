@@ -24,9 +24,9 @@
  */
 #pragma once
 
-#include "PersistentConfiguration.h"
 #include "ProgramData.h"
 
+#include <PersistentConfiguration.h>
 #include <stdint.h>
 
 /// EEPROM configuration version to expect/write.

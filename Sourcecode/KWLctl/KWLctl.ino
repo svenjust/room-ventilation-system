@@ -59,8 +59,10 @@
 #include <Wire.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#include <MultiPrint.h>
+#include <MicroNTP.h>
+#include <EthernetUdp.h>
 
-#include "MultiPrint.h"
 #include "NetworkClient.h"
 #include "Relay.h"
 #include "Task.h"
@@ -73,8 +75,6 @@
 
 #include "KWLConfig.h"
 #include "MQTTTopic.hpp"
-#include "MicroNTP.h"
-#include "EthernetUdp.h"
 
 
 // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
@@ -131,7 +131,6 @@ char   buffer[7];               // the ASCII of the integer will be stored in th
 
 
 // Definitionen für das Scheduling
-unsigned long intervalCheckForErrors         = 1000;
 unsigned long intervalDHTRead                = 10000;
 unsigned long intervalMHZ14Read              = 10000;
 unsigned long intervalTGS2600Read            = 30000;
@@ -309,7 +308,7 @@ public:
     case INFO_PREHEATER:
     {
       char tmp[6];
-      snprintf(tmp, sizeof(tmp), "%u%", value);
+      snprintf(tmp, sizeof(tmp), "%u%%", value);
       strlcpy_P(buffer, PSTR("Defroster: Vorheizregister eingeschaltet "), size);
       strlcat(buffer, tmp, size);
       break;
@@ -629,5 +628,3 @@ void loop()
   //loopWrite100Millis();
 }
 // *** LOOP ENDE ***
-
-
