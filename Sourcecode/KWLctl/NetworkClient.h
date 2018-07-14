@@ -72,6 +72,9 @@ private:
 
   void run();
 
+  /// Maximum size of serial buffer for sending messages over serial port.
+  static constexpr uint8_t SERIAL_BUFFER_SIZE = 128;
+
   /// Static link to the client to be used by MessageHandler to publish messages.
   static PubSubClient* s_client_;
 
@@ -97,4 +100,8 @@ private:
   bool subscribed_debug_ = false;
   /// Task to publish MQTT heartbeat message.
   PublishTask publish_task_;
+  /// Data received over serial port.
+  char serial_data_[SERIAL_BUFFER_SIZE];
+  /// Size of data received so far.
+  uint8_t serial_data_size_ = 0;
 };

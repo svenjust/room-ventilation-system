@@ -100,6 +100,32 @@ bool NetworkClient::mqttConnect()
 
 void NetworkClient::poll()
 {
+  if (Serial.available()) {
+    // there is data on serial port, read command from there
+    char c = char(Serial.read());
+    if (c == 10 || c == 13) {
+      // process command in form <topic> <value>
+      if (serial_data_size_) {
+        serial_data_[serial_data_size_] = 0;
+        auto delim = strchr(serial_data_, ' ');
+        if (!delim) {
+          Serial.println(F("Invalid command, expected \"<topic> <value>\""));
+        } else {
+          *delim++ = 0;
+          while (*delim == ' ' || *delim == '\t')
+            ++delim;
+          MessageHandler::mqttMessageReceived(
+                serial_data_,
+                reinterpret_cast<uint8_t*>(delim),
+                unsigned(serial_data_size_ - (delim - serial_data_)));
+        }
+        serial_data_size_ = 0;
+      }
+    } else if (serial_data_size_ < SERIAL_BUFFER_SIZE - 1) {
+      serial_data_[serial_data_size_++] = c;
+    }
+  }
+
   Ethernet.maintain();
   auto current_time = micros();
   if (lan_ok_) {
