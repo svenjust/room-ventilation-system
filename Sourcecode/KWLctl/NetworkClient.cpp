@@ -74,9 +74,11 @@ bool NetworkClient::mqttConnect()
 {
   Serial.print(F("MQTT connect start at "));
   Serial.println(micros());
-  bool rc = mqtt_client_.connect(FL("arduinoClientKwl"),
+  static constexpr auto NAME = makeFlashStringLiteral("arduinoClientKwl");
+  static constexpr auto WILL_MESSAGE = makeFlashStringLiteral("offline");
+  bool rc = mqtt_client_.connect(NAME.load(),
                                  KWLConfig::NetworkMQTTUsername, KWLConfig::NetworkMQTTPassword,
-                                 MQTTTopic::Heartbeat.load(), 0, true, "offline");  // NOTE: message must be in RAM
+                                 MQTTTopic::Heartbeat.load(), 0, true, WILL_MESSAGE.load());
   if (rc) {
     // subscribe
     subscribed_command_ = mqtt_client_.subscribe(MQTTTopic::Command.load());

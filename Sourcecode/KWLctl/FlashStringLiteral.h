@@ -103,18 +103,3 @@ template<unsigned len>
 constexpr FlashStringLiteral<len> makeFlashStringLiteral(const char (&s)[len]) {
   return FlashStringLiteral<len>(s);
 }
-
-/*!
- * @brief Construct a string literal residing in Flash memory.
- *
- * This is a helper function to create on-demand on-stack character buffer with
- * the data. It can be used whenever a function requires const char* pointer,
- * but you can pass a literal.
- *
- * @param s string to represent
- * @return helper object convertible to const char*.
- */
-template<unsigned len>
-typename FlashStringLiteral<len>::LoadHelper FL(const char (&s)[len]) {
-  return makeFlashStringLiteral(s).load();
-}

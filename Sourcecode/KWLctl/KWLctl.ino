@@ -250,25 +250,38 @@ public:
    * @param buffer,size buffer where to materialize the message.
    */
   void errorsToString(char* buffer, size_t size) {
+    /*
     buffer[0] = 0;
     if ((errors_ & (ERROR_BIT_FAN1 | ERROR_BIT_FAN2)) == (ERROR_BIT_FAN1 | ERROR_BIT_FAN2))
-      strlcpy(buffer, FL("Beide Luefter ausgefallen"), size);
+      strlcpy_P(buffer, PSTR("Beide Luefter ausgefallen"), size);
     else if (errors_ & ERROR_BIT_FAN1) {
-      strlcpy(buffer, FL("Zuluftluefter ausgefallen"), size);
+      strlcpy_P(buffer, PSTR("Zuluftluefter ausgefallen"), size);
     }
     else if (errors_ & ERROR_BIT_FAN2) {
-      strlcpy(buffer, FL("Abluftluefter ausgefallen"), size);
+      strlcpy_P(buffer, PSTR("Abluftluefter ausgefallen"), size);
     }
 
     if (errors_ & (ERROR_BIT_T1 | ERROR_BIT_T2 | ERROR_BIT_T3 | ERROR_BIT_T4)) {
       if (errors_ & (ERROR_BIT_FAN1 | ERROR_BIT_FAN2))
-        strlcat(buffer, FL("; "), size);
-      strlcat(buffer, FL("Temperatursensor(en) ausgefallen:"), size);
-      if (errors_ & ERROR_BIT_T1) strlcat(buffer, FL(" T1"), size);
-      if (errors_ & ERROR_BIT_T2) strlcat(buffer, FL(" T2"), size);
-      if (errors_ & ERROR_BIT_T3) strlcat(buffer, FL(" T3"), size);
-      if (errors_ & ERROR_BIT_T4) strlcat(buffer, FL(" T4"), size);
+        strlcat_P(buffer, PSTR("; "), size);
+      strlcat_P(buffer, PSTR("Temperatursensor(en) ausgefallen:"), size);
+      if (errors_ & ERROR_BIT_T1) strlcat_P(buffer, PSTR(" T1"), size);
+      if (errors_ & ERROR_BIT_T2) strlcat_P(buffer, PSTR(" T2"), size);
+      if (errors_ & ERROR_BIT_T3) strlcat_P(buffer, PSTR(" T3"), size);
+      if (errors_ & ERROR_BIT_T4) strlcat_P(buffer, PSTR(" T4"), size);
     }
+    */
+    if (errors_ == 0) {
+      buffer[0] = 0;
+      return;
+    }
+    strlcpy_P(buffer, PSTR("Ausfall:"), size);
+    if (errors_ & ERROR_BIT_FAN1) strlcat_P(buffer, PSTR(" Zuluftluefter"), size);
+    if (errors_ & ERROR_BIT_FAN2) strlcat_P(buffer, PSTR(" Abluftluefter"), size);
+    if (errors_ & ERROR_BIT_T1) strlcat_P(buffer, PSTR(" T1"), size);
+    if (errors_ & ERROR_BIT_T2) strlcat_P(buffer, PSTR(" T2"), size);
+    if (errors_ & ERROR_BIT_T3) strlcat_P(buffer, PSTR(" T3"), size);
+    if (errors_ & ERROR_BIT_T4) strlcat_P(buffer, PSTR(" T4"), size);
     buffer[size - 1] = 0;
   }
 
@@ -287,9 +300,9 @@ public:
     {
       char tmp[6];
       itoa(int(value), tmp, 10);
-      strlcpy(buffer, FL("Luefter werden kalibriert fuer Stufe "), size);
+      strlcpy_P(buffer, PSTR("Luefter werden kalibriert fuer Stufe "), size);
       strlcat(buffer, tmp, size);
-      strlcat(buffer, FL(". Bitte warten..."), size);
+      strlcat_P(buffer, PSTR(". Bitte warten..."), size);
       break;
     }
 
@@ -297,23 +310,23 @@ public:
     {
       char tmp[6];
       snprintf(tmp, sizeof(tmp), "%u%", value);
-      strlcpy(buffer, FL("Defroster: Vorheizregister eingeschaltet "), size);
+      strlcpy_P(buffer, PSTR("Defroster: Vorheizregister eingeschaltet "), size);
       strlcat(buffer, tmp, size);
       break;
     }
 
     case INFO_ANTIFREEZE:
       if (value == 0)
-        strlcpy(buffer, FL("Defroster: Zuluftventilator ausgeschaltet!"), size);
+        strlcpy_P(buffer, PSTR("Defroster: Zuluftventilator ausgeschaltet!"), size);
       else
-        strlcpy(buffer, FL("Defroster: Zu- und Abluftventilator AUS! (KAMIN)"), size);
+        strlcpy_P(buffer, PSTR("Defroster: Zu- und Abluftventilator AUS! (KAMIN)"), size);
       break;
 
     case INFO_BYPASS:
       if (value == 0)
-        strlcpy(buffer, FL("Sommer-Bypassklappe wird geschlossen."), size);
+        strlcpy_P(buffer, PSTR("Sommer-Bypassklappe wird geschlossen."), size);
       else
-        strlcpy(buffer, FL("Sommer-Bypassklappe wird geoeffnet."), size);
+        strlcpy_P(buffer, PSTR("Sommer-Bypassklappe wird geoeffnet."), size);
       break;
 
     default:
