@@ -551,11 +551,15 @@ void setup()
 
   // *** TFT AUSGABE ***
   SetupTftScreen();
+
   SetupTouch();
   print_header();
 
   // Init tracer which prints to both TFT and Serial.Í
   static MultiPrint initTracer(Serial, tft);
+
+  SetCursor(0, 30);
+  initTracer.println(F("Booting... "));
 
   if (KWLConfig::ControlFansDAC) {
     // TODO Also if using Preheater DAC, but no Fan DAC
@@ -566,8 +570,6 @@ void setup()
   kwlControl.begin(initTracer);
 
   Serial.println();
-  SetCursor(0, 30);
-  initTracer.println(F("Booting... "));
 
   if (kwlControl.getAntifreeze().getHeatingAppCombUse()) {
     initTracer.println(F("...System mit Feuerstaettenbetrieb"));

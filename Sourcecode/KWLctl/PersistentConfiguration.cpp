@@ -20,6 +20,7 @@
 #include "PersistentConfiguration.h"
 
 #include <EEPROM.h>
+#include <Arduino.h>
 #include <Print.h>
 
 /// Lowest possible EEPROM address.
@@ -30,7 +31,7 @@ static constexpr int EEPROM_MAX_ADDR = 1024;
 void PersistentConfigurationBase::begin(Print& out, unsigned int size, unsigned int version, LoadFnc load_defaults, LoadFnc migrate, bool reset)
 {
   out.println(F("Reading EEPROM contents..."));
-  dumpRaw(out);
+  dumpRaw(Serial);
 
   // read the config from EEPROM
   uint8_t* data = reinterpret_cast<uint8_t*>(this);
