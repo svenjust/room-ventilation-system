@@ -63,7 +63,7 @@ public:
 
 private:
   /// Initialize Ethernet connection.
-  void initEthernet();
+  void initEthernet(Print& initTracer);
 
   /// Initialize MQTT connection.
   bool mqttConnect();

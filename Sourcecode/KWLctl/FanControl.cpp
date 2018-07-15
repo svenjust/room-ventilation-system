@@ -439,6 +439,9 @@ void FanControl::storePWMSettingsToEEPROM()
 
 bool FanControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
+  if (KWLConfig::serialDebug)
+    Serial.println(F("MQTT handler: FanControl"));
+
   if (topic == MQTTTopic::CmdFan1Speed) {
     // Drehzahl Lüfter 1
     unsigned i = unsigned(s.toInt());

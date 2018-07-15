@@ -29,8 +29,8 @@ void loopDisplayUpdate();
 void loopTouch();
 
 KWLControl::KWLControl() :
-  Task(F("KWLControl"), *this, &KWLControl::run, &KWLControl::poll),
-  ntp_(udp_, KWLConfig::NetworkNTPServer),
+  Task(F("KWLControl"), *this, &KWLControl::run),
+  ntp_(udp_),
   network_client_(persistent_config_, ntp_),
   fan_control_(persistent_config_, this),
   bypass_(persistent_config_, temp_sensors_),
@@ -49,7 +49,7 @@ void KWLControl::begin(Print& initTracer)
   bypass_.begin(initTracer);
   antifreeze_.begin(initTracer);
   add_sensors_.begin(initTracer);
-  ntp_.begin();
+  ntp_.begin(KWLConfig::NetworkNTPServer);
   program_manager_.begin();
 
   // run error check loop every second, but give some time to initialize first
@@ -144,6 +144,9 @@ void KWLControl::fanSpeedSet()
 
 bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
+  if (KWLConfig::serialDebug)
+    Serial.println(F("MQTT handler: KWLControl"));
+
   // Set Values
   if (topic == MQTTTopic::CmdResetAll) {
     if (s == F("YES"))   {
@@ -236,11 +239,6 @@ void KWLControl::run()
     errors_ = local_err;
     info_ = local_info;
   }
-}
-
-void KWLControl::poll()
-{
-  ntp_.loop();
 }
 
 void KWLControl::displayUpdate() {

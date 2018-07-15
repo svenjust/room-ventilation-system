@@ -149,6 +149,9 @@ void TempSensors::run()
 
 bool TempSensors::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
+  if (KWLConfig::serialDebug)
+    Serial.println(F("MQTT handler: TempSensors"));
+
   if (topic == MQTTTopic::CmdGetTemp) {
     forceSend();
   }

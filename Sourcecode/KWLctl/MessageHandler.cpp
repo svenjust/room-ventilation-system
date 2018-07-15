@@ -107,12 +107,11 @@ void MessageHandler::mqttMessageReceived(char* topic, uint8_t* payload, unsigned
   const StringView topicStr(topic);
   const StringView s(reinterpret_cast<const char*>(payload), length);
   if (KWLConfig::serialDebug) {
-    Serial.print(F("MQTT receive "));
+    Serial.print(F("MQTT receive ["));
     Serial.write(topicStr.c_str(), topicStr.length());
-    Serial.print(':');
-    Serial.print(' ');
+    Serial.print(F("]: ["));
     Serial.write(payload, length);
-    Serial.println();
+    Serial.println(']');
   }
 
   auto handler = s_first_handler;

@@ -79,15 +79,20 @@ uint32_t ntohl(uint32_t value) {
   return tmp_a | tmp_b |tmp_c | tmp_d;
 }
 
-MicroNTP::MicroNTP(UDP& udp, IPAddress ip) :
-  udp_(udp), ip_(ip)
+MicroNTP::MicroNTP(UDP& udp) :
+  udp_(udp)
 {
 }
 
-void MicroNTP::begin()
+void MicroNTP::begin(IPAddress server_ip)
 {
-  if (DEBUG)
-    Serial.println(F("NTP: initializing"));
+  ip_ = server_ip;
+  if (DEBUG) {
+    Serial.print(F("NTP: initializing, server IP "));
+    Serial.print(ip_);
+    Serial.print(F(" local port "));
+    Serial.println(LOCAL_PORT);
+  }
   udp_.begin(LOCAL_PORT);
 }
 

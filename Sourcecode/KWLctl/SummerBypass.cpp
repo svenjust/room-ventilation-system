@@ -194,6 +194,9 @@ void SummerBypass::run()
 
 bool SummerBypass::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
+  if (KWLConfig::serialDebug)
+    Serial.println(F("MQTT handler: SummerBypass"));
+
   if (topic == MQTTTopic::CmdBypassGetValues) {
     forceSend(true);
   } else if (topic == MQTTTopic::CmdBypassHystereseMinutes) {

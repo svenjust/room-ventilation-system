@@ -125,8 +125,6 @@ private:
 
   void run();
 
-  void poll();
-
   void displayUpdate();
 
   void processTouch();

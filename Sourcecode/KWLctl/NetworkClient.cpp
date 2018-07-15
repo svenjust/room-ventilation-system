@@ -46,13 +46,13 @@ NetworkClient::NetworkClient(KWLPersistentConfig& config, MicroNTP& ntp) :
 
 void NetworkClient::begin(Print& initTracer)
 {
-  initTracer.println(F("Initialisierung Ethernet"));
-  initEthernet();
+  initEthernet(initTracer);
   delay(1500);  // to give Ethernet link time to start
   last_lan_reconnect_attempt_time_ = micros();
   lan_ok_ = true;
 
-  initTracer.println(F("Initialisierung MQTT"));
+  initTracer.print(F("Initialisierung MQTT, broker IP "));
+  initTracer.println(IPAddress(KWLConfig::NetworkMQTTBroker));
   mqtt_client_.setServer(KWLConfig::NetworkMQTTBroker, KWLConfig::NetworkMQTTPort);
   mqtt_client_.setCallback(MessageHandler::mqttMessageReceived);
   last_mqtt_reconnect_attempt_time_ = micros();
@@ -61,11 +61,27 @@ void NetworkClient::begin(Print& initTracer)
   poll();  // first run call here to connect MQTT
 }
 
-void NetworkClient::initEthernet()
+void NetworkClient::initEthernet(Print& initTracer)
 {
+  initTracer.print(F("Initialisierung Ethernet, IP "));
+  IPAddress ip = KWLConfig::NetworkIPAddress;
+  IPAddress gw = KWLConfig::NetworkGateway;
+  IPAddress subnet = KWLConfig::NetworkSubnetMask;
+  IPAddress dns = KWLConfig::NetworkDNSServer;
+  IPAddress ntp = KWLConfig::NetworkNTPServer;
+  initTracer.print(ip);
+  Serial.print('/');
+  Serial.print(subnet);
+  Serial.print(F(" gw "));
+  Serial.print(gw);
+  Serial.print(F(" dns "));
+  Serial.print(dns);
+  Serial.print(F(" ntp "));
+  Serial.print(ntp);
+  initTracer.println();
   uint8_t mac[6];
   KWLConfig::NetworkMACAddress.copy_to(mac);
-  Ethernet.begin(mac, KWLConfig::NetworkIPAddress, KWLConfig::NetworkDNSServer, KWLConfig::NetworkGateway, KWLConfig::NetworkSubnetMask);
+  Ethernet.begin(mac, ip, dns, gw, subnet);
 }
 
 bool NetworkClient::mqttConnect()
@@ -131,7 +147,7 @@ void NetworkClient::poll()
       Serial.println(F("LAN disconnected, attempting to connect"));
       lan_ok_ = false;
       cancel();
-      initEthernet(); // nothing more to do now
+      initEthernet(Serial); // nothing more to do now
       last_lan_reconnect_attempt_time_ = current_time;
       return;
     }
@@ -147,12 +163,14 @@ void NetworkClient::poll()
       // still no Ethernet
       if (current_time - last_lan_reconnect_attempt_time_ >= LAN_CHECK_INTERVAL) {
         // try reconnecting
-        initEthernet();
+        initEthernet(Serial);
         last_lan_reconnect_attempt_time_ = current_time;
       }
       return;
     }
   }
+
+  ntp_.loop();
 
   if (mqtt_ok_) {
     if (!mqtt_client_.connected()) {

@@ -140,6 +140,9 @@ bool ProgramData::matches(HMS hms) const
 
 bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
+  if (KWLConfig::serialDebug)
+    Serial.println(F("MQTT handler: ProgramManager"));
+
   if (topic == MQTTTopic::CmdGetProgram) {
     // get specific program or ALL
     if (s == F("all")) {

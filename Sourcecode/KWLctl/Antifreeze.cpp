@@ -292,6 +292,9 @@ void Antifreeze::doActionAntiFreezeState()
 
 bool Antifreeze::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
+  if (KWLConfig::serialDebug)
+    Serial.println(F("MQTT handler: Antifreeze"));
+
   if (topic == MQTTTopic::CmdAntiFreezeHyst) {
     auto i = s.toInt();
     if (i < 0)

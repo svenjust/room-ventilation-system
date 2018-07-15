@@ -39,17 +39,19 @@ public:
   MicroNTP(const MicroNTP&) = delete;
   MicroNTP& operator=(const MicroNTP&) = delete;
 
-
   /*!
    * @brief Construct NTP client.
    *
    * @param udp UDP protocol backend.
-   * @param ip IP address of the NTP server.
    */
-  MicroNTP(UDP& udp, IPAddress ip);
+  explicit MicroNTP(UDP& udp);
 
-  /// Start communicating with NTP server.
-  void begin();
+  /*!
+   * Start communicating with NTP server.
+   *
+   * @param server_ip IP address of the NTP server.
+   */
+  void begin(IPAddress server_ip);
 
   /// Call in loop to update time.
   void loop();
