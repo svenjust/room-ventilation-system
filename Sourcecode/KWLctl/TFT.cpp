@@ -26,10 +26,59 @@
   ################################################################
 */
 
+#include "KWLConfig.h"
+#include "KWLControl.hpp"
+
+#include <Adafruit_GFX.h>       // TFT
+#include <MCUFRIEND_kbv.h>      // TFT
+#include <TouchScreen.h>        // Touch
+
 // Font einbinden
 #include <Fonts/FreeSans9pt7b.h>  // Font
 #include <Fonts/FreeSans12pt7b.h>  // Font
 #include <Fonts/FreeSansBold24pt7b.h>
+
+// ***************************************************  T T F   U N D   T O U C H  ********************************************************
+// *** TFT
+// Assign human-readable names to some common 16-bit color values:
+#define BLACK   0x0000
+#define BLUE    0x001F
+#define RED     0xF800
+#define GREEN   0x07E0
+#define CYAN    0x07FF
+#define MAGENTA 0xF81F
+#define YELLOW  0xFFE0
+#define WHITE   0xFFFF
+#define GREY    0x7BEF
+uint16_t ID;
+MCUFRIEND_kbv tft;
+
+// Definition for Touch
+// most mcufriend shields use these pins and Portrait mode:
+// TODO move to KWLConfig
+uint8_t YP = A1;  // must be an analog pin, use "An" notation!
+uint8_t XM = A2;  // must be an analog pin, use "An" notation!
+uint8_t YM = 7;   // can be a digital pin
+uint8_t XP = 6;   // can be a digital pin
+
+uint16_t TS_LEFT = KWLConfig::TouchLeft;
+uint16_t TS_RT   = KWLConfig::TouchRight;
+uint16_t TS_TOP  = KWLConfig::TouchTop;
+uint16_t TS_BOT  = KWLConfig::TouchBottom;
+
+const char *name = "Unknown controller";
+
+// For better pressure precision, we need to know the resistance
+// between X+ and X- Use any multimeter to read it
+// For the one we're using, its 300 ohms across the X plate
+TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
+TSPoint tp;
+#define MINPRESSURE 20
+#define MAXPRESSURE 1000
+#define SWAP(a, b) {int16_t tmp = a; a = b; b = tmp;}
+// ***************************************************  E N D E   T T F   U N D   T O U C H  ********************************************************
+
+
 /* FARBEN
 
 
@@ -128,6 +177,16 @@ extern float DHT1Hum;
 extern float DHT2Hum;
 extern int   MHZ14_CO2_ppm;
 extern float TGS2600_VOC;
+extern KWLControl kwlControl;
+
+// forwards
+void PrintScreenTitle(char* title);
+void NewMenuEntry(byte mnuBtn, String mnuTxt);
+void PrintMenuBtn(byte mnuBtn, String mnuTxt, long colFrame);
+void gotoScreen(byte ScreenNo);
+void ShowMenu();
+void show_Touch_Serial();
+
 
 /******************************************* Seitenverwaltung ********************************************
   Für jeden Screen müssen die folgenden Funktionen implementiert werden:
@@ -458,7 +517,7 @@ void SetupBackgroundScreen3() {
   tft.setCursor(18, 100 + baselineMiddle);
   tft.print (F("Der aktueller Wert betraegt: "));
   tft.print (int(kwlControl.getFanControl().getFan1().getStandardSpeed()));
-  tft.println(" U / min");
+  tft.println(F(" U / min"));
   tft.setCursor(18, 150 + baselineMiddle);
   tft.print (F("Neuer Wert: "));
 
@@ -531,7 +590,7 @@ void SetupBackgroundScreen4() {
   tft.setCursor(18, 100 + baselineMiddle);
   tft.print (F("Der aktueller Wert betraegt: "));
   tft.print (int(kwlControl.getFanControl().getFan2().getStandardSpeed()));
-  tft.println(" U / min");
+  tft.println(F(" U / min"));
   tft.setCursor(18, 150 + baselineMiddle);
   tft.print (F("Neuer Wert: "));
 
@@ -782,7 +841,7 @@ void loopDisplayUpdate() {
   // Das Update wird alle 1000mS durchlaufen
   // Bevor Werte ausgegeben werden, wird auf Änderungen der Werte überprüft, nur geänderte Werte werden auf das Display geschrieben
 
-  currentMillis = millis();
+  auto currentMillis = millis();
 
   if ((currentMillis - previousMillisDisplayUpdate >= intervalDisplayUpdate) || updateDisplayNow) {
     if (KWLConfig::serialDebugDisplay == 1) {
@@ -790,13 +849,13 @@ void loopDisplayUpdate() {
     }
 
     // Netzwerkverbindung anzeigen
+    tft.setCursor(20, 0 + baselineMiddle);
+    tft.setFont(&FreeSans9pt7b);  // Kleiner Font
     if (!kwlControl.getNetworkClient().isLANOk()) {
       if (LastLanOk != kwlControl.getNetworkClient().isLANOk() || updateDisplayNow) {
         LastLanOk = kwlControl.getNetworkClient().isLANOk();
         tft.fillRect(10, 0, 120, 20, colErrorBackColor);
-        tft.setTextColor(colErrorFontColor );
-        tft.setCursor(20, 0 + baselineMiddle);
-        tft.setFont(&FreeSans9pt7b);  // Kleiner Font
+        tft.setTextColor(colErrorFontColor);
         tft.print(F("ERR LAN"));
       }
     } else if (!kwlControl.getNetworkClient().isMQTTOk()) {
@@ -804,19 +863,27 @@ void loopDisplayUpdate() {
         LastMqttOk = kwlControl.getNetworkClient().isMQTTOk();
         tft.fillRect(10, 0, 120, 20, colErrorBackColor);
         tft.setTextColor(colErrorFontColor );
-        tft.setCursor(20, 0 + baselineMiddle);
-        tft.setFont(&FreeSans9pt7b);  // Kleiner Font
         tft.print(F("ERR MQTT"));
       }
     } else {
       LastMqttOk = true;
       LastLanOk = true;
       tft.fillRect(10, 0, 120, 20, colBackColor);
+      if (kwlControl.getNTP().hasTime()) {
+        auto time = kwlControl.getNTP().currentTimeHMS(
+              kwlControl.getPersistentConfig().getTimezoneMin() * 60,
+              kwlControl.getPersistentConfig().getDST());
+        char buffer[6];
+        time.writeHM(buffer);
+        buffer[5] = 0;
+        tft.setTextColor(colFontColor);
+        tft.print(buffer);
+      }
     }
 
     // Einzelseiten
     if (KWLConfig::serialDebugDisplay == 1) {
-      Serial.print ("loopDisplayUpdate: menuScreen: ");
+      Serial.print (F("loopDisplayUpdate: menuScreen: "));
       Serial.println(menuScreen);
     }
     switch (menuScreen) {
@@ -1081,6 +1148,13 @@ void PrintScreenTitle(char* title) {
   tft.setTextColor(colFontColor, colBackColor );
 }
 
+void loopIsDisplayTouched() {
+  if (millis() - LastMillisTouch > intervalLastMillisTouch) {
+    LastMillisTouch = millis();
+    if (menuScreen != 0) gotoScreen (0);
+  }
+}
+
 void loopTouch()
 {
   loopIsDisplayTouched();
@@ -1089,7 +1163,7 @@ void loopTouch()
 
   if (millis() - millisLastMenuBtnPress > intervalMenuBtn) {
 
-    uint16_t xpos, ypos;  //screen coordinates
+    int16_t xpos, ypos;  //screen coordinates
     tp = ts.getPoint();   //tp.x, tp.y are ADC values
 
     // if sharing pins, you'll need to fix the directions of the touchscreen pins
@@ -1104,7 +1178,7 @@ void loopTouch()
 
     if (tp.z > MINPRESSURE && tp.z < MAXPRESSURE) {
       // is controller wired for Landscape ? or are we oriented in Landscape?
-      if (SwapXY != (Orientation & 1)) SWAP(tp.x, tp.y);
+      if (KWLConfig::TouchSwapXY != (Orientation & 1)) SWAP(tp.x, tp.y);
       // scale from 0->1023 to tft.width  i.e. left = 0, rt = width
       // most mcufriend have touch (with icons) that extends below the TFT
       // screens without icons need to reserve a space for "erase"
@@ -1115,10 +1189,14 @@ void loopTouch()
       LastMillisTouch = millis();
 
       if (KWLConfig::serialDebugDisplay) {
-        Serial.print("Touch (xpos / ypos): ");
+        Serial.print(F("Touch (xpos/ypos, tp.x/tp.y): "));
         Serial.print(xpos);
-        Serial.print(" / ");
-        Serial.println(ypos);
+        Serial.print('/');
+        Serial.print(ypos);
+        Serial.print(',');
+        Serial.print(tp.x);
+        Serial.print('/');
+        Serial.println(tp.y);
       }
 
       // are we in top color box area ?
@@ -1169,16 +1247,19 @@ void loopTouch()
   }
 }
 
-void loopIsDisplayTouched() {
-  if (millis() - LastMillisTouch > intervalLastMillisTouch) {
-    LastMillisTouch = millis();
-    if (menuScreen != 0) gotoScreen (0);
-  }
-}
-
 // **************************** ENDE  Menüfunktionen ******************************************
 
 
+// *** oberer Rand
+void print_header() {
+  tft.fillRect(0, 0, 480, 20, colBackColor);
+  tft.setCursor(140, 0 + baselineSmall);
+  tft.setTextColor(colFontColor);
+  tft.setTextSize(fontFactorSmall);
+  tft.print(F(" * Pluggit AP 300 * "));
+  tft.setCursor(420, 0 + baselineSmall);
+  tft.print(KWLConfig::VersionString);
+}
 
 // *** TFT starten
 void SetupTftScreen() {
@@ -1217,6 +1298,9 @@ void SetupTftScreen() {
   Serial.println(ID);
   tft.setRotation(1);
   tft.fillScreen(colBackColor);
+
+  print_header();
+  SetCursor(0, 30);
 }
 
 void SetupTouch(void)
@@ -1240,26 +1324,26 @@ void show_Touch_Serial(void)
   Serial.println(F(" LCD driver"));
   Serial.print(F("ID = 0x"));
   Serial.println(identifier, HEX);
-  Serial.println("Screen is " + String(tft.width()) + "x" + String(tft.height()));
-  Serial.println("Calibration is: ");
-  Serial.println("LEFT = " + String(TS_LEFT) + " RT  = " + String(TS_RT));
-  Serial.println("TOP  = " + String(TS_TOP)  + " BOT = " + String(TS_BOT));
-  Serial.print("Wiring is: ");
-  Serial.println(SwapXY ? "SWAPXY" : "PORTRAIT");
-  Serial.println("YP = " + String(YP)  + " XM = " + String(XM));
-  Serial.println("YM = " + String(YM)  + " XP = " + String(XP));
+  Serial.print(F("Screen is "));
+  Serial.print(tft.width());
+  Serial.print('x');
+  Serial.println(tft.height());
+  Serial.print(F("Calibration is: LEFT = "));
+  Serial.print(TS_LEFT);
+  Serial.print(F(" RT = "));
+  Serial.print(TS_RT);
+  Serial.print(F(" TOP = "));
+  Serial.print(TS_TOP);
+  Serial.print(F(" BOT = "));
+  Serial.println(TS_BOT);
+  Serial.print(F("Wiring is: "));
+  Serial.println(KWLConfig::TouchSwapXY ? F("SwapXY") : F("PORTRAIT"));
+  Serial.print(F("YP = "));
+  Serial.print(YP);
+  Serial.print(F(" XM = "));
+  Serial.println(XM);
+  Serial.print(F("YM = "));
+  Serial.print(YM);
+  Serial.print(F(" XP = "));
+  Serial.println(XP);
 }
-
-// *** oberer Rand
-void print_header() {
-  tft.fillRect(0, 0, 480, 20, colBackColor);
-  tft.setCursor(140, 0 + baselineSmall);
-  tft.setTextColor(colFontColor);
-  tft.setTextSize(fontFactorSmall);
-  tft.print(F(" * Pluggit AP 300 * "));
-  tft.setCursor(420, 0 + baselineSmall);
-  tft.print(strVersion);
-
-}
-
-

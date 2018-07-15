@@ -48,6 +48,8 @@
 
 #pragma once
 
+#include "FlashStringLiteral.h"
+
 #include <Arduino.h>
 
 class IPAddress;
@@ -95,6 +97,10 @@ protected:
 
 public:
 
+  // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
+  static constexpr auto VersionString = makeFlashStringLiteral("v0.15");
+
+
   // ***************************************************  N E T Z W E R K E I N S T E L L U N G E N *****************************************************
   // Hier die IP Adresse für diese Steuerung und den MQTT Broker definieren.
 
@@ -129,6 +135,22 @@ public:
   static constexpr const char* NetworkMQTTPassword = nullptr;
 
   // *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N **************************************************
+
+
+  // ***************************************************  T F T / T O U C H   E I N S T E L L U N G E N *************************************************
+
+  /// Value of touch X input at the left side.
+  static constexpr uint16_t TouchLeft = 949;
+  /// Value of touch X input at the right side.
+  static constexpr uint16_t TouchRight  = 201;
+  /// Value of touch Y input at the top side.
+  static constexpr uint16_t TouchTop = 943;
+  /// Value of touch Y input at the bottom side.
+  static constexpr uint16_t TouchBottom = 205;
+  /// Swap X and Y inputs.
+  static constexpr uint8_t TouchSwapXY = 0;
+
+  // *******************************************E N D E ***  T F T / T O U C H   E I N S T E L L U N G E N **********************************************
 
 
   // ******************************************* W E R K S E I N S T E L L U N G E N ********************************************************************
@@ -327,6 +349,9 @@ public:
   static constexpr bool serialDebugProgram = false;
   // *******************************************E N D E ***  D E B U G E I N S T E L L U N G E N *****************************************************
 };
+
+template<typename FinalConfig>
+constexpr FlashStringLiteral<6> KWLDefaultConfig<FinalConfig>::VersionString;
 
 template<typename FinalConfig>
 const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkGateway = (FinalConfig::NetworkIPAddress & FinalConfig::NetworkSubnetMask) | IPAddressLiteral(0, 0, 0, 1);
