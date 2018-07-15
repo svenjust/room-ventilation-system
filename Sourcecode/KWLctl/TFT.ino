@@ -116,6 +116,19 @@ unsigned long LastMillisTouch             = 0;
 unsigned inputStandardSpeedSetpointFan1 = 0;
 unsigned inputStandardSpeedSetpointFan2 = 0;
 
+// External references; TODO refactor via explicit references to respective components
+
+extern boolean DHT1IsAvailable;
+extern boolean DHT2IsAvailable;
+extern boolean MHZ14IsAvailable;
+extern boolean TGS2600IsAvailable;
+extern float DHT1Temp;
+extern float DHT2Temp;
+extern float DHT1Hum;
+extern float DHT2Hum;
+extern int   MHZ14_CO2_ppm;
+extern float TGS2600_VOC;
+
 /******************************************* Seitenverwaltung ********************************************
   Für jeden Screen müssen die folgenden Funktionen implementiert werden:
    - SetupBackgroundScreen       Zeichnet den statischen Anteil des Screens und wird nur einmal aufgerufen

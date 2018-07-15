@@ -287,6 +287,9 @@ public:
   /// Retain last temperature reading in the MQTT broker.
   static const bool RetainTemperature;
 
+  /// Retain last additional sensors reading in the MQTT broker.
+  static const bool RetainAdditionalSensors;
+
   /// Retain last fan mode reading in the MQTT broker.
   static const bool RetainFanMode;
 
@@ -333,6 +336,8 @@ template<typename FinalConfig>
 const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkNTPServer = FinalConfig::NetworkGateway;
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainTemperature = FinalConfig::RetainMeasurements;
+template<typename FinalConfig>
+const bool KWLDefaultConfig<FinalConfig>::RetainAdditionalSensors = FinalConfig::RetainMeasurements;
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainFanMode = FinalConfig::RetainMeasurements;
 template<typename FinalConfig>

@@ -57,8 +57,6 @@
 #include <TouchScreen.h>        // Touch
 #include <SPI.h>
 #include <Wire.h>
-#include <DHT.h>
-#include <DHT_U.h>
 #include <MultiPrint.h>
 #include <MicroNTP.h>
 #include <EthernetUdp.h>
@@ -71,6 +69,7 @@
 #include "Antifreeze.h"
 #include "ProgramManager.h"
 #include "SummerBypass.h"
+#include "AdditionalSensors.h"
 #include "KWLPersistentConfig.h"
 
 #include "KWLConfig.h"
@@ -101,12 +100,12 @@ uint8_t YP = A1;  // must be an analog pin, use "An" notation!
 uint8_t XM = A2;  // must be an analog pin, use "An" notation!
 uint8_t YM = 7;   // can be a digital pin
 uint8_t XP = 6;   // can be a digital pin
-uint8_t SwapXY = 0;
+uint8_t SwapXY = 1;
 
-uint16_t TS_LEFT = 949;
-uint16_t TS_RT  = 201;
-uint16_t TS_TOP = 943;
-uint16_t TS_BOT = 205;
+uint16_t TS_LEFT = 868;
+uint16_t TS_RT  = 205;
+uint16_t TS_TOP = 920;
+uint16_t TS_BOT = 155;
 const char *name = "Unknown controller";
 
 // For better pressure precision, we need to know the resistance
@@ -120,34 +119,8 @@ TSPoint tp;
 // ***************************************************  E N D E   T T F   U N D   T O U C H  ********************************************************
 
 
-// Sind die folgenden Variablen auf true, werden beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
-// anschliessend wird die Variable wieder auf false gesetzt
-boolean mqttCmdSendDht                         = false;
-boolean mqttCmdSendMHZ14                       = false;
-boolean mqttCmdSendMode                        = false;
-boolean mqttCmdSendConfig                      = false;
-
-char   buffer[7];               // the ASCII of the integer will be stored in this char array
-
 
 // Definitionen für das Scheduling
-unsigned long intervalDHTRead                = 10000;
-unsigned long intervalMHZ14Read              = 10000;
-unsigned long intervalTGS2600Read            = 30000;
-
-unsigned long intervalMqttTemp               = 5000;
-unsigned long intervalMqttMHZ14              = 60000;
-unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minuten
-unsigned long intervalMqttMHZ14Oversampling  = 300000; // 5 * 60 * 1000; 5 Minuten
-unsigned long previousMillisDHTRead               = 0;
-unsigned long previousMillisMHZ14Read             = 0;
-unsigned long previousMillisTGS2600Read           = 0;
-
-unsigned long previousMillisMqttDht               = 0;
-unsigned long previousMillisMqttDhtOversampling   = 0;
-unsigned long previousMillisMqttMHZ14             = 0;
-unsigned long previousMillisMqttMHZ14Oversampling = 0;
-
 unsigned long previous100Millis                   = 0;
 unsigned long previousMillisTemp                  = 0;
 unsigned long currentMillis                       = 0;
@@ -155,11 +128,6 @@ unsigned long currentMillis                       = 0;
 // forwards
 void loopDisplayUpdate();
 void loopTouch();
-void loopDHTRead();
-void loopMHZ14Read();
-void loopVocRead();
-void loopMqttSendDHT();
-
 
 /// Class comprising all modules for the control of the ventilation system.
 class KWLControl : private FanControl::SetSpeedCallback, private MessageHandler, private Task
@@ -200,8 +168,7 @@ public:
     antifreeze_(fan_control_, temp_sensors_, persistent_config_),
     program_manager_(persistent_config_, fan_control_, ntp_),
     display_update_(F("DisplayUpdate"), *this, &KWLControl::dummy, &KWLControl::displayUpdate),
-    process_touch_(F("ProcessTouch"), *this, &KWLControl::dummy, &KWLControl::processTouch),
-    extra_sensors_(F("ExtraSensors"), *this, &KWLControl::dummy, &KWLControl::extraSensors)
+    process_touch_(F("ProcessTouch"), *this, &KWLControl::dummy, &KWLControl::processTouch)
   {}
 
   /// Start the controller.
@@ -212,6 +179,7 @@ public:
     fan_control_.begin(initTracer);
     bypass_.begin(initTracer);
     antifreeze_.begin(initTracer);
+    add_sensors_.begin(initTracer);
     ntp_.begin();
     program_manager_.begin();
 
@@ -227,6 +195,9 @@ public:
 
   /// Get temperature sensor array.
   TempSensors& getTempSensors() { return temp_sensors_; }
+
+  /// Get additional sensor array (optional ones).
+  AdditionalSensors& getAdditionalSensors() { return add_sensors_; }
 
   /// Get fan controlling object.
   FanControl& getFanControl() { return fan_control_; }
@@ -362,8 +333,7 @@ private:
       getAntifreeze().forceSend();
       getFanControl().forceSend();
       getBypass().forceSend();
-      mqttCmdSendDht             = true;
-      mqttCmdSendMHZ14           = true;
+      getAdditionalSensors().forceSend();
     } else if (topic == MQTTTopic::KwlDebugsetSchedulerGetvalues) {
       // send statistics for scheduler
       auto i = Task::begin();
@@ -450,14 +420,6 @@ private:
     loopTouch();
   }
 
-  void extraSensors() {
-    loopDHTRead();
-    loopMHZ14Read();
-    loopVocRead();
-
-    loopMqttSendDHT();
-  }
-
   void dummy() {
     // NOP, just to satisfy task reqs
   }
@@ -470,8 +432,10 @@ private:
   MicroNTP ntp_;
   /// Global MQTT client.
   NetworkClient network_client_;
-  /// Set of temperature sensors
+  /// Set of temperature sensors.
   TempSensors temp_sensors_;
+  /// Additional sensors (humidity, CO2, VOC).
+  AdditionalSensors add_sensors_;
   /// Fan control.
   FanControl fan_control_;
   /// Summer bypass object.
@@ -492,40 +456,9 @@ private:
   Task display_update_;
   /// Task to process touch input.
   Task process_touch_;
-  /// Task to process extra sensors.
-  Task extra_sensors_;
 };
 
 KWLControl kwlControl;
-
-///////////////////////
-
-//
-float SendMqttDHT1Temp = 0;    // Temperatur Außenluft, gesendet per Mqtt
-float SendMqttDHT1Hum  = 0;    // Temperatur Zuluft
-float SendMqttDHT2Temp = 0;    // Temperatur Abluft
-float SendMqttDHT2Hum  = 0;    // Temperatur Fortluft
-
-int   SendMqttMHZ14CO2 = 0;    // CO2 Wert
-
-
-// DHT Sensoren
-DHT_Unified dht1(KWLConfig::PinDHTSensor1, DHT22);
-DHT_Unified dht2(KWLConfig::PinDHTSensor2, DHT22);
-boolean DHT1IsAvailable = false;
-boolean DHT2IsAvailable = false;
-float DHT1Temp = 0;
-float DHT2Temp = 0;
-float DHT1Hum  = 0;
-float DHT2Hum  = 0;
-
-// CO2 Sensor MH-Z14
-boolean MHZ14IsAvailable = false;
-int     MHZ14_CO2_ppm = -1;
-
-// VOC Sensor TG2600
-boolean TGS2600IsAvailable = false;
-float   TGS2600_VOC   = -1.0;
 
 // Ende Definition
 ///////////////////////////////////////
@@ -572,41 +505,6 @@ void setup()
 
   if (kwlControl.getAntifreeze().getHeatingAppCombUse()) {
     initTracer.println(F("...System mit Feuerstaettenbetrieb"));
-  }
-
-  // DHT Sensoren
-  dht1.begin();
-  dht2.begin();
-  delay(1500);
-  initTracer.println(F("Initialisierung Sensoren"));
-  sensors_event_t event;
-  dht1.temperature().getEvent(&event);
-  if (!isnan(event.temperature)) {
-    DHT1IsAvailable = true;
-    initTracer.println(F("...gefunden: DHT1"));
-  } else {
-    initTracer.println(F("...NICHT gefunden: DHT1"));
-  }
-  dht2.temperature().getEvent(&event);
-  if (!isnan(event.temperature)) {
-    DHT2IsAvailable = true;
-    initTracer.println(F("...gefunden: DHT2"));
-  } else {
-    initTracer.println(F("...NICHT gefunden: DHT2"));
-  }
-
-  // MH-Z14 CO2 Sensor
-  if (SetupMHZ14()) {
-    initTracer.println(F("...gefunden: CO2 Sensor MH-Z14"));
-  } else {
-    initTracer.println(F("...NICHT gefunden: CO2 Sensor MH-Z14"));
-  }
-
-  // TGS2600 VOC Sensor
-  if (SetupTGS2600()) {
-    initTracer.println(F("...gefunden: VOC Sensor TGS2600"));
-  } else {
-    initTracer.println(F("...NICHT gefunden: VOC Sensor TGS2600"));
   }
 
   // Setup fertig
