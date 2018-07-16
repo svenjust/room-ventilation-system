@@ -24,7 +24,7 @@
  */
 #pragma once
 
-#include "Task.h"
+#include "TimeScheduler.h"
 
 class Print;
 
@@ -34,7 +34,7 @@ class Print;
  * This class reads and publishes values of additional sensors like
  * humidity, CO2 and VOC.
  */
-class AdditionalSensors : private Task
+class AdditionalSensors
 {
 public:
   AdditionalSensors();
@@ -48,4 +48,7 @@ public:
 private:
   /// Handle the tasks (timed).
   void run();
+
+  Scheduler::TaskTimingStats stats_;
+  Scheduler::TimedTask<AdditionalSensors> timer_task_;
 };

@@ -26,7 +26,7 @@
 
 #include "Relay.h"
 #include "KWLConfig.h"
-#include "Task.h"
+#include "TimeScheduler.h"
 #include "MessageHandler.h"
 
 #include <FanRPM.h>
@@ -155,7 +155,7 @@ private:
 /*!
  * @brief Fan regulation and status reporting.
  */
-class FanControl : private Task, private MessageHandler
+class FanControl : private MessageHandler
 {
 public:
   FanControl(const FanControl&) = delete;
@@ -275,4 +275,6 @@ private:
   int last_sent_fan2_speed_ = 0;    ///< Last reported fan 2 speed.
   PublishTask mqtt_publish_;        ///< Task to reliably send values.
   uint8_t mqtt_send_flags_ = 0;     ///< Pending stuff to send.
+  Scheduler::TaskTimingStats stats_;            ///< Runtime statistics.
+  Scheduler::TimedTask<FanControl> timer_task_; ///< Timer for updating state repeatedly.
 };

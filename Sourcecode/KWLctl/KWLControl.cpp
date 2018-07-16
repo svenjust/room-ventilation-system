@@ -29,15 +29,18 @@ void loopDisplayUpdate();
 void loopTouch();
 
 KWLControl::KWLControl() :
-  Task(F("KWLControl"), *this, &KWLControl::run),
   ntp_(udp_),
   network_client_(persistent_config_, ntp_),
   fan_control_(persistent_config_, this),
   bypass_(persistent_config_, temp_sensors_),
   antifreeze_(fan_control_, temp_sensors_, persistent_config_),
   program_manager_(persistent_config_, fan_control_, ntp_),
-  display_update_(F("DisplayUpdate"), *this, &KWLControl::dummy, &KWLControl::displayUpdate),
-  process_touch_(F("ProcessTouch"), *this, &KWLControl::dummy, &KWLControl::processTouch)
+  control_stats_(F("KWLControl")),
+  control_timer_(control_stats_, &KWLControl::run, *this),
+  display_update_stats_(F("DisplayUpdate")),
+  display_update_(display_update_stats_, &loopDisplayUpdate),
+  process_touch_stats_(F("ProcessTouch")),
+  process_touch_(process_touch_stats_, &loopTouch)
 {}
 
 void KWLControl::begin(Print& initTracer)
@@ -53,7 +56,7 @@ void KWLControl::begin(Print& initTracer)
   program_manager_.begin();
 
   // run error check loop every second, but give some time to initialize first
-  runRepeated(8000000, 1000000);
+  control_timer_.runRepeated(8000000, 1000000);
 }
 
 void KWLControl::errorsToString(char* buffer, size_t size)
@@ -135,6 +138,11 @@ void KWLControl::infosToString(char* buffer, size_t size)
   }
 }
 
+void KWLControl::loop()
+{
+  scheduler_.loop();
+}
+
 void KWLControl::fanSpeedSet()
 {
   // this callback is called after computing new PWM tech points
@@ -159,7 +167,10 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
     }
   } else if (topic == MQTTTopic::KwlDebugsetSchedulerResetvalues) {
     // reset maximum runtimes for all tasks
-    Task::resetAllMaxima();
+    for (auto i = Scheduler::TaskTimingStats::begin(); i != Scheduler::TaskTimingStats::end(); ++i)
+      i->resetMaximum();
+    for (auto i = Scheduler::TaskPollingStats::begin(); i != Scheduler::TaskPollingStats::end(); ++i)
+      i->resetMaximum();
   // Get Commands
   } else if (topic == MQTTTopic::CmdGetvalues) {
     // Alle Values
@@ -170,24 +181,22 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
     getAdditionalSensors().forceSend();
   } else if (topic == MQTTTopic::KwlDebugsetSchedulerGetvalues) {
     // send statistics for scheduler
-    auto i = Task::begin();
-    uint8_t bitmask = 3;
-    scheduler_publish_.publish([i, bitmask]() mutable {
-      char buffer[150];
-      // first send all tasks
-      while (i != Task::end()) {
-        i->getStatistics().toString(buffer, sizeof(buffer));
+    auto i1 = Scheduler::TaskTimingStats::begin();
+    auto i2 = Scheduler::TaskPollingStats::begin();
+    scheduler_publish_.publish([i1, i2]() mutable {
+      char buffer[120];
+      while (i1 != Scheduler::TaskTimingStats::end()) {
+        i1->toString(buffer, sizeof(buffer));
         if (!publish(MQTTTopic::KwlDebugstateScheduler, buffer, false))
           return false;
-        ++i;
+        ++i1;
       }
-      // tasks sent, now send overall info
-      Task::getSchedulerStatistics().toString(buffer, sizeof(buffer));
-      if (!publish_if(bitmask, uint8_t(1), MQTTTopic::KwlDebugstateScheduler, buffer, false))
-        return false;
-      Task::getAllTasksStatistics().toString(buffer, sizeof(buffer));
-      if (!publish_if(bitmask, uint8_t(2), MQTTTopic::KwlDebugstateScheduler, buffer, false))
-        return false;
+      while (i2 != Scheduler::TaskPollingStats::end()) {
+        i2->toString(buffer, sizeof(buffer));
+        if (!publish(MQTTTopic::KwlDebugstateScheduler, buffer, false))
+          return false;
+        ++i2;
+      }
       return true;
     });
   } else {
@@ -239,12 +248,4 @@ void KWLControl::run()
     errors_ = local_err;
     info_ = local_info;
   }
-}
-
-void KWLControl::displayUpdate() {
-  loopDisplayUpdate();
-}
-
-void KWLControl::processTouch() {
-  loopTouch();
 }

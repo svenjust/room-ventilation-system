@@ -48,13 +48,14 @@ static constexpr long MAX_TEMP_HYSTERESIS = 10;
 static constexpr double heaterKp = 50, heaterKi = 0.1, heaterKd = 0.025;
 
 Antifreeze::Antifreeze(FanControl& fan, TempSensors& temp, KWLPersistentConfig& config) :
-  Task(F("Antifreeze"), *this, &Antifreeze::run),
   fan_(fan),
   temp_(temp),
   config_(config),
   hysteresis_temp_delta_(KWLConfig::StandardAntifreezeHystereseTemp),
   pid_preheater_(&temp_.get_t4_exhaust(), &tech_setpoint_preheater_, &antifreeze_temp_upper_limit_, heaterKp, heaterKi, heaterKd, P_ON_M, DIRECT),
-  heating_app_comb_use_(KWLConfig::StandardHeatingAppCombUse != 0)
+  heating_app_comb_use_(KWLConfig::StandardHeatingAppCombUse != 0),
+  stats_(F("Antifreeze")),
+  timer_task_(stats_, &Antifreeze::run, *this)
 {}
 
 void Antifreeze::begin(Print& /*initTracer*/)
@@ -69,7 +70,7 @@ void Antifreeze::begin(Print& /*initTracer*/)
 
   heating_app_comb_use_ = (config_.getHeatingAppCombUse() != 0);
 
-  runRepeated(INTERVAL_ANTIFREEZE_CHECK);
+  timer_task_.runRepeated(INTERVAL_ANTIFREEZE_CHECK);
   sendMQTT();
 }
 

@@ -25,7 +25,7 @@
 #pragma once
 
 #include "StringView.h"
-#include "Task.h"
+#include "TimeScheduler.h"
 #include "MessageHandler.h"
 
 #include <Ethernet.h>
@@ -37,7 +37,7 @@ class KWLPersistentConfig;
 /*!
  * @brief Client to communicate with MQTT protocol over Ethernet.
  */
-class NetworkClient : private Task
+class NetworkClient
 {
 public:
   NetworkClient(const NetworkClient&) = delete;
@@ -68,9 +68,11 @@ private:
   /// Initialize MQTT connection.
   bool mqttConnect();
 
-  void poll();
-
+  /// Check network.
   void run();
+
+  /// Loop method to be called regularly to maintain the connection.
+  void loop();
 
   /// Maximum size of serial buffer for sending messages over serial port.
   static constexpr uint8_t SERIAL_BUFFER_SIZE = 128;
@@ -104,4 +106,12 @@ private:
   char serial_data_[SERIAL_BUFFER_SIZE];
   /// Size of data received so far.
   uint8_t serial_data_size_ = 0;
+  /// Task timing statistics.
+  Scheduler::TaskTimingStats stats_;
+  /// Timer tasks handling heartbeat.
+  Scheduler::TimedTask<NetworkClient> timer_task_;
+  /// Task polling statistics.
+  Scheduler::TaskPollingStats poll_stats_;
+  /// Poll tasks for maintaining network connection.
+  Scheduler::PollTask<NetworkClient> poll_task_;
 };

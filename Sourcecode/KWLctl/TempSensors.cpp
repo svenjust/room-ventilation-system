@@ -87,11 +87,12 @@ void TempSensors::TempSensor::retry()
 }
 
 TempSensors::TempSensors() :
-  Task(F("TempSensors"), *this, &TempSensors::run),
   t1_(KWLConfig::PinTemp1OneWireBus),
   t2_(KWLConfig::PinTemp2OneWireBus),
   t3_(KWLConfig::PinTemp3OneWireBus),
-  t4_(KWLConfig::PinTemp4OneWireBus)
+  t4_(KWLConfig::PinTemp4OneWireBus),
+  stats_(F("TempSensors")),
+  timer_task_(stats_, &TempSensors::run, *this)
 {}
 
 void TempSensors::begin(Print& initTracer)
@@ -105,7 +106,7 @@ void TempSensors::begin(Print& initTracer)
   t4_.begin();
 
   // call regularly to update
-  runRepeated(SCHEDULING_INTERVAL);
+  timer_task_.runRepeated(SCHEDULING_INTERVAL);
 }
 
 void TempSensors::run()

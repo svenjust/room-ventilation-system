@@ -141,7 +141,7 @@ void setup()
 // *** LOOP START ***
 void loop()
 {
-  Task::loop();
+  kwlControl.loop();
   //loopWrite100Millis();
   wdt_reset();
 }

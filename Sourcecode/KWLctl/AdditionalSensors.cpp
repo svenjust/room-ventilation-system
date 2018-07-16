@@ -350,9 +350,10 @@ void loopMqttSendCo2() {
 }
 
 AdditionalSensors::AdditionalSensors() :
-  Task(F("AdditionalSensors"), *this, &AdditionalSensors::run)
+  stats_(F("AdditionalSensors")),
+  timer_task_(stats_, &AdditionalSensors::run, *this)
 {
-  setInterval(1000000);  // run every second, each sensor times itself separately
+  timer_task_.runRepeated(1000000);  // run every second, each sensor times itself separately
 }
 
 void AdditionalSensors::begin(Print& initTracer)

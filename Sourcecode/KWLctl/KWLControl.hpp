@@ -40,7 +40,7 @@
  *
  * This class comprises all modules for the control of the ventilation system.
  */
-class KWLControl : private FanControl::SetSpeedCallback, private MessageHandler, private Task
+class KWLControl : private FanControl::SetSpeedCallback, private MessageHandler
 {
 public:
   /// Fan 1 is not working.
@@ -118,6 +118,9 @@ public:
    */
   void infosToString(char* buffer, size_t size);
 
+  /// Called from main loop to run everything.
+  void loop();
+
 private:
   virtual void fanSpeedSet() override;
 
@@ -125,14 +128,8 @@ private:
 
   void run();
 
-  void displayUpdate();
-
-  void processTouch();
-
-  void dummy() {
-    // NOP, just to satisfy task reqs
-  }
-
+  /// Scheduler for running tasks.
+  Scheduler::PollingScheduler scheduler_;
   /// Persistent configuration.
   KWLPersistentConfig persistent_config_;
   /// UDP handler for NTP.
@@ -161,8 +158,16 @@ private:
   unsigned errors_ = 0;
   /// Current info state.
   unsigned info_ = 0;
+  /// Main control timing statistics.
+  Scheduler::TaskTimingStats control_stats_;
+  /// Timer firing checks.
+  Scheduler::TimedTask<KWLControl> control_timer_;
+  /// Statistics for display update.
+  Scheduler::TaskPollingStats display_update_stats_;
   /// Task to update display.
-  Task display_update_;
+  Scheduler::PollTask<> display_update_;
+  /// Statistics for touch input.
+  Scheduler::TaskPollingStats process_touch_stats_;
   /// Task to process touch input.
-  Task process_touch_;
+  Scheduler::PollTask<> process_touch_;
 };

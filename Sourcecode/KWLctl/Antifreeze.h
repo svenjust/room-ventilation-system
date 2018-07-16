@@ -24,7 +24,7 @@
  */
 #pragma once
 
-#include "Task.h"
+#include "TimeScheduler.h"
 #include "MessageHandler.h"
 
 #include <PID_v1.h>
@@ -46,7 +46,7 @@ enum class AntifreezeState : uint8_t
 /*!
  * @brief Protection against freezing the heat exchange.
  */
-class Antifreeze : private Task, private MessageHandler
+class Antifreeze : private MessageHandler
 {
 public:
   Antifreeze(const Antifreeze&) = delete;
@@ -104,5 +104,7 @@ private:
   PID pid_preheater_;
   bool heating_app_comb_use_; ///< Flag whether we are using the ventilation system combined with heating appliance.
   PublishTask mqtt_publish_;
+  Scheduler::TaskTimingStats stats_;
+  Scheduler::TimedTask<Antifreeze> timer_task_;
 };
 

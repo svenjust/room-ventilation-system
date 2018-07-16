@@ -38,7 +38,6 @@ static constexpr unsigned long BYPASS_FLAPS_DRIVE_TIME = 120 * 1000000UL;
 static constexpr long MAX_TEMP_HYSTERESIS = 10;
 
 SummerBypass::SummerBypass(KWLPersistentConfig& config, const TempSensors& temp) :
-  Task(F("SummerBypass"), *this, &SummerBypass::run),
   config_(config),
   temp_(temp),
   rel_bypass_power_(KWLConfig::PinBypassPower),
@@ -48,7 +47,9 @@ SummerBypass::SummerBypass(KWLPersistentConfig& config, const TempSensors& temp)
   temp_outside_min_(KWLConfig::StandardBypassTempAussenluftMin),
   temp_diff_min_(KWLConfig::StandardBypassHysteresisTemp),
   manual_flap_setpoint_(SummerBypassFlapState(KWLConfig::StandardBypassManualSetpoint)),  // Standardstellung Bypass
-  hysteresis_minutes_(KWLConfig::StandardBypassHystereseMinutes)
+  hysteresis_minutes_(KWLConfig::StandardBypassHystereseMinutes),
+  stats_(F("SummerBypass")),
+  timer_task_(stats_, &SummerBypass::run, *this)
 {}
 
 void SummerBypass::begin(Print& initTrace)
@@ -66,7 +67,7 @@ void SummerBypass::begin(Print& initTrace)
   rel_bypass_power_.off();
   rel_bypass_direction_.off();
 
-  runRepeated(INTERVAL_BYPASS_CHECK);
+  timer_task_.runRepeated(INTERVAL_BYPASS_CHECK);
 
   if (KWLConfig::RetainBypassConfigState)
     sendMQTT(true);
@@ -112,7 +113,7 @@ void SummerBypass::run()
     }
     Serial.println(toString(flap_setpoint_));
     sendMQTT();
-    setInterval(INTERVAL_BYPASS_CHECK);
+    timer_task_.setInterval(INTERVAL_BYPASS_CHECK);
     return;
   }
 
@@ -181,11 +182,11 @@ void SummerBypass::run()
     // TODO start the motor, send MQTT message
     last_change_time_millis_ = millis();
     startMoveFlap();
-    setInterval(BYPASS_FLAPS_DRIVE_TIME);
+    timer_task_.setInterval(BYPASS_FLAPS_DRIVE_TIME);
   } else {
     if (KWLConfig::serialDebugSummerbypass)
       Serial.println(F(" no change"));
-    setInterval(INTERVAL_BYPASS_CHECK);
+    timer_task_.setInterval(INTERVAL_BYPASS_CHECK);
   }
   if (--mqtt_countdown_ <= 0 || mqtt_state_ != state_) {
     sendMQTT();

@@ -38,10 +38,13 @@ static constexpr unsigned long MQTT_HEARTBEAT_PERIOD = KWLConfig::HeartbeatPerio
 PubSubClient* NetworkClient::s_client_ = nullptr;
 
 NetworkClient::NetworkClient(KWLPersistentConfig& config, MicroNTP& ntp) :
-  Task(F("NetworkClient"), *this, &NetworkClient::run, &NetworkClient::poll),
   mqtt_client_(eth_client_),
   config_(config),
-  ntp_(ntp)
+  ntp_(ntp),
+  stats_(F("NetworkClient")),
+  timer_task_(stats_, &NetworkClient::run, *this),
+  poll_stats_(F("NetworkClient")),
+  poll_task_(poll_stats_, &NetworkClient::loop, *this)
 {}
 
 void NetworkClient::begin(Print& initTracer)
@@ -58,7 +61,7 @@ void NetworkClient::begin(Print& initTracer)
   last_mqtt_reconnect_attempt_time_ = micros();
   mqtt_ok_ = true;
   s_client_ = &mqtt_client_;
-  poll();  // first run call here to connect MQTT
+  loop();  // first run call here to connect MQTT
 }
 
 void NetworkClient::initEthernet(Print& initTracer)
@@ -97,7 +100,7 @@ bool NetworkClient::mqttConnect()
     // subscribe
     subscribed_command_ = mqtt_client_.subscribe(MQTTTopic::Command.load());
     subscribed_debug_ = mqtt_client_.subscribe(MQTTTopic::CommandDebug.load());
-    runRepeated(1, MQTT_HEARTBEAT_PERIOD); // next run should send heartbeat
+    timer_task_.runRepeated(1, MQTT_HEARTBEAT_PERIOD); // next run should send heartbeat
   }
   last_mqtt_reconnect_attempt_time_ = micros();
   Serial.print(F("MQTT connect end at "));
@@ -107,12 +110,12 @@ bool NetworkClient::mqttConnect()
     return true;
   } else {
     Serial.println(F(" [failed]"));
-    cancel();
+    timer_task_.cancel();
     return false;
   }
 }
 
-void NetworkClient::poll()
+void NetworkClient::loop()
 {
   if (Serial.available()) {
     // there is data on serial port, read command from there
@@ -146,7 +149,7 @@ void NetworkClient::poll()
     if (Ethernet.localIP()[0] == 0) {
       Serial.println(F("LAN disconnected, attempting to connect"));
       lan_ok_ = false;
-      cancel();
+      timer_task_.cancel();
       initEthernet(Serial); // nothing more to do now
       last_lan_reconnect_attempt_time_ = current_time;
       return;
@@ -175,7 +178,7 @@ void NetworkClient::poll()
   if (mqtt_ok_) {
     if (!mqtt_client_.connected()) {
       Serial.println(F("MQTT disconnected, attempting to connect"));
-      cancel();
+      timer_task_.cancel();
       mqtt_ok_ = mqttConnect();
       if (!mqtt_ok_)
         return; // couldn't connect now, cannot continue

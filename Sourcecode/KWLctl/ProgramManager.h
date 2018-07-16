@@ -23,7 +23,7 @@
  */
 #pragma once
 
-#include "Task.h"
+#include "TimeScheduler.h"
 #include "MessageHandler.h"
 #include "ProgramData.h"
 
@@ -34,7 +34,7 @@ class MicroNTP;
 /*!
  * @brief Program manager.
  */
-class ProgramManager : private Task, private MessageHandler
+class ProgramManager : private MessageHandler
 {
 public:
   ProgramManager(const ProgramManager&) = delete;
@@ -67,4 +67,6 @@ private:
   const MicroNTP& ntp_;         ///< Time service.
   int8_t current_program_ = -1; ///< Index of currently-running program.
   PublishTask publisher_;       ///< Task to publish all programs.
+  Scheduler::TaskTimingStats stats_;                ///< Timing statistics.
+  Scheduler::TimedTask<ProgramManager> timer_task_; ///< Timer to check programs.
 };

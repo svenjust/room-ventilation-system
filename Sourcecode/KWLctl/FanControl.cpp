@@ -230,12 +230,13 @@ void Fan::sendMQTTDebug(int id, unsigned long ts, MessageHandler& h)
 
 
 FanControl::FanControl(KWLPersistentConfig& config, SetSpeedCallback *speedCallback) :
-  Task(F("FanControl"), *this, &FanControl::run),
   fan1_(1, KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho),
   fan2_(2, KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho),
   speed_callback_(speedCallback),
   ventilation_mode_(KWLConfig::StandardKwlMode),
-  persistent_config_(config)
+  persistent_config_(config),
+  stats_(F("FanControl")),
+  timer_task_(stats_, &FanControl::run, *this)
 {}
 
 void FanControl::begin(Print& initTrace)
@@ -250,7 +251,7 @@ void FanControl::begin(Print& initTrace)
   fan1_.begin(countUpFan1, persistent_config_.getSpeedSetpointFan1());
   fan2_.begin(countUpFan2, persistent_config_.getSpeedSetpointFan2());
 
-  runRepeated(FAN_INTERVAL);
+  timer_task_.runRepeated(FAN_INTERVAL);
 }
 
 void FanControl::setVentilationMode(int mode)
@@ -336,12 +337,12 @@ void FanControl::speedUpdate()
 
 void FanControl::setSpeed()
 {
-  fan1_.sendMQTTDebug(1, getScheduleTime(), *this);
-  fan2_.sendMQTTDebug(2, getScheduleTime(), *this);
+  fan1_.sendMQTTDebug(1, timer_task_.getScheduleTime(), *this);
+  fan2_.sendMQTTDebug(2, timer_task_.getScheduleTime(), *this);
 
   if (KWLConfig::serialDebugFan) {
     Serial.print(F("Timestamp: "));
-    Serial.println(getScheduleTime());
+    Serial.println(timer_task_.getScheduleTime());
   }
   fan1_.setSpeed(1, KWLConfig::PinFan1PWM, KWLConfig::DacChannelFan1);
   fan2_.setSpeed(2, KWLConfig::PinFan2PWM, KWLConfig::DacChannelFan2);
@@ -361,11 +362,11 @@ void FanControl::speedCalibrationStep()
     // Erster Durchlauf der Kalibrierung
     Serial.println(F("Erster Durchlauf"));
     calibration_in_progress_ = true;
-    calibration_start_time_us_ = getScheduleTime();
+    calibration_start_time_us_ = timer_task_.getScheduleTime();
     current_calibration_mode_ = 0;
     calc_speed_mode_ = FanCalculateSpeedMode::PROP;
   }
-  if (calibration_in_progress_ && (getScheduleTime() - calibration_start_time_us_ >= TIMEOUT_CALIBRATION)) {
+  if (calibration_in_progress_ && (timer_task_.getScheduleTime() - calibration_start_time_us_ >= TIMEOUT_CALIBRATION)) {
     // Timeout, Kalibrierung abbrechen
     stopCalibration(true);
   } else {
@@ -373,11 +374,11 @@ void FanControl::speedCalibrationStep()
       // Erster Durchlauf der Kalibrierung
       Serial.println(F("Erster Durchlauf für Stufe, calibration_pwm_in_progress_"));
       calibration_pwm_in_progress_ = true;
-      calibration_pwm_start_time_us_ = getScheduleTime();
+      calibration_pwm_start_time_us_ = timer_task_.getScheduleTime();
       fan1_.prepareCalibration();
       fan2_.prepareCalibration();
     }
-    if (calibration_pwm_in_progress_ && (getScheduleTime() - calibration_pwm_start_time_us_ <= TIMEOUT_PWM_CALIBRATION)) {
+    if (calibration_pwm_in_progress_ && (timer_task_.getScheduleTime() - calibration_pwm_start_time_us_ <= TIMEOUT_PWM_CALIBRATION)) {
       // Einzelne Stufen kalibrieren
       if (speedCalibrationPWMStep()) {
         // true = Kalibrierung der Lüftungsstufe beendet

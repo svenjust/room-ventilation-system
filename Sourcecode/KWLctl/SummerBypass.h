@@ -24,7 +24,7 @@
  */
 #pragma once
 
-#include "Task.h"
+#include "TimeScheduler.h"
 #include "MessageHandler.h"
 #include "Relay.h"
 
@@ -50,7 +50,7 @@ enum class SummerBypassMode : uint8_t
 /*!
  * @brief Summer bypass regulation and status reporting.
  */
-class SummerBypass : private Task, private MessageHandler
+class SummerBypass : private MessageHandler
 {
 public:
   SummerBypass(const SummerBypass&) = delete;
@@ -130,4 +130,8 @@ private:
   int8_t mqtt_countdown_ = 0;
   /// Task to publish MQTT values.
   PublishTask publish_task_;
+  /// Task runtime statistics.
+  Scheduler::TaskTimingStats stats_;
+  /// Task scheduling bypass check.
+  Scheduler::TimedTask<SummerBypass> timer_task_;
 };

@@ -30,15 +30,16 @@
 static constexpr unsigned long PROGRAM_INTERVAL = 5000000;
 
 ProgramManager::ProgramManager(KWLPersistentConfig& config, FanControl& fan, const MicroNTP& ntp) :
-  Task(F("ProgramManager"), *this, &ProgramManager::run),
   config_(config),
   fan_(fan),
-  ntp_(ntp)
+  ntp_(ntp),
+  stats_(F("ProgramManager")),
+  timer_task_(stats_, &ProgramManager::run, *this)
 {}
 
 void ProgramManager::begin()
 {
-  runRepeated(PROGRAM_INTERVAL);
+  timer_task_.runRepeated(PROGRAM_INTERVAL);
 }
 
 const ProgramData& ProgramManager::getProgram(unsigned index)

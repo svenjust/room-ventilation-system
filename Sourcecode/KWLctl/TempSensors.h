@@ -23,7 +23,7 @@
  */
 #pragma once
 
-#include "Task.h"
+#include "TimeScheduler.h"
 #include "MessageHandler.h"
 
 #include <OneWire.h>            // OneWire Temperatursensoren
@@ -34,7 +34,7 @@
  *
  * Sensors array will update in a loop scheduled by task scheduler.
  */
-class TempSensors : private Task, private MessageHandler
+class TempSensors : private MessageHandler
 {
   /// One temperature sensor
   class TempSensor
@@ -128,4 +128,6 @@ private:
   double last_mqtt_t3_ = INVALID; ///< Last T3 temperature sent via MQTT.
   double last_mqtt_t4_ = INVALID; ///< Last T4 temperature sent via MQTT.
   PublishTask publish_task_;      ///< Task to publish measurements.
+  Scheduler::TaskTimingStats stats_;              ///< Task runtime statistics.
+  Scheduler::TimedTask<TempSensors> timer_task_;  ///< Task for reading sensors periodically.
 };
