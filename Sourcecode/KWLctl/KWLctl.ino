@@ -52,6 +52,7 @@
 #include <MCUFRIEND_kbv.h>      // TFT
 #include <Wire.h>
 #include <MultiPrint.h>
+#include <avr/wdt.h>
 
 // Actual instance of the control system.
 KWLControl kwlControl;
@@ -76,10 +77,30 @@ extern void SetupTouch();
 extern void SetupBackgroundScreen();
 extern MCUFRIEND_kbv tft;
 
+/// Mirror of watchdog reset source.
+static uint8_t mcusr_mirror __attribute__ ((section (".noinit")));
+
+// Disable watchdog after reset, as required by ATmega datasheet (and documented in wdt.h)
+void get_mcusr(void) \
+  __attribute__((naked)) \
+  __attribute__((section(".init3")));
+void get_mcusr(void)
+{
+  mcusr_mirror = MCUSR;
+  MCUSR = 0;
+  wdt_disable();
+}
+
 // *** SETUP START ***
 void setup()
 {
+
   Serial.begin(57600); // Serielle Ausgabe starten
+
+  if (mcusr_mirror) {
+    Serial.print(F("WARNING: System was reset by watchdog, code="));
+    Serial.println(mcusr_mirror);
+  }
 
   // *** TFT AUSGABE ***
   SetupTftScreen();
@@ -111,6 +132,9 @@ void setup()
   delay (4000);
 
   SetupBackgroundScreen();   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
+
+  // in case no loop is executed for 8 seconds, trigger watchdog (reboot).
+  wdt_enable(WDTO_8S);
 }
 // *** SETUP ENDE
 
@@ -119,5 +143,6 @@ void loop()
 {
   Task::loop();
   //loopWrite100Millis();
+  wdt_reset();
 }
 // *** LOOP ENDE ***
