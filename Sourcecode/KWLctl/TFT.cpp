@@ -140,7 +140,8 @@ int           LastEffiencyKwl             = 0;
 unsigned      LastErrorBits               = 0;
 unsigned      LastInfoBits                = 0;
 double LastDisplayT1 = 0, LastDisplayT2 = 0, LastDisplayT3 = 0, LastDisplayT4 = 0;
-double LastDisplayDHT1Temp = 0, LastDisplayDHT2Temp = 0, LastDisplayMHZ14_CO2_ppm = 0, LastDisplayTGS2600 = 0;
+float LastDisplayDHT1Temp = 0, LastDisplayDHT2Temp = 0;
+int LastDisplayMHZ14_CO2_ppm = 0, LastDisplayTGS2600 = 0;
 
 byte          LastLanOk                   = true;
 byte          LastMqttOk                  = true;
@@ -167,16 +168,6 @@ unsigned inputStandardSpeedSetpointFan2 = 0;
 
 // External references; TODO refactor via explicit references to respective components
 
-extern boolean DHT1IsAvailable;
-extern boolean DHT2IsAvailable;
-extern boolean MHZ14IsAvailable;
-extern boolean TGS2600IsAvailable;
-extern float DHT1Temp;
-extern float DHT2Temp;
-extern float DHT1Hum;
-extern float DHT2Hum;
-extern int   MHZ14_CO2_ppm;
-extern float TGS2600_VOC;
 extern KWLControl kwlControl;
 
 // forwards
@@ -351,21 +342,21 @@ void SetupBackgroundScreen1() {
   char title[] = "Weitere Sensorwerte";
   PrintScreenTitle(title);
 
-  if (DHT1IsAvailable) {
+  if (kwlControl.getAdditionalSensors().hasDHT1()) {
     tft.setCursor(18, 166 + baselineMiddle);
     tft.print(F("DHT1"));
   }
 
-  if (DHT2IsAvailable) {
+  if (kwlControl.getAdditionalSensors().hasDHT2()) {
     tft.setCursor(18, 192 + baselineMiddle);
     tft.print(F("DHT2"));
   }
 
-  if (MHZ14IsAvailable) {
+  if (kwlControl.getAdditionalSensors().hasCO2()) {
     tft.setCursor(18, 218 + baselineMiddle);
     tft.print(F("CO2"));
   }
-  if (TGS2600IsAvailable) {
+  if (kwlControl.getAdditionalSensors().hasVOC()) {
     tft.setCursor(18, 244 + baselineMiddle);
     tft.print(F("VOC"));
   }
@@ -377,22 +368,22 @@ void loopDisplayUpdateScreen1() {
   tft.setTextColor(colFontColor, colBackColor);
 
   // DHT 1
-  if (DHT1IsAvailable) {
-    if (abs(LastDisplayDHT1Temp - DHT1Temp) > 0.5 || updateDisplayNow) {
-      LastDisplayDHT1Temp = DHT1Temp;
+  if (kwlControl.getAdditionalSensors().hasDHT1()) {
+    if (abs(LastDisplayDHT1Temp - kwlControl.getAdditionalSensors().getDHT1Temp()) > 0.5 || updateDisplayNow) {
+      LastDisplayDHT1Temp = kwlControl.getAdditionalSensors().getDHT1Temp();
       tft.fillRect(160, 166, 80, numberfieldheight, colBackColor);
-      dtostrf(DHT1Temp, 5, 1, strPrint);
+      dtostrf(LastDisplayDHT1Temp, 5, 1, strPrint);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(240 - w, 166 + baselineMiddle);
       tft.print(strPrint);
     }
   }
   // DHT 2
-  if (DHT2IsAvailable) {
-    if (abs(LastDisplayDHT2Temp - DHT2Temp) > 0.5 || updateDisplayNow) {
-      LastDisplayDHT2Temp = DHT2Temp;
+  if (kwlControl.getAdditionalSensors().hasDHT2()) {
+    if (abs(LastDisplayDHT2Temp - kwlControl.getAdditionalSensors().getDHT2Temp()) > 0.5 || updateDisplayNow) {
+      LastDisplayDHT2Temp = kwlControl.getAdditionalSensors().getDHT2Temp();
       tft.fillRect(160, 192, 80, numberfieldheight, colBackColor);
-      dtostrf(DHT2Temp, 5, 1, strPrint);
+      dtostrf(LastDisplayDHT2Temp, 5, 1, strPrint);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(240 - w, 192 + baselineMiddle);
       tft.print(strPrint);
@@ -400,11 +391,11 @@ void loopDisplayUpdateScreen1() {
   }
 
   // CO2
-  if (MHZ14IsAvailable) {
-    if (abs(LastDisplayMHZ14_CO2_ppm - MHZ14_CO2_ppm) > 10 || updateDisplayNow) {
-      LastDisplayMHZ14_CO2_ppm = MHZ14_CO2_ppm;
+  if (kwlControl.getAdditionalSensors().hasCO2()) {
+    if (abs(LastDisplayMHZ14_CO2_ppm - kwlControl.getAdditionalSensors().getCO2()) > 10 || updateDisplayNow) {
+      LastDisplayMHZ14_CO2_ppm = kwlControl.getAdditionalSensors().getCO2();
       tft.fillRect(160, 218, 80, numberfieldheight, colBackColor);
-      sprintf(strPrint, "%5d", (int)MHZ14_CO2_ppm);
+      sprintf(strPrint, "%5d", LastDisplayMHZ14_CO2_ppm);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(240 - w, 218 + baselineMiddle);
       tft.print(strPrint);
@@ -412,11 +403,11 @@ void loopDisplayUpdateScreen1() {
   }
 
   // VOC
-  if (TGS2600IsAvailable) {
-    if (abs(LastDisplayTGS2600 - TGS2600_VOC) > 10 || updateDisplayNow) {
-      LastDisplayTGS2600 = TGS2600_VOC;
+  if (kwlControl.getAdditionalSensors().hasVOC()) {
+    if (abs(LastDisplayTGS2600 - kwlControl.getAdditionalSensors().getVOC()) > 10 || updateDisplayNow) {
+      LastDisplayTGS2600 = kwlControl.getAdditionalSensors().getVOC();
       tft.fillRect(160, 244, 80, numberfieldheight, colBackColor);
-      sprintf(strPrint, "%5d", (int)TGS2600_VOC);
+      sprintf(strPrint, "%5d", LastDisplayTGS2600);
       tft.getTextBounds(strPrint, 0, 0, &x1, &y1, &w, &h);
       tft.setCursor(240 - w, 244 + baselineMiddle);
       tft.print(strPrint);

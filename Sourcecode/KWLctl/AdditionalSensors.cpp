@@ -27,224 +27,87 @@
 #include <DHT_U.h>
 
 // Definitionen für das Scheduling
-unsigned long intervalDHTRead                = 10000;
-unsigned long intervalMHZ14Read              = 10000;
-unsigned long intervalTGS2600Read            = 30000;
 
-unsigned long intervalMqttTemp               = 5000;
-unsigned long intervalMqttMHZ14              = 60000;
-unsigned long intervalMqttTempOversampling   = 300000; // 5 * 60 * 1000; 5 Minuten
-unsigned long intervalMqttMHZ14Oversampling  = 300000; // 5 * 60 * 1000; 5 Minuten
+/// Interval between two DHT sensor readings (10s).
+static constexpr unsigned long INTERVAL_DHT_READ              = 10000000;
+/// Interval between two CO2 sensor readings (10s).
+static constexpr unsigned long INTERVAL_MHZ14_READ            = 10000000;
+/// Initial time before reading VOC sensor for the first time (30s).
+static constexpr unsigned long INITIAL_INTERVAL_TGS2600_READ  = 30000000;
+/// Time between VOC sensor readings (1s).
+static constexpr unsigned long INTERVAL_TGS2600_READ          =  1000000;
 
-unsigned long previousMillisDHTRead               = 0;
-unsigned long previousMillisMHZ14Read             = 0;
-unsigned long previousMillisTGS2600Read           = 0;
-
-unsigned long previousMillisMqttDht               = 0;
-unsigned long previousMillisMqttDhtOversampling   = 0;
-unsigned long previousMillisMqttMHZ14             = 0;
-unsigned long previousMillisMqttMHZ14Oversampling = 0;
-
-float SendMqttDHT1Temp = 0;    // Temperatur Außenluft, gesendet per Mqtt
-float SendMqttDHT1Hum  = 0;    // Temperatur Zuluft
-float SendMqttDHT2Temp = 0;    // Temperatur Abluft
-float SendMqttDHT2Hum  = 0;    // Temperatur Fortluft
-
-int   SendMqttMHZ14CO2 = 0;    // CO2 Wert
-
-// Sind die folgenden Variablen auf true, werden beim nächsten Durchlauf die entsprechenden mqtt Messages gesendet,
-// anschliessend wird die Variable wieder auf false gesetzt
-boolean mqttCmdSendDht                         = false;
-boolean mqttCmdSendMHZ14                       = false;
+/// Minimum time between communicating DHT values.
+static constexpr unsigned long INTERVAL_MQTT_DHT              =  5000000;
+/// Maximum time between communicating DHT values.
+static constexpr unsigned long INTERVAL_MQTT_DHT_FORCE        = 300000000; // 5 * 60 * 1000; 5 Minuten
+/// Minimum time between communicating CO2 values.
+static constexpr unsigned long INTERVAL_MQTT_MHZ14            = 60000000;
+/// Maximum time between communicating CO2 values.
+static constexpr unsigned long INTERVAL_MQTT_MHZ14_FORCE      = 300000000; // 5 * 60 * 1000; 5 Minuten
+/// Minimum time between communicating VOC values.
+static constexpr unsigned long INTERVAL_MQTT_TGS2600          =  5000000;
+/// Maximum time between communicating VOC values.
+static constexpr unsigned long INTERVAL_MQTT_TGS2600_FORCE    = 30000000;
 
 // DHT Sensoren
-DHT_Unified dht1(KWLConfig::PinDHTSensor1, DHT22);
-DHT_Unified dht2(KWLConfig::PinDHTSensor2, DHT22);
-boolean DHT1IsAvailable = false;
-boolean DHT2IsAvailable = false;
-float DHT1Temp = 0;
-float DHT2Temp = 0;
-float DHT1Hum  = 0;
-float DHT2Hum  = 0;
-
-// CO2 Sensor MH-Z14
-boolean MHZ14IsAvailable = false;
-int     MHZ14_CO2_ppm = -1;
-
-// VOC Sensor TG2600
-boolean TGS2600IsAvailable = false;
-float   TGS2600_VOC   = -1.0;
-
+static DHT_Unified dht1(KWLConfig::PinDHTSensor1, DHT22);
+static DHT_Unified dht2(KWLConfig::PinDHTSensor2, DHT22);
 
 // TGS2600
-#define TGS2600_DEFAULTPPM         10             //default ppm of CO2 for calibration
-long    TGS2600_DEFAULTRO        = 45000;         //default Ro for TGS2600_DEFAULTPPM ppm of CO2
-#define TGS2600_SCALINGFACTOR      0.3555567714   //CO2 gas value
-#define TGS2600_EXPONENT           -3.337882361   //CO2 gas value
-#define TGS2600_MAXRSRO            2.428          //for CO2
-#define TGS2600_MINRSRO            0.358          //for CO2
-float   TGS2600_RL               = 1000;
-
-int cycleMHZ14Counter = 0;
-int tachoMHZ14TimeSum  = 0;
-volatile byte tachoMHZ14CountSum       = 0;
-volatile long tachoMHZ14LastMillis = 0;
-
-
-
-void loopDHTRead() {
-  // Diese Routine liest den oder die DHT Sensoren aus
-  auto currentMillis = millis();
-  if (currentMillis - previousMillisDHTRead >= intervalDHTRead) {
-    previousMillisDHTRead = currentMillis;
-    sensors_event_t event;
-
-    if (DHT1IsAvailable) {
-      dht1.temperature().getEvent(&event);
-      if (isnan(event.temperature)) {
-        Serial.println(F("Failed reading temperature from DHT1"));
-      }
-      else if (event.temperature != DHT1Temp) {
-        DHT1Temp = event.temperature;
-        Serial.print(F("DHT1 T: "));
-        Serial.println(event.temperature);
-      }
-
-      dht1.humidity().getEvent(&event);
-      if (isnan(event.relative_humidity)) {
-        Serial.println(F("Failed reading humidity from DHT1"));
-      }
-      else if (event.relative_humidity != DHT1Hum) {
-        DHT1Hum = event.relative_humidity;
-        Serial.print(F("DHT1 H: "));
-        Serial.println(event.relative_humidity);
-      }
-    }
-    if (DHT2IsAvailable) {
-      dht2.temperature().getEvent(&event);
-      if (isnan(event.temperature)) {
-        Serial.println(F("Failed reading temperature from DHT2"));
-      }
-      else if (event.temperature != DHT2Temp) {
-        DHT2Temp = event.temperature;
-        Serial.print(F("DHT2 T: "));
-        Serial.println(event.temperature);
-      }
-
-      dht2.humidity().getEvent(&event);
-      if (isnan(event.relative_humidity)) {
-        Serial.println(F("Failed reading humidity from DHT2"));
-      }
-      else if (event.relative_humidity != DHT2Hum) {
-        DHT2Hum = event.relative_humidity;
-        Serial.print(F("DHT2 H: "));
-        Serial.println(event.relative_humidity);
-      }
-    }
-  }
-}
+static constexpr float  TGS2600_DEFAULTPPM        = 10;           //default ppm of CO2 for calibration
+static constexpr long   TGS2600_DEFAULTRO         = 45000;        //default Ro for TGS2600_DEFAULTPPM ppm of CO2
+static constexpr double TGS2600_SCALINGFACTOR     = 0.3555567714; //CO2 gas value
+static constexpr double TGS2600_EXPONENT          = -3.337882361; //CO2 gas value
+//static constexpr double TGS2600_MAXRSRO           = 2.428;        //for CO2
+//static constexpr double TGS2600_MINRSRO           = 0.358;        //for CO2
+static constexpr double TGS2600_RL                = 1000;
 
 // **************************** CO2 Sensor MH-Z14 ******************************************
-const uint8_t cmdReadGasPpm[9]   = {0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79};
-const uint8_t cmdCalZeroPoint[9] = {0xFF, 0x01, 0x87, 0x00, 0x00, 0x00, 0x00, 0x00, 0x78};
-#define Co2Min 402
+static const uint8_t cmdReadGasPpm[9]   = {0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79};
+//static const uint8_t cmdCalZeroPoint[9] = {0xFF, 0x01, 0x87, 0x00, 0x00, 0x00, 0x00, 0x00, 0x78};
+//static constexpr int Co2Min = 402;
 
-boolean SetupMHZ14() {
-  MHZ14IsAvailable = false;
-
-  int ppm = 0;
-  uint8_t response[9];
-
-  KWLConfig::SerialMHZ14.begin(9600);
-  delay(100);
-  KWLConfig::SerialMHZ14.write(cmdReadGasPpm, 9);
-  if (KWLConfig::SerialMHZ14.readBytes(response, 9) == 9) {
-    int responseHigh = (int) response[2];
-    int responseLow = (int) response[3];
-    int ppm = (256 * responseHigh) + responseLow;
-    if (KWLConfig::serialDebugSensor) {
-      Serial.print(F("CO2 ppm: "));
-      Serial.println(ppm);
-    }
-    if (ppm > 0)
-      MHZ14IsAvailable = true;
-  }
-  return MHZ14IsAvailable;
-}
-
-
-void loopMHZ14Read() {
-  // Auslesen des CO2 Sensors
-  if (MHZ14IsAvailable) {
-    auto currentMillis = millis();
-    if (currentMillis - previousMillisMHZ14Read >= intervalMHZ14Read) {
-      previousMillisMHZ14Read = currentMillis;
-
-      uint8_t response[9];
-      KWLConfig::SerialMHZ14.write(cmdReadGasPpm, 9);
-      if (KWLConfig::SerialMHZ14.readBytes(response, 9) == 9) {
-        int responseHigh = (int) response[2];
-        int responseLow = (int) response[3];
-        int ppm = (256 * responseHigh) + responseLow;
-
-        if (KWLConfig::serialDebugSensor) {
-          Serial.print(F("CO2 ppm: "));
-          Serial.println(ppm);
-        }
-        // Automatische Kalibrieren des Nullpunktes auf den kleinstmöglichen Wert
-        //if (ppm < Co2Min) MHZ14CalibrateZeroPoint;
-
-        MHZ14_CO2_ppm = ppm;
-      }
-    }
-  }
-}
-
-void MHZ14CalibrateZeroPoint() {
-  if (MHZ14IsAvailable) {
-    KWLConfig::SerialMHZ14.write(cmdCalZeroPoint, 9);
-  }
-}
-
-char getChecksum(char *packet) {
-  char i, checksum;
-  checksum = 0;
-  for (i = 1; i < 8; i++) {
-    checksum += packet[i];
-  }
-  checksum = 0xff - checksum;
-  checksum += 1;
-  return checksum;
-}
-
+//static char getChecksum(char *packet) {
+//  char i, checksum;
+//  checksum = 0;
+//  for (i = 1; i < 8; i++) {
+//    checksum += packet[i];
+//  }
+//  checksum = 0xff - checksum;
+//  checksum += 1;
+//  return checksum;
+//}
 
 // ----------------------------- TGS2600 ------------------------------------
+
+// TODO there are many warnings when computing the value. For now, added
+// explicit casts to proper types and/or cleaned up types, but it needs
+// to be checked.
 
 /*
    get the calibrated ro based upon read resistance, and a know ppm
 */
-long TGS2600_getro(float resvalue, float ppm) {
-  return (long)(resvalue * exp( log(TGS2600_SCALINGFACTOR / ppm) / TGS2600_EXPONENT ));
+static double TGS2600_getro(double resvalue, float ppm) {
+  return resvalue * exp(log(TGS2600_SCALINGFACTOR / double(ppm)) / TGS2600_EXPONENT);
 }
 
 /*
    get the ppm concentration
 */
-float TGS2600_getppm(long resvalue, long ro) {
-  float ret = 0;
-  ret = (float)TGS2600_SCALINGFACTOR * pow(((float)resvalue / ro), TGS2600_EXPONENT);
-  return ret;
+static double TGS2600_getppm(double resvalue, long ro) {
+  return TGS2600_SCALINGFACTOR * pow((resvalue / ro), TGS2600_EXPONENT);
 }
 
-float calcSensor_VOC(int valr)
+static int calcSensor_VOC(int valr)
 {
-  float val;
-  float TGS2600_ro;
-  float val_voc;
+  double val;
+  double TGS2600_ro = 0;  // unused except for debugging
+  double val_voc = 0;
 
   //Serial.println(valr);
   if (valr > 0) {
-    val =  ((float)TGS2600_RL * (1024 - valr) / valr);
+    val =  (TGS2600_RL * (1024 - valr) / valr);
     TGS2600_ro = TGS2600_getro(val, TGS2600_DEFAULTPPM);
     //convert to ppm (using default ro)
     val_voc = TGS2600_getppm(val, TGS2600_DEFAULTRO);
@@ -257,103 +120,145 @@ float calcSensor_VOC(int valr)
     Serial.print ( F(" / "));
     Serial.println (val_voc);
   }
-  return val_voc;
+  return int(val_voc);
 }
 
+// ----------------------------- TGS2600 END --------------------------------
 
-void loopVocRead() {
-  if (TGS2600IsAvailable) {
-    auto currentMillis = millis();
-    intervalTGS2600Read = 1000;
-    if (currentMillis - previousMillisTGS2600Read >= intervalTGS2600Read) {
-      previousMillisTGS2600Read = currentMillis;
-      int analogVal = analogRead(KWLConfig::PinVocSensor);
-      if (KWLConfig::serialDebugSensor) {
-        Serial.print(F("VOC analogVal: "));
-        Serial.println(analogVal);
-      }
-      TGS2600_VOC = calcSensor_VOC(analogVal);
+
+AdditionalSensors::AdditionalSensors() :
+  stats_(F("AdditionalSensors")),
+  dht1_read_(stats_, &AdditionalSensors::readDHT1, *this),
+  dht2_read_(stats_, &AdditionalSensors::readDHT2, *this),
+  mhz14_read_(stats_, &AdditionalSensors::readMHZ14, *this),
+  voc_read_(stats_, &AdditionalSensors::readVOC, *this),
+  dht_send_task_(stats_, &AdditionalSensors::sendDHT, *this, false),
+  dht_send_oversample_task_(stats_, &AdditionalSensors::sendDHT, *this, true),
+  co2_send_task_(stats_, &AdditionalSensors::sendCO2, *this, false),
+  co2_send_oversample_task_(stats_, &AdditionalSensors::sendCO2, *this, true),
+  voc_send_task_(stats_, &AdditionalSensors::sendVOC, *this, false),
+  voc_send_oversample_task_(stats_, &AdditionalSensors::sendVOC, *this, true)
+{}
+
+bool AdditionalSensors::setupMHZ14()
+{
+  MHZ14_available_ = false;
+
+  uint8_t response[9];
+
+  KWLConfig::SerialMHZ14.begin(9600);
+  delay(100);
+  KWLConfig::SerialMHZ14.write(cmdReadGasPpm, 9);
+  if (KWLConfig::SerialMHZ14.readBytes(response, 9) == 9) {
+    int responseHigh = response[2];
+    int responseLow = response[3];
+    int ppm = (256 * responseHigh) + responseLow;
+    if (KWLConfig::serialDebugSensor) {
+      Serial.print(F("CO2 ppm: "));
+      Serial.println(ppm);
+    }
+    if (ppm > 0) {
+      mhz14_read_.runRepeated(INTERVAL_MHZ14_READ);
+      MHZ14_available_ = true;
     }
   }
+  return MHZ14_available_;
 }
 
-boolean SetupTGS2600() {
+bool AdditionalSensors::setupTGS2600()
+{
   pinMode(KWLConfig::PinVocSensor, INPUT_PULLUP);
   int analogVal = analogRead(KWLConfig::PinVocSensor);
   if (KWLConfig::serialDebugSensor) Serial.println(analogVal);
   if (analogVal < 1023) {
-    TGS2600IsAvailable = true;
+    voc_read_.runRepeated(INITIAL_INTERVAL_TGS2600_READ, INTERVAL_TGS2600_READ);
+    TGS2600_available_ = true;
   } else {
-    TGS2600IsAvailable = false;
+    TGS2600_available_ = false;
   }
-  return TGS2600IsAvailable;
+  return TGS2600_available_;
 }
 
-// loopMqtt... senden Werte an den mqtt-Server.
-
-void loopMqttSendDHT() {
-  // Senden der DHT Temperaturen und Humidity per Mqtt
-  // Bedingung: a) alle x Sekunden, wenn Differenz Temperatur > 0.5
-  //            b) alle intervalMqttTempOversampling/1000 Sekunden (Standard 5 Minuten)
-  //            c) mqttCmdSendDht == true
-  auto currentMillis = millis();
-  if ((currentMillis - previousMillisMqttDht > intervalMqttTemp) || mqttCmdSendDht) {
-    previousMillisMqttDht = currentMillis;
-    if ((abs(DHT1Temp - SendMqttDHT1Temp) > 0.5)
-        || (abs(DHT2Temp - SendMqttDHT2Temp) > 0.5)
-        || (abs(DHT1Hum - SendMqttDHT1Hum) > 1)
-        || (abs(DHT2Hum - SendMqttDHT2Hum) > 1)
-        || (currentMillis - previousMillisMqttDhtOversampling > intervalMqttTempOversampling)
-        || mqttCmdSendDht)  {
-
-      mqttCmdSendDht = false;
-      SendMqttDHT1Temp = DHT1Temp;
-      SendMqttDHT2Temp = DHT2Temp;
-      SendMqttDHT1Hum = DHT1Hum;
-      SendMqttDHT2Hum = DHT2Hum;
-      previousMillisMqttDhtOversampling = currentMillis;
-
-      if (DHT1IsAvailable) {
-        MessageHandler::publish(MQTTTopic::KwlDHT1Temperatur, DHT1Temp, 2, KWLConfig::RetainAdditionalSensors);
-        MessageHandler::publish(MQTTTopic::KwlDHT1Humidity, DHT1Hum, 2, KWLConfig::RetainAdditionalSensors);
-      }
-      if (DHT2IsAvailable) {
-        MessageHandler::publish(MQTTTopic::KwlDHT2Temperatur, DHT2Temp, 2, KWLConfig::RetainAdditionalSensors);
-        MessageHandler::publish(MQTTTopic::KwlDHT2Humidity, DHT2Hum, 2, KWLConfig::RetainAdditionalSensors);
-      }
-    }
-  }
-}
-
-void loopMqttSendCo2() {
-  // Senden der DHT Temperaturen und Humidity per Mqtt
-  // Bedingung: a) alle x Sekunden, wenn Differenz Sensor > 20
-  //            b) alle intervalMqttMHZ14Oversampling/1000 Sekunden (Standard 10 Minuten)
-  //            c) mqttCmdSendMHZ14 == true
-  auto currentMillis = millis();
-  if ((currentMillis - previousMillisMqttMHZ14 > intervalMqttMHZ14) || mqttCmdSendMHZ14) {
-    previousMillisMqttMHZ14 = currentMillis;
-    if ((abs(MHZ14_CO2_ppm - SendMqttMHZ14CO2) > 20)
-        || (currentMillis - previousMillisMqttMHZ14Oversampling > intervalMqttMHZ14Oversampling)
-        || mqttCmdSendMHZ14)  {
-
-      mqttCmdSendMHZ14 = false;
-      SendMqttMHZ14CO2 = MHZ14_CO2_ppm;
-
-      intervalMqttMHZ14Oversampling = currentMillis;
-
-      if (MHZ14IsAvailable) {
-        MessageHandler::publish(MQTTTopic::KwlCO2Abluft, MHZ14_CO2_ppm, KWLConfig::RetainAdditionalSensors);
-      }
-    }
-  }
-}
-
-AdditionalSensors::AdditionalSensors() :
-  stats_(F("AdditionalSensors")),
-  timer_task_(stats_, &AdditionalSensors::run, *this)
+void AdditionalSensors::readDHT1()
 {
-  timer_task_.runRepeated(1000000);  // run every second, each sensor times itself separately
+  sensors_event_t event;
+
+  dht1.temperature().getEvent(&event);
+  if (isnan(event.temperature)) {
+    Serial.println(F("Failed reading temperature from DHT1"));
+  }
+  else if (event.temperature != dht1_temp_) {
+    dht1_temp_ = event.temperature;
+    Serial.print(F("DHT1 T: "));
+    Serial.println(dht1_temp_);
+  }
+
+  dht1.humidity().getEvent(&event);
+  if (isnan(event.relative_humidity)) {
+    Serial.println(F("Failed reading humidity from DHT1"));
+  }
+  else if (event.relative_humidity != dht1_hum_) {
+    dht1_hum_ = event.relative_humidity;
+    Serial.print(F("DHT1 H: "));
+    Serial.println(dht1_hum_);
+  }
+}
+
+void AdditionalSensors::readDHT2()
+{
+  sensors_event_t event;
+
+  dht2.temperature().getEvent(&event);
+  if (isnan(event.temperature)) {
+    Serial.println(F("Failed reading temperature from DHT2"));
+  }
+  else if (event.temperature != dht2_temp_) {
+    dht2_temp_ = event.temperature;
+    Serial.print(F("DHT2 T: "));
+    Serial.println(dht2_temp_);
+  }
+
+  dht2.humidity().getEvent(&event);
+  if (isnan(event.relative_humidity)) {
+    Serial.println(F("Failed reading humidity from DHT2"));
+  }
+  else if (event.relative_humidity != dht2_hum_) {
+    dht2_hum_ = event.relative_humidity;
+    Serial.print(F("DHT2 H: "));
+    Serial.println(dht2_hum_);
+  }
+}
+
+void AdditionalSensors::readMHZ14()
+{
+  uint8_t response[9];
+  KWLConfig::SerialMHZ14.write(cmdReadGasPpm, 9);
+  if (KWLConfig::SerialMHZ14.readBytes(response, 9) == 9) {
+    int responseHigh = response[2];
+    int responseLow = response[3];
+    int ppm = (256 * responseHigh) + responseLow;
+
+    if (KWLConfig::serialDebugSensor) {
+      Serial.print(F("CO2 ppm: "));
+      Serial.println(ppm);
+    }
+    // Automatische Kalibrieren des Nullpunktes auf den kleinstmöglichen Wert
+    //if (ppm < Co2Min)
+    //  KWLConfig::SerialMHZ14.write(cmdCalZeroPoint, 9);
+
+    co2_ppm_ = ppm;
+  }
+}
+
+void AdditionalSensors::readVOC()
+{
+  analogRead(KWLConfig::PinVocSensor);  // discard a read to get more stable reading
+  int analogVal = analogRead(KWLConfig::PinVocSensor);
+  if (KWLConfig::serialDebugSensor) {
+    Serial.print(F("VOC analogVal: "));
+    Serial.println(analogVal);
+  }
+  voc_ = calcSensor_VOC(analogVal);
 }
 
 void AdditionalSensors::begin(Print& initTracer)
@@ -366,43 +271,108 @@ void AdditionalSensors::begin(Print& initTracer)
   sensors_event_t event;
   dht1.temperature().getEvent(&event);
   if (!isnan(event.temperature)) {
-    DHT1IsAvailable = true;
+    DHT1_available_ = true;
     initTracer.print(F(" DHT1"));
+    dht1_read_.runRepeated(INTERVAL_DHT_READ);
   }
   dht2.temperature().getEvent(&event);
   if (!isnan(event.temperature)) {
-    DHT2IsAvailable = true;
+    DHT2_available_ = true;
     initTracer.print(F(" DHT2"));
+    dht2_read_.runRepeated(INTERVAL_DHT_READ);
+  }
+  if (DHT1_available_ || DHT2_available_) {
+    dht_send_task_.runRepeated(INTERVAL_DHT_READ + 1000000, INTERVAL_MQTT_DHT);
+    dht_send_oversample_task_.runRepeated(INTERVAL_DHT_READ + 1000000, INTERVAL_MQTT_DHT_FORCE);
   }
 
   // MH-Z14 CO2 Sensor
-  if (SetupMHZ14()) {
+  if (setupMHZ14()) {
     initTracer.print(F(" CO2"));
+    co2_send_task_.runRepeated(INTERVAL_MHZ14_READ + 1000000, INTERVAL_MQTT_MHZ14);
+    co2_send_oversample_task_.runRepeated(INTERVAL_MHZ14_READ + 1000000, INTERVAL_MQTT_MHZ14_FORCE);
   }
 
   // TGS2600 VOC Sensor
-  if (SetupTGS2600()) {
+  if (setupTGS2600()) {
     initTracer.print(F(" VOC"));
+    voc_send_task_.runRepeated(INITIAL_INTERVAL_TGS2600_READ + 1000000, INTERVAL_MQTT_TGS2600);
+    voc_send_oversample_task_.runRepeated(INITIAL_INTERVAL_TGS2600_READ + 1000000, INTERVAL_MQTT_TGS2600_FORCE);
   }
-  if (!DHT1IsAvailable && !DHT2IsAvailable && !MHZ14IsAvailable && !TGS2600IsAvailable) {
+
+  if (!DHT1_available_ && !DHT2_available_ && !MHZ14_available_ && !TGS2600_available_) {
     initTracer.println(F(" keine Sensoren"));
   } else {
     initTracer.println();
   }
 }
 
-void AdditionalSensors::forceSend()
+void AdditionalSensors::forceSend() noexcept
 {
-  mqttCmdSendDht             = true;
-  mqttCmdSendMHZ14           = true;
+  if (DHT1_available_ || DHT2_available_)
+    sendDHT(true);
+  if (MHZ14_available_)
+    sendCO2(true);
+  if (TGS2600_available_)
+    sendVOC(true);
 }
 
-void AdditionalSensors::run()
+void AdditionalSensors::sendDHT(bool force) noexcept
 {
-  loopDHTRead();
-  loopMHZ14Read();
-  loopVocRead();
-  loopMqttSendDHT();
-  loopMqttSendCo2();
-  // TODO why was VOC not sent at all?
+  if (!force
+      && (abs(dht1_temp_ - dht1_last_sent_temp_) < 0.1f) && (abs(dht2_temp_ - dht2_last_sent_temp_) < 0.1f)
+      && (abs(dht1_hum_ - dht2_last_sent_hum_) < 1) && (abs(dht2_hum_ - dht2_last_sent_hum_) < 1)) {
+    // not enough change, no point to send
+    return;
+  }
+  dht1_last_sent_temp_ = dht1_temp_;
+  dht1_last_sent_hum_  = dht1_hum_;
+  dht2_last_sent_temp_ = dht2_temp_;
+  dht2_last_sent_hum_  = dht2_hum_;
+  uint8_t bitmap = (DHT1_available_ ? 0x3 : 0) | (DHT2_available_ ? 0xc: 0);
+  publish_dht_.publish([this, bitmap]() mutable {
+    uint8_t bit = 1;
+    while (bit < 16) {
+      if (bitmap & bit) {
+        bool res = true;
+        switch (bit) {
+          case 1: res = MessageHandler::publish(MQTTTopic::KwlDHT1Temperatur, dht1_temp_, 1, KWLConfig::RetainAdditionalSensors); break;
+          case 2: res = MessageHandler::publish(MQTTTopic::KwlDHT1Humidity, dht1_hum_, 1, KWLConfig::RetainAdditionalSensors); break;
+          case 4: res = MessageHandler::publish(MQTTTopic::KwlDHT2Temperatur, dht2_temp_, 1, KWLConfig::RetainAdditionalSensors); break;
+          case 8: res = MessageHandler::publish(MQTTTopic::KwlDHT2Humidity, dht2_hum_, 1, KWLConfig::RetainAdditionalSensors); break;
+          default: return true; // paranoia
+        }
+        if (!res)
+          return false; // will retry later
+        bitmap &= ~bit;
+      }
+      bit <<= 1;
+    }
+    return true;  // all sent
+  });
+  dht_send_task_.runRepeated(INTERVAL_MQTT_DHT);
+  dht_send_oversample_task_.runRepeated(INTERVAL_MQTT_DHT_FORCE);
+}
+
+void AdditionalSensors::sendCO2(bool force) noexcept
+{
+  if (!force && (abs(co2_ppm_ - co2_last_sent_ppm_) < 20)) {
+    // not enough change
+    return;
+  }
+  publish_co2_.publish(MQTTTopic::KwlCO2Abluft, co2_ppm_, KWLConfig::RetainAdditionalSensors);
+  co2_send_task_.runRepeated(INTERVAL_MQTT_MHZ14);
+  co2_send_oversample_task_.runRepeated(INTERVAL_MQTT_MHZ14_FORCE);
+}
+
+void AdditionalSensors::sendVOC(bool force) noexcept
+{
+  // TODO this was not sent previously, why? Which threshold to use?
+  if (!force && (abs(voc_ - voc_last_sent_) < 10)) {
+    // not enough change
+    return;
+  }
+  publish_voc_.publish(MQTTTopic::KwlVOCAbluft, voc_, 1, KWLConfig::RetainAdditionalSensors);
+  voc_send_task_.runRepeated(INTERVAL_MQTT_TGS2600);
+  voc_send_oversample_task_.runRepeated(INTERVAL_MQTT_TGS2600_FORCE);
 }
