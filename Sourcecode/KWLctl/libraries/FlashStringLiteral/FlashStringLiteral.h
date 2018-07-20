@@ -25,7 +25,43 @@
 
 #include <WString.h>
 
-#include "cxx_support.h"
+/// Utility functions from C++11/14 standard to implement Flash string literal.
+namespace FlashStringImpl
+{
+  template<class T, T... Ints> struct integer_sequence {};
+
+  namespace impl
+  {
+    template<class S> struct integer_sequence_extend;
+
+    template<class T, T... Ints> struct integer_sequence_extend<integer_sequence<T, Ints...>>
+    {
+        using type = integer_sequence<T, Ints..., sizeof...(Ints)>;
+    };
+
+    template<class T, T I, T N> struct make_integer_sequence_helper;
+
+    template<class T, T I, T N> struct make_integer_sequence_helper
+    {
+        using type = typename integer_sequence_extend<
+            typename make_integer_sequence_helper<T, I+1, N>::type>::type;
+    };
+
+    template<class T, T N> struct make_integer_sequence_helper<T, N, N>
+    {
+        using type = integer_sequence<T>;
+    };
+  }
+
+  template<class T, T N>
+  using make_integer_sequence = typename impl::make_integer_sequence_helper<T, 0, N>::type;
+
+  template<unsigned... Ints>
+  using index_sequence = integer_sequence<unsigned, Ints...>;
+
+  template<unsigned N>
+  using make_index_sequence = make_integer_sequence<unsigned, N>;
+}
 
 /*!
  * @brief Literal string type stored in Flash.
@@ -50,7 +86,7 @@ public:
 
   /// Construct the literal for given C string literal.
   constexpr FlashStringLiteral(const char (&s)[len]) :
-    FlashStringLiteral(s, make_index_sequence<len>())
+    FlashStringLiteral(s, FlashStringImpl::make_index_sequence<len>())
   {}
 
   /// Convert to helper, which is used to disambiguate const char* and Flash strings.
@@ -76,7 +112,7 @@ public:
 
 private:
   template<unsigned... Indices>
-  constexpr FlashStringLiteral(const char (&s)[len], index_sequence<Indices...>) :
+  constexpr FlashStringLiteral(const char (&s)[len], FlashStringImpl::index_sequence<Indices...>) :
     data_{s[Indices]...}
   {}
 

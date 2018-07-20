@@ -27,6 +27,9 @@
 
 class StringView;
 
+/// In-place new operator.
+inline void* operator new(size_t, void* ptr) { return ptr; }
+
 /*!
  * @brief Task used to publish MQTT messages asynchronously.
  *
