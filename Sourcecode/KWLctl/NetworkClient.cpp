@@ -21,7 +21,6 @@
 #include "NetworkClient.h"
 #include "MessageHandler.h"
 #include "KWLConfig.h"
-#include "KWLPersistentConfig.h"
 #include "MQTTTopic.hpp"
 
 #include <MicroNTP.h>

@@ -20,7 +20,6 @@
 
 #include "FanControl.h"
 #include "MQTTTopic.hpp"
-#include "KWLPersistentConfig.h"
 #include "KWLConfig.h"
 #include "StringView.h"
 

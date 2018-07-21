@@ -25,3 +25,59 @@ IPAddressLiteral::operator IPAddress() const
 {
   return IPAddress(ip[0], ip[1], ip[2], ip[3]);
 }
+
+#define KWL_COPY(name) name##_ = KWLConfig::Standard##name
+
+static_assert(sizeof(KWLPersistentConfig) == 192, "Persistent config size changed, ensure compatibility or increment version");
+
+void KWLPersistentConfig::loadDefaults()
+{
+  KWL_COPY(SpeedSetpointFan1);
+  KWL_COPY(SpeedSetpointFan2);
+  KWL_COPY(BypassTempAbluftMin);
+  KWL_COPY(BypassTempAussenluftMin);
+  KWL_COPY(BypassHystereseMinutes);
+  KWL_COPY(BypassHysteresisTemp);
+  KWL_COPY(BypassManualSetpoint);
+  KWL_COPY(DST);
+  KWL_COPY(BypassMode);
+  KWL_COPY(AntifreezeHystereseTemp);
+  KWL_COPY(TimezoneMin);
+
+  if (KWLConfig::StandardModeCnt > 10) {
+    Serial.println(F("ERROR: StandardModeCnt too big, max. 10 supported"));
+  }
+  for (unsigned i = 0; ((i < KWLConfig::StandardModeCnt) && (i < 10)); i++) {
+    FanPWMSetpoint_[i][0] = int(KWLConfig::StandardSpeedSetpointFan1 * KWLConfig::StandardKwlModeFactor[i] * 1000 / KWLConfig::StandardNenndrehzahlFan);
+    FanPWMSetpoint_[i][1] = int(KWLConfig::StandardSpeedSetpointFan2 * KWLConfig::StandardKwlModeFactor[i] * 1000 / KWLConfig::StandardNenndrehzahlFan);
+  }
+
+  KWL_COPY(HeatingAppCombUse);
+
+  memset(&programs_, 0, sizeof(programs_));
+}
+
+void KWLPersistentConfig::migrate()
+{
+  // "upgrade" existing config, if possible (all initialized to -1/0xff)
+  if (TimezoneMin_ == -1) {
+    Serial.println(F("Config migration: setting timezone"));
+    TimezoneMin_ = KWLConfig::StandardTimezoneMin;
+    update(TimezoneMin_);
+  }
+  if (*reinterpret_cast<const uint8_t*>(&DST_) == 0xff) {
+    Serial.println(F("Config migration: setting DST"));
+    DST_ = KWLConfig::StandardDST;
+    update(DST_);
+  }
+  if (BypassHysteresisTemp_ == 0xff) {
+    Serial.println(F("Config migration: setting bypass hysteresis temperature"));
+    BypassHysteresisTemp_ = KWLConfig::StandardBypassHysteresisTemp;
+    update(BypassHysteresisTemp_);
+  }
+  if (programs_[0].start_h_ == 0xff) {
+    Serial.println(F("Config migration: clearing programs"));
+    memset(programs_, 0, sizeof(programs_));
+    update(programs_);
+  }
+}

@@ -20,7 +20,6 @@
 
 #include "Antifreeze.h"
 #include "KWLConfig.h"
-#include "KWLPersistentConfig.h"
 #include "StringView.h"
 #include "TempSensors.h"
 #include "FanControl.h"

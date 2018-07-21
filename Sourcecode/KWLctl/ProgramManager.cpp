@@ -19,7 +19,6 @@
 
 #include "ProgramManager.h"
 #include "KWLConfig.h"
-#include "KWLPersistentConfig.h"
 #include "FanControl.h"
 #include "MQTTTopic.hpp"
 #include "StringView.h"
@@ -50,7 +49,7 @@ const ProgramData& ProgramManager::getProgram(unsigned index)
 
 void ProgramManager::setProgram(unsigned index, const ProgramData& program)
 {
-  if (index > PROGRAM_COUNT)
+  if (index > KWLConfig::MaxProgramCount)
     return; // ERROR
   config_.setProgram(index, program);
   if (index == unsigned(current_program_))
@@ -74,7 +73,7 @@ void ProgramManager::run()
 
   // iterate all programs and pick one which hits
   int8_t program = -1;
-  for (int8_t i = 0; i < PROGRAM_COUNT; ++i) {
+  for (int8_t i = 0; i < KWLConfig::MaxProgramCount; ++i) {
     if (config_.getProgram(unsigned(i)).matches(time)) {
       program = i;
       break;
@@ -148,7 +147,7 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s
       // send all programs
       unsigned i = 0;
       publisher_.publish([this, i]() mutable {
-        while (i < PROGRAM_COUNT) {
+        while (i < KWLConfig::MaxProgramCount) {
           if (!mqttSendProgram(i))
             return false; // continue next time
           ++i;
@@ -178,7 +177,7 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s
       }
       return true;
     }
-    if (slot >= PROGRAM_COUNT) {
+    if (slot >= KWLConfig::MaxProgramCount) {
       if (KWLConfig::serialDebugProgram)
         Serial.println(F("PROG: Invalid program slot number"));
       return true;
@@ -237,7 +236,7 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s
 
 bool ProgramManager::mqttSendProgram(unsigned index)
 {
-  if (index >= PROGRAM_COUNT)
+  if (index >= KWLConfig::MaxProgramCount)
     return true;
   auto& prog = config_.getProgram(index);
   // Build program string "## F HH:MM HH:MM M xxxxxxx", where ## is slot number,

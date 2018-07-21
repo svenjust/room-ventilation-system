@@ -48,8 +48,10 @@
 
 #pragma once
 
-#include "FlashStringLiteral.h"
+#include "ProgramData.h"
 
+#include <FlashStringLiteral.h>
+#include <PersistentConfiguration.h>
 #include <Arduino.h>
 
 class IPAddress;
@@ -199,6 +201,9 @@ public:
   /// Standard time zone offset in minutes (CET, GMT+1).
   static constexpr int16_t StandardTimezoneMin              = 60;
 
+  /// Maximum number of programs.
+  static constexpr uint8_t MaxProgramCount = 16;
+
   /*!
    * @brief Perform "factory reset" *at each startup*.
    *
@@ -211,6 +216,9 @@ public:
    * @endcode
    */
   static constexpr bool FACTORY_RESET_EEPROM = false;
+
+  /// EEPROM configuration version to expect/write.
+  static constexpr unsigned KWL_EEPROM_VERSION = 49;
 
   // **************************************E N D E *** W E R K S E I N S T E L L U N G E N **************************************************************
 
@@ -411,3 +419,68 @@ public:
 
 template<typename FinalConfig>
 constexpr double KWLDefaultConfig<FinalConfig>::StandardKwlModeFactor[MAX_FAN_MODE_CNT];
+
+// Helper for getters and setters.
+#define KWL_GETSET(name) \
+  decltype(name##_) get##name() const { return name##_; } \
+  void set##name(decltype(name##_) value) { name##_ = value; update(name##_); }
+
+/*!
+ * @brief Persistent configuration of the ventilation system.
+ */
+class KWLPersistentConfig : public PersistentConfiguration<KWLPersistentConfig, KWLConfig::KWL_EEPROM_VERSION>
+{
+private:
+  friend class PersistentConfiguration<KWLPersistentConfig, KWLConfig::KWL_EEPROM_VERSION>;
+
+  // documentation see KWLConfig
+
+  // NOTE: this is PERSISTENT layout, do not reorder unless you increase the version number
+  unsigned SpeedSetpointFan1_;        // 2
+  unsigned SpeedSetpointFan2_;        // 4
+  unsigned BypassTempAbluftMin_;      // 6
+  unsigned BypassTempAussenluftMin_;  // 8
+  unsigned BypassHystereseMinutes_;   // 10
+  unsigned AntifreezeHystereseTemp_;  // 12
+  unsigned BypassManualSetpoint_;     // 14
+  unsigned BypassMode_;               // 16
+  bool DST_;                          // 18
+  uint8_t BypassHysteresisTemp_;      // 19
+  int FanPWMSetpoint_[10][2];         // 20-59
+  unsigned HeatingAppCombUse_;        // 60
+  int16_t TimezoneMin_;               // 62
+  ProgramData programs_[KWLConfig::MaxProgramCount];// 64..192
+
+  /// Initialize with defaults, if version doesn't fit.
+  void loadDefaults();
+
+  /// Migrate configuration.
+  void migrate();
+
+public:
+  // default getters/setters
+  KWL_GETSET(SpeedSetpointFan1)
+  KWL_GETSET(SpeedSetpointFan2)
+  KWL_GETSET(BypassTempAbluftMin)
+  KWL_GETSET(BypassTempAussenluftMin)
+  KWL_GETSET(BypassHystereseMinutes)
+  KWL_GETSET(BypassHysteresisTemp)
+  KWL_GETSET(BypassManualSetpoint)
+  KWL_GETSET(BypassMode)
+  KWL_GETSET(AntifreezeHystereseTemp)
+  KWL_GETSET(DST)
+  KWL_GETSET(HeatingAppCombUse)
+  KWL_GETSET(TimezoneMin)
+
+  int getFanPWMSetpoint(unsigned fan, unsigned idx) { return FanPWMSetpoint_[idx][fan]; }
+  void setFanPWMSetpoint(unsigned fan, unsigned idx, int pwm) { FanPWMSetpoint_[idx][fan] = pwm; update(FanPWMSetpoint_[idx][fan]); }
+
+  /// Get program data from the given slot.
+  const ProgramData& getProgram(unsigned index) const { return programs_[index]; }
+
+  /// Set program data in the given slot.
+  void setProgram(unsigned index, const ProgramData& program) { programs_[index] = program; update(programs_[index]); }
+};
+
+#undef KWL_GETSET
+

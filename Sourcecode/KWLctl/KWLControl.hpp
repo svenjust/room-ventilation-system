@@ -33,7 +33,6 @@
 #include "ProgramManager.h"
 #include "SummerBypass.h"
 #include "AdditionalSensors.h"
-#include "KWLPersistentConfig.h"
 
 /*!
  * @brief Controller for the ventilation system.

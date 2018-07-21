@@ -23,7 +23,6 @@
 #include "StringView.h"
 #include "TempSensors.h"
 #include "KWLConfig.h"
-#include "KWLPersistentConfig.h"
 
 /// Check bypass every 20s (also terminates motor running, if needed).
 static constexpr unsigned long INTERVAL_BYPASS_CHECK = 20000000;
