@@ -204,6 +204,9 @@ public:
   /// Maximum number of programs.
   static constexpr uint8_t MaxProgramCount = 16;
 
+  /// Maximum number of crash reports.
+  static constexpr uint8_t MaxCrashReportCount = 4;
+
   /*!
    * @brief Perform "factory reset" *at each startup*.
    *
@@ -430,6 +433,15 @@ constexpr double KWLDefaultConfig<FinalConfig>::StandardKwlModeFactor[MAX_FAN_MO
   decltype(name##_) get##name() const { return name##_; } \
   void set##name(decltype(name##_) value) { name##_ = value; update(name##_); }
 
+/// Structure used to store crash data in EEPROM.
+struct CrashData
+{
+  uint32_t millis;        ///< millis() at the time of the crash.
+  uint32_t real_time;     ///< Real time (via NTP) if available at the time of the crash.
+  uint32_t crash_addr:18; ///< Crash address (instruction pointer).
+  uint32_t crash_sp:14;   ///< SP at the time of crash.
+};
+
 /*!
  * @brief Persistent configuration of the ventilation system.
  */
@@ -454,7 +466,8 @@ private:
   int FanPWMSetpoint_[10][2];         // 20-59
   unsigned HeatingAppCombUse_;        // 60
   int16_t TimezoneMin_;               // 62
-  ProgramData programs_[KWLConfig::MaxProgramCount];// 64..192
+  ProgramData programs_[KWLConfig::MaxProgramCount];  // 64..192
+  CrashData crashes_[KWLConfig::MaxCrashReportCount]; // 192..240
 
   /// Initialize with defaults, if version doesn't fit.
   void loadDefaults();
@@ -482,6 +495,15 @@ public:
 
   /// Get program data from the given slot.
   const ProgramData& getProgram(unsigned index) const { return programs_[index]; }
+
+  /// Get crash data from given slot.
+  const CrashData& getCrash(unsigned index) const { return crashes_[index]; }
+
+  /// Store a crash report, overwriting oldest slot as necessary.
+  void storeCrash(uint32_t pc, unsigned sp, uint32_t real_time);
+
+  /// Reset all crash data.
+  void resetCrashes();
 
   /// Set program data in the given slot.
   void setProgram(unsigned index, const ProgramData& program) { programs_[index] = program; update(programs_[index]); }

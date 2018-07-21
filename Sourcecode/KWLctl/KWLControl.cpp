@@ -23,10 +23,13 @@
 #include "MQTTTopic.hpp"
 
 #include <EthernetUdp.h>
+#include <Wire.h>
+#include "DeadlockWatchdog.h"
 
 // forwards
-void loopDisplayUpdate();
-void loopTouch();
+extern void loopDisplayUpdate();
+extern void loopTouch();
+extern void SetupBackgroundScreen();
 
 KWLControl::KWLControl() :
   MessageHandler(F("KWLControl")),
@@ -46,6 +49,12 @@ KWLControl::KWLControl() :
 
 void KWLControl::begin(Print& initTracer)
 {
+  if (KWLConfig::ControlFansDAC) {
+    // TODO Also if using Preheater DAC, but no Fan DAC
+    Wire.begin();               // I2C-Pins definieren
+    initTracer.println(F("Initialisierung DAC"));
+  }
+
   persistent_config_.begin(initTracer, KWLConfig::FACTORY_RESET_EEPROM);
   network_client_.begin(initTracer);
   temp_sensors_.begin(initTracer);
@@ -58,6 +67,41 @@ void KWLControl::begin(Print& initTracer)
 
   // run error check loop every second, but give some time to initialize first
   control_timer_.runRepeated(8000000, 1000000);
+
+  bool found_crash = false;
+  for (size_t i = 0; i < KWLConfig::MaxCrashReportCount; ++i) {
+    auto& c = persistent_config_.getCrash(i);
+    if (c.crash_addr) {
+      if (!found_crash) {
+        found_crash = true;
+        initTracer.println(F("*** NOTE *** Crash reports recorded in EEPROM"));
+      }
+      Serial.print(F(" - PC "));
+      Serial.print(c.crash_addr, HEX);
+      Serial.print('/');
+      Serial.print(c.crash_addr * 2, HEX);
+      Serial.print(F(", sp "));
+      Serial.print(c.crash_sp, HEX);
+      Serial.print(F(", timestamp "));
+      Serial.print(c.real_time);
+      Serial.print(F(", millis "));
+      Serial.println(c.millis);
+    }
+  }
+
+  if (antifreeze_.getHeatingAppCombUse()) {
+    initTracer.println(F("...System mit Feuerstaettenbetrieb"));
+  }
+
+  // Setup fertig
+  initTracer.println(F("Setup completed..."));
+
+  // 4 Sekunden Pause für die TFT Anzeige, damit man sie auch lesen kann
+  delay(4000);
+
+  SetupBackgroundScreen();   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
+
+  DeadlockWatchdog::begin(&deadlockDetected, this);
 }
 
 void KWLControl::errorsToString(char* buffer, size_t size)
@@ -142,6 +186,7 @@ void KWLControl::infosToString(char* buffer, size_t size)
 void KWLControl::loop()
 {
   scheduler_.loop();
+  DeadlockWatchdog::reset();
 }
 
 void KWLControl::fanSpeedSet()
@@ -197,6 +242,32 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
       }
       return true;
     });
+  } else if (topic == MQTTTopic::KwlDebugsetCrashGetvalues) {
+    // get crash information
+    unsigned index = 0;
+    scheduler_publish_.publish([this, index]() mutable {
+      while (index < KWLConfig::MaxCrashReportCount) {
+        auto& c = persistent_config_.getCrash(index);
+        if (c.crash_addr) {
+          char buffer[48], topic[MQTTTopic::KwlDebugstateCrash.length() + 3];
+          MQTTTopic::KwlDebugstateCrash.store(topic);
+          char* p = topic + MQTTTopic::KwlDebugstateCrash.length();
+          *p++ = char(index / 10) + '0';
+          *p++ = (index % 10) + '0';
+          *p = 0;
+          char format[] = "ip %06lx sp %03lx ntp %lu ms %lu";
+          snprintf(buffer, sizeof(buffer), format, c.crash_addr * 2, c.crash_sp, c.real_time, c.millis);
+          if (MessageHandler::publish(topic, buffer))
+            ++index;
+          return false;
+        }
+        ++index;
+      }
+      return true;
+    });
+  } else if (topic == MQTTTopic::KwlDebugsetCrashResetvalues) {
+    // reset crash information
+    persistent_config_.resetCrashes();
   } else {
     return false;
   }
@@ -246,4 +317,10 @@ void KWLControl::run()
     errors_ = local_err;
     info_ = local_info;
   }
+}
+
+void KWLControl::deadlockDetected(unsigned long pc, unsigned sp, void* arg)
+{
+  auto instance = reinterpret_cast<KWLControl*>(arg);
+  instance->persistent_config_.storeCrash(pc, sp, instance->ntp_.currentTime());
 }

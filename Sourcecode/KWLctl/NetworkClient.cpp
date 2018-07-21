@@ -28,8 +28,8 @@
 /// Interval for checking LAN network OK (10 seconds).
 static constexpr unsigned long LAN_CHECK_INTERVAL = 10000000;
 
-/// Interval for reconnecting MQTT (5 seconds).
-static constexpr unsigned long MQTT_RECONNECT_INTERVAL = 5000000;
+/// Interval for reconnecting MQTT (15 seconds).
+static constexpr unsigned long MQTT_RECONNECT_INTERVAL = 15000000;
 
 /// MQTT heartbeat period.
 static constexpr unsigned long MQTT_HEARTBEAT_PERIOD = KWLConfig::HeartbeatPeriod * 1000000UL;

@@ -50,9 +50,7 @@
 #include "KWLControl.hpp"
 
 #include <MCUFRIEND_kbv.h>      // TFT
-#include <Wire.h>
 #include <MultiPrint.h>
-#include <avr/wdt.h>
 
 // Actual instance of the control system.
 KWLControl kwlControl;
@@ -74,33 +72,13 @@ static void loopWrite100Millis() {
 // External references to TFT
 extern void SetupTftScreen();
 extern void SetupTouch();
-extern void SetupBackgroundScreen();
 extern MCUFRIEND_kbv tft;
 
-/// Mirror of watchdog reset source.
-static uint8_t mcusr_mirror __attribute__ ((section (".noinit")));
-
-// Disable watchdog after reset, as required by ATmega datasheet (and documented in wdt.h)
-void get_mcusr(void) \
-  __attribute__((naked)) \
-  __attribute__((section(".init3")));
-void get_mcusr(void)
-{
-  mcusr_mirror = MCUSR;
-  MCUSR = 0;
-  wdt_disable();
-}
 
 // *** SETUP START ***
 void setup()
 {
-
   Serial.begin(57600); // Serielle Ausgabe starten
-
-  if (mcusr_mirror) {
-    Serial.print(F("WARNING: System was reset by watchdog, code="));
-    Serial.println(mcusr_mirror);
-  }
 
   // *** TFT AUSGABE ***
   SetupTftScreen();
@@ -111,30 +89,7 @@ void setup()
 
   initTracer.println(F("Booting... "));
 
-  if (KWLConfig::ControlFansDAC) {
-    // TODO Also if using Preheater DAC, but no Fan DAC
-    Wire.begin();               // I2C-Pins definieren
-    initTracer.println(F("Initialisierung DAC"));
-  }
-
   kwlControl.begin(initTracer);
-
-  Serial.println();
-
-  if (kwlControl.getAntifreeze().getHeatingAppCombUse()) {
-    initTracer.println(F("...System mit Feuerstaettenbetrieb"));
-  }
-
-  // Setup fertig
-  initTracer.println(F("Setup completed..."));
-
-  // 4 Sekunden Pause für die TFT Anzeige, damit man sie auch lesen kann
-  delay (4000);
-
-  SetupBackgroundScreen();   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
-
-  // in case no loop is executed for 8 seconds, trigger watchdog (reboot).
-  wdt_enable(WDTO_8S);
 }
 // *** SETUP ENDE
 
@@ -143,6 +98,5 @@ void loop()
 {
   kwlControl.loop();
   //loopWrite100Millis();
-  wdt_reset();
 }
 // *** LOOP ENDE ***

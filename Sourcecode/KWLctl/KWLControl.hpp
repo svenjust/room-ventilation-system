@@ -127,6 +127,9 @@ private:
 
   void run();
 
+  /// Called by watchdog to report deadlock.
+  static void deadlockDetected(unsigned long pc, unsigned sp, void* arg);
+
   /// Scheduler for running tasks.
   Scheduler::PollingScheduler scheduler_;
   /// Persistent configuration.

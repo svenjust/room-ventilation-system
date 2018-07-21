@@ -28,7 +28,7 @@ IPAddressLiteral::operator IPAddress() const
 
 #define KWL_COPY(name) name##_ = KWLConfig::Standard##name
 
-static_assert(sizeof(KWLPersistentConfig) == 192, "Persistent config size changed, ensure compatibility or increment version");
+static_assert(sizeof(KWLPersistentConfig) == 240, "Persistent config size changed, ensure compatibility or increment version");
 
 void KWLPersistentConfig::loadDefaults()
 {
@@ -80,4 +80,42 @@ void KWLPersistentConfig::migrate()
     memset(programs_, 0, sizeof(programs_));
     update(programs_);
   }
+  if (crashes_[0].real_time == 0xffffffffUL) {
+    Serial.println(F("Config migration: clearing crash reports"));
+    memset(crashes_, 0, sizeof(crashes_));
+    update(crashes_);
+  }
+}
+
+void KWLPersistentConfig::storeCrash(uint32_t pc, unsigned sp, uint32_t real_time)
+{
+  auto runtime = millis();
+  unsigned oldest_crash = 0;
+  uint32_t oldest_time = real_time;
+  uint32_t longest_runtime = 0;
+  for (size_t i = 0; i < KWLConfig::MaxCrashReportCount; ++i) {
+    if (crashes_[i].crash_addr == 0) {
+      // unused slot, take it
+      oldest_crash = i;
+      break;
+    } else if (real_time && crashes_[i].real_time < oldest_time) {
+      oldest_crash = i;
+      oldest_time = crashes_[i].real_time;
+    } else if (crashes_[i].millis > longest_runtime) {
+      oldest_crash = i;
+      longest_runtime = crashes_[i].millis;
+    }
+  }
+  auto& c = crashes_[oldest_crash];
+  c.crash_sp = sp;
+  c.crash_addr = pc;
+  c.real_time = real_time;
+  c.millis = runtime;
+  update(c);
+}
+
+void KWLPersistentConfig::resetCrashes()
+{
+  memset(crashes_, 0, sizeof(crashes_));
+  update(crashes_);
 }
