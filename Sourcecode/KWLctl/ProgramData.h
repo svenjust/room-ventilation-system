@@ -54,6 +54,14 @@ public:
   /// Check whether this program is enabled.
   bool enabled() const { return (weekdays_ & VALID_FLAG) != 0; }
 
+  /// Enable or disable this program.
+  void enable(bool enabled) {
+    if (enabled)
+      weekdays_ |= VALID_FLAG;
+    else
+      weekdays_ &= ~VALID_FLAG;
+  }
+
   /// Check whether the time lies within the program.
   bool matches(HMS hms) const;
 };

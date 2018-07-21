@@ -110,6 +110,15 @@ public:
     return LoadHelper(data_);
   }
 
+  /*!
+   * @brief Store the string into provided buffer.
+   *
+   * @param buffer buffer to store to. It must have a size of at least length() + 1.
+   */
+  inline void store(char* buffer) const {
+    memcpy_P(buffer, data_, len);
+  }
+
 private:
   template<unsigned... Indices>
   constexpr FlashStringLiteral(const char (&s)[len], FlashStringImpl::index_sequence<Indices...>) :

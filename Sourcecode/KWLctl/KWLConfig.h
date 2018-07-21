@@ -335,6 +335,9 @@ public:
   /// Retain last bypass configuration state reading in the MQTT broker.
   static const bool RetainBypassConfigState;
 
+  /// Retain program configuration in the MQTT broker.
+  static const bool RetainProgram;
+
   /// Retain last status bits readings in the MQTT broker.
   static const bool RetainStatusBits;
 
@@ -381,6 +384,8 @@ template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainBypassState = FinalConfig::RetainMeasurements;
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainBypassConfigState = FinalConfig::RetainMeasurements;
+template<typename FinalConfig>
+const bool KWLDefaultConfig<FinalConfig>::RetainProgram = FinalConfig::RetainMeasurements;
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainStatusBits = FinalConfig::RetainMeasurements;
 
@@ -480,6 +485,9 @@ public:
 
   /// Set program data in the given slot.
   void setProgram(unsigned index, const ProgramData& program) { programs_[index] = program; update(programs_[index]); }
+
+  /// Enable or disable program data in the given slot.
+  void enableProgram(unsigned index, bool enable) { programs_[index].enable(enable); update(programs_[index].weekdays_); }
 };
 
 #undef KWL_GETSET

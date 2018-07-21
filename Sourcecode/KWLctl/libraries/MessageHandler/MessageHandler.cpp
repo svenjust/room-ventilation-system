@@ -73,7 +73,17 @@ void MessageHandler::begin(PubSubClient& client, bool debug)
 
 bool MessageHandler::publish(const char* topic, const char* payload, bool retained)
 {
-  if (s_debug_) {
+  bool sent;
+#if 0 // enable to debug w/o MQTT broker
+  sent = true;
+#else
+  if (s_client_) {
+    sent = s_client_->publish(topic, payload, retained);
+  } else {
+    sent = false;
+  }
+#endif
+  if (s_debug_ && sent) {
     Serial.print(F("MQTT send "));
     Serial.print(topic);
     Serial.print(':');
@@ -83,10 +93,7 @@ bool MessageHandler::publish(const char* topic, const char* payload, bool retain
       Serial.print(F(" [retained]"));
     Serial.println();
   }
-  if (s_client_)
-    return s_client_->publish(topic, payload, retained);
-  else
-    return false;
+  return sent;
 }
 
 bool MessageHandler::publish(const char* topic, const __FlashStringHelper* payload, bool retained)

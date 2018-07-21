@@ -41,7 +41,8 @@ NetworkClient::NetworkClient(KWLPersistentConfig& config, MicroNTP& ntp) :
   stats_(F("NetworkClient")),
   timer_task_(stats_, &NetworkClient::run, *this),
   poll_stats_(F("NetworkClient")),
-  poll_task_(poll_stats_, &NetworkClient::loop, *this)
+  poll_task_(poll_stats_, &NetworkClient::loop, *this),
+  mqtt_send_poll_task_(poll_stats_, &NetworkClient::sendMQTT)
 {}
 
 void NetworkClient::begin(Print& initTracer)
@@ -200,7 +201,10 @@ void NetworkClient::loop()
 
   // now MQTT messages can be received
   mqtt_client_.loop();
-  // ...and send back anything still in queue
+}
+
+void NetworkClient::sendMQTT()
+{
   PublishTask::loop();
 }
 

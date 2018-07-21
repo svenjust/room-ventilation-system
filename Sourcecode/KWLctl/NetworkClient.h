@@ -68,6 +68,9 @@ private:
   /// Loop method to be called regularly to maintain the connection.
   void loop();
 
+  /// Loop task to send MQTT messages.
+  static void sendMQTT();
+
   /// Maximum size of serial buffer for sending messages over serial port.
   static constexpr uint8_t SERIAL_BUFFER_SIZE = 128;
 
@@ -105,4 +108,6 @@ private:
   Scheduler::TaskPollingStats poll_stats_;
   /// Poll tasks for maintaining network connection.
   Scheduler::PollTask<NetworkClient> poll_task_;
+  /// Poll tasks for sending MQTT messages.
+  Scheduler::PollTask<> mqtt_send_poll_task_;
 };

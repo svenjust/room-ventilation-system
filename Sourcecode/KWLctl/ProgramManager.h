@@ -54,19 +54,26 @@ public:
   /// Set program data for a given slot.
   void setProgram(unsigned index, const ProgramData& program);
 
+  /// Enable or disable program for a given slot.
+  void enableProgram(unsigned index, bool enabled);
+
 private:
   void run();
 
   virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) override;
 
+  /// Publish program data via MQTT.
+  void publishProgram(unsigned index);
+
   /// Send program data via MQTT.
-  bool mqttSendProgram(unsigned index);
+  bool mqttSendProgram(unsigned index, bool& all);
 
   KWLPersistentConfig& config_; ///< Persistent configuration.
   FanControl& fan_;             ///< Fan control to set mode.
   const MicroNTP& ntp_;         ///< Time service.
-  int8_t current_program_ = -1; ///< Index of currently-running program.
-  PublishTask publisher_;       ///< Task to publish all programs.
+  int8_t current_program_ = -2; ///< Index of currently-running program (-2 to force communicating on first run).
+  PublishTask publisher_;       ///< Task to publish program data.
+  PublishTask prognum_publisher_; ///< Task to publish program number.
   Scheduler::TaskTimingStats stats_;                ///< Timing statistics.
   Scheduler::TimedTask<ProgramManager> timer_task_; ///< Timer to check programs.
 };

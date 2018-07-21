@@ -54,6 +54,17 @@ void ProgramManager::setProgram(unsigned index, const ProgramData& program)
   config_.setProgram(index, program);
   if (index == unsigned(current_program_))
     current_program_ = -1;
+  publishProgram(index);
+}
+
+void ProgramManager::enableProgram(unsigned index, bool enabled)
+{
+  if (index > KWLConfig::MaxProgramCount)
+    return; // ERROR
+  config_.enableProgram(index, enabled);
+  if (index == unsigned(current_program_))
+    current_program_ = -1;
+  publishProgram(index);
 }
 
 void ProgramManager::run()
@@ -101,6 +112,7 @@ void ProgramManager::run()
       fan_.setVentilationMode(KWLConfig::StandardKwlMode);
     }
     current_program_ = program;
+    prognum_publisher_.publish(MQTTTopic::KwlProgramIndex, program);
   }
 }
 
@@ -141,45 +153,62 @@ bool ProgramData::matches(HMS hms) const
 
 bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  if (topic == MQTTTopic::CmdGetProgram) {
-    // get specific program or ALL
-    if (s == F("all")) {
+  if (topic.substr(0, MQTTTopic::CmdSetProgram.length()) != MQTTTopic::CmdSetProgram) {
+    // wrong topic
+    return false;
+  }
+  // strip the command and decode index
+  auto command = topic.c_str() + MQTTTopic::CmdSetProgram.length();
+  auto end = strchr(command, '/');
+  if (!end) {
+    // wrong topic
+    return false;
+  }
+  char* parse_end;
+  auto index = unsigned(strtoul(command, &parse_end, 10));
+  bool valid_index = (parse_end == end) && (end != command) && (index < KWLConfig::MaxProgramCount);
+  StringView index_str(command, size_t(end - command));
+  StringView command_str(end + 1);
+
+  if (command_str == MQTTTopic::SubtopicProgramGet) {
+    // get specified program or ALL
+    if (index_str == F("all")) {
       // send all programs
       unsigned i = 0;
-      publisher_.publish([this, i]() mutable {
+      bool all = false;
+      publisher_.publish([this, i, all]() mutable {
         while (i < KWLConfig::MaxProgramCount) {
-          if (!mqttSendProgram(i))
+          if (!mqttSendProgram(i, all))
             return false; // continue next time
           ++i;
+          all = false;
         }
         return true;  // all sent
       });
+    } else if (valid_index) {
+      publishProgram(index);
     } else {
-      unsigned i = unsigned(s.toInt());
-      publisher_.publish([this, i]() { return mqttSendProgram(i); });
+      if (KWLConfig::serialDebugProgram)
+        Serial.println(F("PROG: Invalid program index"));
     }
-  } else if (topic == MQTTTopic::CmdSetProgram) {
-    // set specific program
-    // Parse program string "## F HH:MM HH:MM M xxxxxxx", where ## is slot number,
-    // F is flag 0 or 1 whether it's enabled, M is fan mode and xxxxxxx are flags for
+    auto program = current_program_;
+    prognum_publisher_.publish(MQTTTopic::KwlProgramIndex, program);
+  } else if (command_str == MQTTTopic::SubtopicProgramData) {
+    // Parse program string "F HH:MM HH:MM M xxxxxxx", where F is flag 0 or 1
+    // whether it's enabled, M is fan mode and xxxxxxx are flags for
     // weekdays indicating whether to run program on a given weekday (0 or 1).
     // Weekday flags are optional, if not set, run every day.
-    unsigned slot, enabled, start_h, start_m, end_h, end_m, mode;
+    unsigned enabled, start_h, start_m, end_h, end_m, mode;
     char wd_buf[8];
-    int rc = sscanf(s.c_str(), "%u %u %u:%u %u:%u %u %7s",
-                    &slot, &enabled, &start_h, &start_m, &end_h, &end_m, &mode, wd_buf);
-    if (rc < 7) {
+    int rc = sscanf(s.c_str(), "%u:%u %u:%u %u %7s %u",
+                    &start_h, &start_m, &end_h, &end_m, &mode, wd_buf, &enabled);
+    if (rc < 5 || !valid_index) {
       if (KWLConfig::serialDebugProgram) {
-        Serial.print(F("PROG: Invalid program string, parsed items "));
+        Serial.print(F("PROG: Invalid program string or program index, parsed items "));
         Serial.print(rc);
         Serial.print('/');
-        Serial.println('8');
+        Serial.println('7');
       }
-      return true;
-    }
-    if (slot >= KWLConfig::MaxProgramCount) {
-      if (KWLConfig::serialDebugProgram)
-        Serial.println(F("PROG: Invalid program slot number"));
       return true;
     }
     ProgramData prog;
@@ -203,7 +232,7 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s
       return true;
     }
     prog.fan_mode_ = uint8_t(mode);
-    if (rc >= 8) {
+    if (rc >= 6) {
       prog.weekdays_ = 0;
       const char* p = wd_buf;
       for (uint8_t bit = 1; bit < ProgramData::VALID_FLAG; bit <<= 1) {
@@ -224,40 +253,73 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s
       // all weekdays
       prog.weekdays_ = 0x7f;
     }
-    if (enabled)
+    if (enabled || rc < 7)
       prog.weekdays_ |= ProgramData::VALID_FLAG;
     prog.reserved_ = 0;
-    setProgram(slot, prog);
+    setProgram(index, prog);
+  } else if (command_str == MQTTTopic::SubtopicProgramEnable) {
+    // enable or disable a program
+    if (valid_index) {
+      if (s == F("yes") || s == F("on") || s == F("1"))
+        enableProgram(index, true);
+      else if (s == F("no") || s == F("off") || s == F("0"))
+        enableProgram(index, false);
+      else if (KWLConfig::serialDebugProgram)
+        Serial.println(F("PROG: Invalid enable message, expected yes/on/1/no/off/0"));
+    } else {
+      if (KWLConfig::serialDebugProgram)
+        Serial.println(F("PROG: Invalid program index"));
+    }
   } else {
     return false;
   }
   return true;
 }
 
-bool ProgramManager::mqttSendProgram(unsigned index)
+void ProgramManager::publishProgram(unsigned index)
+{
+  bool all = false;
+  publisher_.publish([this, index, all]() mutable { return mqttSendProgram(index, all); });
+}
+
+bool ProgramManager::mqttSendProgram(unsigned index, bool& all)
 {
   if (index >= KWLConfig::MaxProgramCount)
     return true;
   auto& prog = config_.getProgram(index);
-  // Build program string "## F HH:MM HH:MM M xxxxxxx", where ## is slot number,
-  // F is flag 0 or 1 whether it's enabled, M is fan mode and xxxxxxx are flags
-  // for weekdays indicating whether to run program on a given weekday (0 or 1).
-  char buffer[27];
-  buffer[0] = char((index / 10)) + '0';
-  buffer[1] = char(index % 10) + '0';
-  buffer[2] = ' ';
-  buffer[3] = prog.enabled() ? '1' : '0';
-  buffer[4] = ' ';
-  HMS(prog.start_h_, prog.start_m_).writeHM(buffer + 5);
-  buffer[10] = ' ';
-  HMS(prog.end_h_, prog.end_m_).writeHM(buffer + 11);
-  buffer[16] = ' ';
-  buffer[17] = char(prog.fan_mode_ + '0');
-  buffer[18] = ' ';
-  char* p = buffer + 19;
-  for (uint8_t bit = 1; bit < ProgramData::VALID_FLAG; bit <<= 1)
-    *p++ = (prog.weekdays_ & bit) ? '1' : '0';
-  *p = 0;
-  return publish(MQTTTopic::KwlProgram, buffer, false);
-}
 
+  static constexpr size_t len = MQTTTopic::KwlProgramData.length();
+  char topic[len + 8];
+  MQTTTopic::KwlProgramData.store(topic);
+  char* pt = topic + len;
+  *pt++ = char(index / 10) + '0';
+  *pt++ = (index % 10) + '0';
+  *pt++ = '/';
+
+  if (all) {
+    MQTTTopic::SubtopicProgramEnable.store(pt);
+    // Send enabled flag only
+    return publish(topic, prog.enabled() ? F("yes") : F("no"), KWLConfig::RetainProgram);
+  } else {
+    MQTTTopic::SubtopicProgramData.store(pt);
+    // Build program string "F HH:MM HH:MM M xxxxxxx F", where HH:MM HH:MM is time
+    // range, M is fan mode, xxxxxxx are flags for weekdays indicating whether to
+    // run program on a given weekday (0 or 1) and F is flag 0 or 1 whether it's enabled.
+    char buffer[27];
+    HMS(prog.start_h_, prog.start_m_).writeHM(buffer);
+    buffer[5] = ' ';
+    HMS(prog.end_h_, prog.end_m_).writeHM(buffer + 6);
+    buffer[11] = ' ';
+    buffer[12] = char(prog.fan_mode_ + '0');
+    buffer[13] = ' ';
+    char* p = buffer + 14;
+    for (uint8_t bit = 1; bit < ProgramData::VALID_FLAG; bit <<= 1)
+      *p++ = (prog.weekdays_ & bit) ? '1' : '0';
+    *p++ = ' ';
+    *p++ = prog.enabled() ? '1' : '0';
+    *p = 0;
+
+    all = publish(topic, buffer, KWLConfig::RetainProgram);
+    return false; // we need to send enable flag
+  }
+}

@@ -32,42 +32,68 @@
 class StringView
 {
 public:
-  StringView() : StringView("", 0) {}
-  StringView(const char* string) : data_(string), length_(strlen(string)) {}
-  StringView(const char* string, unsigned int length) : data_(string), length_(length) {}
+  StringView() noexcept : StringView("", 0) {}
+  StringView(const char* string) noexcept : data_(string), length_(strlen(string)) {}
+  StringView(const char* string, unsigned int length) noexcept : data_(string), length_(length) {}
 
-  const char* c_str() const { return data_; }
-  unsigned int length() const { return length_; }
+  StringView& operator=(const StringView& other) noexcept {
+    data_ = other.data_;
+    length_ = other.length_;
+    return *this;
+  }
 
-  bool operator==(const char* other) const {
+  const char* c_str() const noexcept { return data_; }
+  unsigned int length() const noexcept { return length_; }
+
+  bool operator==(const char* other) const noexcept {
     if (memcmp(data_, other, length_) != 0)
       return false;
     return other[length_] == 0;
   }
 
-  bool operator==(const __FlashStringHelper* other) const {
+  bool operator==(const __FlashStringHelper* other) const noexcept {
     if (memcmp_P(data_, other, length_) != 0)
       return false;
     return pgm_read_byte(reinterpret_cast<const uint8_t*>(other) + length_) == 0;
   }
 
-  bool operator==(const StringView& other) const {
+  bool operator==(const StringView& other) const noexcept {
     if (length_ != other.length_)
       return false;
     return 0 == memcmp(data_, other.data_, length_);
   }
 
-  long toInt() const {
+  bool operator!=(const char* other) const noexcept { return !operator==(other); }
+  bool operator!=(const __FlashStringHelper* other) const noexcept { return !operator==(other); }
+  bool operator!=(const StringView& other) const noexcept { return !operator==(other); }
+
+  long toInt() const noexcept {
     return atol(data_);
   }
-  float toFloat() const {
+  float toFloat() const noexcept {
     return float(atof(data_));
   }
-  double toDouble() const {
+  double toDouble() const noexcept {
     return atof(data_);
+  }
+
+  /*!
+   * @brief Return a substring.
+   *
+   * @param pos first character position of the substring.
+   * @param count count of characters.
+   * @return substring starting at pos of length of at most count characters.
+   */
+  StringView substr(size_t pos = 0, size_t count = size_t(-1)) const noexcept {
+    if (pos >= length_)
+      return StringView();
+    size_t rem = length_ - pos;
+    if (count > rem)
+      count = rem;
+    return StringView(data_ + pos, count);
   }
 
 private:
   const char* data_;
-  unsigned int length_;
+  size_t length_;
 };
