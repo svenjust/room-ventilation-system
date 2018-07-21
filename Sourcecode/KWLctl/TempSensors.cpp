@@ -87,6 +87,7 @@ void TempSensors::TempSensor::retry()
 }
 
 TempSensors::TempSensors() :
+  MessageHandler(F("TempSensors")),
   t1_(KWLConfig::PinTemp1OneWireBus),
   t2_(KWLConfig::PinTemp2OneWireBus),
   t3_(KWLConfig::PinTemp3OneWireBus),
@@ -150,9 +151,6 @@ void TempSensors::run()
 
 bool TempSensors::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  if (KWLConfig::serialDebug)
-    Serial.println(F("MQTT handler: TempSensors"));
-
   if (topic == MQTTTopic::CmdGetTemp) {
     forceSend();
   }

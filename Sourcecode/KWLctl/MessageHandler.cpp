@@ -19,14 +19,16 @@
  */
 
 #include "MessageHandler.h"
-#include "NetworkClient.h"
-#include "KWLConfig.h"
 
 #include <PubSubClient.h>
 #include <stdlib.h>
 
 PublishTask* PublishTask::s_first_task_ = nullptr;
+bool PublishTask::s_has_tasks_ = false;
+
 MessageHandler* MessageHandler::s_first_handler = nullptr;
+PubSubClient* MessageHandler::s_client_ = nullptr;
+bool MessageHandler::s_debug_ = false;
 
 PublishTask::PublishTask() :
   next_(s_first_task_)
@@ -34,29 +36,44 @@ PublishTask::PublishTask() :
   s_first_task_ = this;
 }
 
-void PublishTask::loop()
+bool PublishTask::loop()
 {
+  bool retval = false;
   auto cur = s_first_task_;
   while (cur) {
     if (cur->invoker_) {
+      retval = true;
       auto res = cur->invoker_(cur->closure_space_);
       if (res)
         cur->invoker_ = nullptr;  // sent successfully
     }
     cur = cur->next_;
   }
+  s_has_tasks_ = retval;
+  return retval;
 }
 
-MessageHandler::MessageHandler() : next_(s_first_handler)
+MessageHandler::MessageHandler(const __FlashStringHelper* name) :
+  next_(s_first_handler),
+  name_(name)
 {
   s_first_handler = this;
 }
 
 MessageHandler::~MessageHandler() {}
 
+void MessageHandler::begin(PubSubClient& client, bool debug)
+{
+  if (s_client_)
+    s_client_->setCallback(nullptr);
+  s_client_ = &client;
+  s_debug_ = debug;
+  client.setCallback(&MessageHandler::mqttMessageReceived);
+}
+
 bool MessageHandler::publish(const char* topic, const char* payload, bool retained)
 {
-  if (KWLConfig::serialDebug) {
+  if (s_debug_) {
     Serial.print(F("MQTT send "));
     Serial.print(topic);
     Serial.print(':');
@@ -66,8 +83,8 @@ bool MessageHandler::publish(const char* topic, const char* payload, bool retain
       Serial.print(F(" [retained]"));
     Serial.println();
   }
-  if (NetworkClient::hasClient())
-    return NetworkClient::getClient().publish(topic, payload, retained);
+  if (s_client_)
+    return s_client_->publish(topic, payload, retained);
   else
     return false;
 }
@@ -106,7 +123,7 @@ void MessageHandler::mqttMessageReceived(char* topic, uint8_t* payload, unsigned
   payload[length] = 0;  // ensure NUL termination
   const StringView topicStr(topic);
   const StringView s(reinterpret_cast<const char*>(payload), length);
-  if (KWLConfig::serialDebug) {
+  if (s_debug_) {
     Serial.print(F("MQTT receive ["));
     Serial.write(topicStr.c_str(), topicStr.length());
     Serial.print(F("]: ["));
@@ -116,12 +133,21 @@ void MessageHandler::mqttMessageReceived(char* topic, uint8_t* payload, unsigned
 
   auto handler = s_first_handler;
   while (handler) {
-    if (handler->mqttReceiveMsg(topicStr, s))
+    if (s_debug_) {
+      Serial.print(F("- trying MQTT handler: "));
+      Serial.println(handler->name_);
+    }
+    if (handler->mqttReceiveMsg(topicStr, s)) {
+      if (s_debug_) {
+        Serial.print(F("MQTT message handled by: "));
+        Serial.println(handler->name_);
+      }
       return;
+    }
     handler = handler->next_;
   }
 
-  if (KWLConfig::serialDebug) {
-    Serial.println(F("Unexpected MQTT message received"));
+  if (s_debug_) {
+    Serial.println(F("Unexpected MQTT message received, no handler found"));
   }
 }

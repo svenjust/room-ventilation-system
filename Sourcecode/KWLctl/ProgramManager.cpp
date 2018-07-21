@@ -30,6 +30,7 @@
 static constexpr unsigned long PROGRAM_INTERVAL = 5000000;
 
 ProgramManager::ProgramManager(KWLPersistentConfig& config, FanControl& fan, const MicroNTP& ntp) :
+  MessageHandler(F("ProgramManager")),
   config_(config),
   fan_(fan),
   ntp_(ntp),
@@ -141,9 +142,6 @@ bool ProgramData::matches(HMS hms) const
 
 bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  if (KWLConfig::serialDebug)
-    Serial.println(F("MQTT handler: ProgramManager"));
-
   if (topic == MQTTTopic::CmdGetProgram) {
     // get specific program or ALL
     if (s == F("all")) {

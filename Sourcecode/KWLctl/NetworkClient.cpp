@@ -35,8 +35,6 @@ static constexpr unsigned long MQTT_RECONNECT_INTERVAL = 5000000;
 /// MQTT heartbeat period.
 static constexpr unsigned long MQTT_HEARTBEAT_PERIOD = KWLConfig::HeartbeatPeriod * 1000000UL;
 
-PubSubClient* NetworkClient::s_client_ = nullptr;
-
 NetworkClient::NetworkClient(KWLPersistentConfig& config, MicroNTP& ntp) :
   mqtt_client_(eth_client_),
   config_(config),
@@ -57,10 +55,9 @@ void NetworkClient::begin(Print& initTracer)
   initTracer.print(F("Initialisierung MQTT, broker IP "));
   initTracer.println(IPAddress(KWLConfig::NetworkMQTTBroker));
   mqtt_client_.setServer(KWLConfig::NetworkMQTTBroker, KWLConfig::NetworkMQTTPort);
-  mqtt_client_.setCallback(MessageHandler::mqttMessageReceived);
+  MessageHandler::begin(mqtt_client_, KWLConfig::serialDebug);
   last_mqtt_reconnect_attempt_time_ = micros();
   mqtt_ok_ = true;
-  s_client_ = &mqtt_client_;
   loop();  // first run call here to connect MQTT
 }
 
@@ -131,7 +128,7 @@ void NetworkClient::loop()
           *delim++ = 0;
           while (*delim == ' ' || *delim == '\t')
             ++delim;
-          MessageHandler::mqttMessageReceived(
+          MessageHandler::debugPushMessage(
                 serial_data_,
                 reinterpret_cast<uint8_t*>(delim),
                 unsigned(serial_data_size_ - (delim - serial_data_)));

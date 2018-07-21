@@ -230,6 +230,7 @@ void Fan::sendMQTTDebug(int id, unsigned long ts, MessageHandler& h)
 
 
 FanControl::FanControl(KWLPersistentConfig& config, SetSpeedCallback *speedCallback) :
+  MessageHandler(F("FanControl")),
   fan1_(1, KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho),
   fan2_(2, KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho),
   speed_callback_(speedCallback),
@@ -440,9 +441,6 @@ void FanControl::storePWMSettingsToEEPROM()
 
 bool FanControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  if (KWLConfig::serialDebug)
-    Serial.println(F("MQTT handler: FanControl"));
-
   if (topic == MQTTTopic::CmdFan1Speed) {
     // Drehzahl Lüfter 1
     unsigned i = unsigned(s.toInt());

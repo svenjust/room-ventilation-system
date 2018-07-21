@@ -19,13 +19,18 @@
 
 /*!
  * @file
- * @brief Handler for incoming MQTT messages.
+ * @brief Handler for incoming MQTT messages and asynchronous publishing task.
+ *
+ * This library requires PubSubClient and StringView libraries. Optionally,
+ * FlashStringLiteral library can be used to define message topics as
+ * constexpr expressions in Flash memory.
  */
 #pragma once
 
-#include "FlashStringLiteral.h"
+#include <StringView.h>
+#include <avr/pgmspace.h>
 
-class StringView;
+class PubSubClient;
 
 /// In-place new operator.
 inline void* operator new(size_t, void* ptr) { return ptr; }
@@ -57,7 +62,9 @@ public:
    * @brief Publish using a function.
    *
    * If the task is still in use and another publish() is called, then the
-   * previous publish() is aborted.
+   * previous publish() is aborted and replaced with the new one. E.g., if
+   * a new value is to be transmitted, it overwrites the old value, which
+   * was not yet transmitted.
    *
    * @param message_writer message writer calling MessageHandler::publish()
    *    to actually publish a message. Returns bool indicating if the send
@@ -76,6 +83,7 @@ public:
       return (*reinterpret_cast<Func*>(closure))();
     };
     invoker_ = tmp;
+    s_has_tasks_ = true;
   }
 
   /*!
@@ -89,21 +97,45 @@ public:
   template<typename TopicType, typename PayloadType, typename... Args>
   void publish(const TopicType& topic, PayloadType payload, Args... args);
 
-  /// Continue sending on all tasks with unsent data in loop().
-  static void loop();
+  /// Cancel pending send.
+  void cancel() noexcept { invoker_ = nullptr; }
+
+  /// Check if any tasks are pending.
+  static bool hasTasks() noexcept { return s_has_tasks_; }
+
+  /*!
+   * @brief Continue sending on all tasks with unsent data in loop().
+   *
+   * The return value allows for integration with task schedulers supporting
+   * deep sleep. If no task is pending, then the scheduler can enter deep
+   * sleep and stop calling loop(). The scheduler can also query presence
+   * of tasks using hasTasks() method.
+   *
+   * @return @c true, if next loop() call is necessary, @c false otherwise.
+   */
+  static bool loop();
 
 private:
   char closure_space_[12];            ///< Space for the closure of the writer.
   bool (*invoker_)(void*) = nullptr;  ///< Invoker of the writer, if active.
   PublishTask* next_;                 ///< Next registered publish task.
+
+  static bool s_has_tasks_;           ///< Flag indicating if tasks are pending.
   static PublishTask* s_first_task_;  ///< First registered task.
 };
 
 /*!
- * @brief Handler for incoming MQTT messages.
+ * @brief Handler for incoming MQTT messages and publising outgoing messages.
  *
- * Creating an instance automatically registers it with the handler.
- * Derive from this class in your component to handle incoming and outgoing messages.
+ * Creating an instance automatically registers it with the handler, so
+ * call to mqttMessageReceived() will call the handler. First handler
+ * which processes the message wins.
+ *
+ * Derive from this class in your component to handle incoming messages.
+ *
+ * To send outgoing messages reliably, use PublishTask::publish(), which in turn
+ * calls MessageHandler::publish() as often as needed to ensure the message is
+ * indeed sent ultimately.
  */
 class MessageHandler
 {
@@ -111,9 +143,18 @@ public:
   MessageHandler(const MessageHandler&) = delete;
   MessageHandler& operator=(const MessageHandler&) = delete;
 
-  MessageHandler();
+  /// Create message handler with the given name.
+  explicit MessageHandler(const __FlashStringHelper* name);
 
   virtual ~MessageHandler();
+
+  /*!
+   * @brief Start sending and receiving messages.
+   *
+   * @param client client to register on as message callback.
+   * @param debug if set, print debugging messages to Serial output.
+   */
+  static void begin(PubSubClient& client, bool debug = false);
 
   /*!
    * @brief Publish a message.
@@ -198,9 +239,13 @@ public:
    * @param args additional arguments to type-specific publish() method.
    * @return @c true, if published successfully, @c false otherwise.
    */
-  template<unsigned Len, typename PayloadType, typename... Args>
-  inline static bool publish(const FlashStringLiteral<Len>& topic, PayloadType payload, Args... args) {
-    return publish(topic.load(), payload, args...);
+  template<typename PayloadType, typename... Args>
+  inline static bool publish(const __FlashStringHelper* topic, PayloadType payload, Args... args) {
+    auto ctopic = reinterpret_cast<const char*>(topic);
+    auto topic_len = strlen_P(ctopic) + 1;
+    char buffer[topic_len];
+    memcpy_P(buffer, ctopic, topic_len);
+    return publish(buffer, payload, args...);
   }
 
   /*!
@@ -228,9 +273,21 @@ public:
     return true;
   }
 
-private:
-  friend class NetworkClient;
+  /*!
+   * @brief Push message programmatically.
+   *
+   * This can be used for debugging purposes to push messages into the MQTT
+   * message handler w/o actual MQTT client.
+   *
+   * @param topic MQTT topic.
+   * @param payload payload of the MQTT message (NUL-terminated after length).
+   * @param length length of the payload.
+   */
+  static void debugPushMessage(char* topic, uint8_t* payload, unsigned int length) {
+    return mqttMessageReceived(topic, payload, length);
+  }
 
+private:
   /*!
    * @brief Try to handle received message.
    *
@@ -250,7 +307,10 @@ private:
   static void mqttMessageReceived(char* topic, uint8_t* payload, unsigned int length);
 
   MessageHandler* next_;
+  const __FlashStringHelper* name_;
   static MessageHandler* s_first_handler;
+  static PubSubClient* s_client_;
+  static bool s_debug_;
 };
 
 template<typename TopicType, typename PayloadType, typename... Args>

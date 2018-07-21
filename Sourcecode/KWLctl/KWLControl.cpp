@@ -29,6 +29,7 @@ void loopDisplayUpdate();
 void loopTouch();
 
 KWLControl::KWLControl() :
+  MessageHandler(F("KWLControl")),
   ntp_(udp_),
   network_client_(persistent_config_, ntp_),
   fan_control_(persistent_config_, this),
@@ -152,9 +153,6 @@ void KWLControl::fanSpeedSet()
 
 bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  if (KWLConfig::serialDebug)
-    Serial.println(F("MQTT handler: KWLControl"));
-
   // Set Values
   if (topic == MQTTTopic::CmdResetAll) {
     if (s == F("YES"))   {

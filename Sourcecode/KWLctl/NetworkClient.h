@@ -49,12 +49,6 @@ public:
   /// Start network client.
   void begin(Print& initTracer);
 
-  /// Check if the global MQTT client is already installed.
-  static bool hasClient() { return s_client_ != nullptr; }
-
-  /// Get global instance of the MQTT client.
-  static PubSubClient& getClient() { return *s_client_; }
-
   /// Check if LAN is OK.
   bool isLANOk() const { return lan_ok_; }
 
@@ -76,9 +70,6 @@ private:
 
   /// Maximum size of serial buffer for sending messages over serial port.
   static constexpr uint8_t SERIAL_BUFFER_SIZE = 128;
-
-  /// Static link to the client to be used by MessageHandler to publish messages.
-  static PubSubClient* s_client_;
 
   /// Ethernet client for MQTT client.
   EthernetClient eth_client_;

@@ -48,6 +48,7 @@ static constexpr long MAX_TEMP_HYSTERESIS = 10;
 static constexpr double heaterKp = 50, heaterKi = 0.1, heaterKd = 0.025;
 
 Antifreeze::Antifreeze(FanControl& fan, TempSensors& temp, KWLPersistentConfig& config) :
+  MessageHandler(F("Antifreeze")),
   fan_(fan),
   temp_(temp),
   config_(config),
@@ -293,9 +294,6 @@ void Antifreeze::doActionAntiFreezeState()
 
 bool Antifreeze::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  if (KWLConfig::serialDebug)
-    Serial.println(F("MQTT handler: Antifreeze"));
-
   if (topic == MQTTTopic::CmdAntiFreezeHyst) {
     auto i = s.toInt();
     if (i < 0)

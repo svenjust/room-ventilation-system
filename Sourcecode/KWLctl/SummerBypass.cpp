@@ -38,6 +38,7 @@ static constexpr unsigned long BYPASS_FLAPS_DRIVE_TIME = 120 * 1000000UL;
 static constexpr long MAX_TEMP_HYSTERESIS = 10;
 
 SummerBypass::SummerBypass(KWLPersistentConfig& config, const TempSensors& temp) :
+  MessageHandler(F("SummerBypass")),
   config_(config),
   temp_(temp),
   rel_bypass_power_(KWLConfig::PinBypassPower),
@@ -105,13 +106,16 @@ void SummerBypass::run()
       rel_bypass_power_.off();
       rel_bypass_direction_.off();
       state_ = flap_setpoint_;
-      Serial.print(F(" motor off; flap now "));
+      if (KWLConfig::serialDebugSummerbypass)
+        Serial.print(F(" motor off; flap now "));
       bypass_motor_running_ = false;
     } else {
       // should never get here, we'll retry
-      Serial.print(F(" motor running; flap going to "));
+      if (KWLConfig::serialDebugSummerbypass)
+        Serial.print(F(" motor running; flap going to "));
     }
-    Serial.println(toString(flap_setpoint_));
+    if (KWLConfig::serialDebugSummerbypass)
+      Serial.println(toString(flap_setpoint_));
     sendMQTT();
     timer_task_.setInterval(INTERVAL_BYPASS_CHECK);
     return;
@@ -195,9 +199,6 @@ void SummerBypass::run()
 
 bool SummerBypass::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
-  if (KWLConfig::serialDebug)
-    Serial.println(F("MQTT handler: SummerBypass"));
-
   if (topic == MQTTTopic::CmdBypassGetValues) {
     forceSend(true);
   } else if (topic == MQTTTopic::CmdBypassHystereseMinutes) {
