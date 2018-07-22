@@ -110,6 +110,13 @@ public:
     return HMS(time(ms), tz_offset, dst);
   }
 
+  /*!
+   * @brief Set time for debugging purposes.
+   *
+   * @param time time to set (seconds since epoch).
+   */
+  void debugSetTime(unsigned long time);
+
 private:
   /// Send NTP request. Returns true, if packet was sent.
   bool sendRequest(uint32_t ms);

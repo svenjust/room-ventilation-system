@@ -206,3 +206,14 @@ bool MicroNTP::parseReply(uint32_t ms)
   }
   return false;
 }
+
+void MicroNTP::debugSetTime(unsigned long time)
+{
+  if (DEBUG) {
+    Serial.print(F("NTP: debug set time to "));
+    Serial.println(time);
+  }
+  current_ntp_time_ = time;
+  receive_time_ms_ = millis();
+  ntp_time_millis_fract_ = 0;
+}

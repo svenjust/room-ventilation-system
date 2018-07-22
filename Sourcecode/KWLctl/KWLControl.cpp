@@ -242,6 +242,16 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
       }
       return true;
     });
+  } else if (topic == MQTTTopic::KwlDebugsetNTPTime) {
+    // set NTP time
+    unsigned long time = static_cast<unsigned long>(s.toInt());
+    ntp_.debugSetTime(time);
+    if (KWLConfig::serialDebug) {
+      Serial.print(F("Setting NTP time to "));
+      Serial.print(time);
+      Serial.print(F(", "));
+      Serial.println(PrintableHMS(ntp_.currentTimeHMS(persistent_config_.getTimezoneMin() * 60, persistent_config_.getDST())));
+    }
   } else if (topic == MQTTTopic::KwlDebugsetCrashGetvalues) {
     // get crash information
     unsigned index = 0;
