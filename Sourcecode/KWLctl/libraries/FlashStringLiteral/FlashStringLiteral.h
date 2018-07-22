@@ -76,8 +76,8 @@ public:
   class LoadHelper
   {
   public:
-    /// Implicit conversion to const char*.
-    inline operator const char*() const { return buffer_; }
+    /// Implicit conversion to char*.
+    inline operator char*() const { return buffer_; }
   private:
     friend class FlashStringLiteral;
     inline LoadHelper(const char* p) { memcpy_P(buffer_, p, len); }

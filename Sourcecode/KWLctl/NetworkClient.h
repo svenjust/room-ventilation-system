@@ -68,6 +68,9 @@ private:
   /// Loop method to be called regularly to maintain the connection.
   void loop();
 
+  /// (Re-)subscribe to topics, if not subscribed yet.
+  void resubscribe();
+
   /// Loop task to send MQTT messages.
   static void sendMQTT();
 

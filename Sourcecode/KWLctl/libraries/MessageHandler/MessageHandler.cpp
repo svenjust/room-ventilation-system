@@ -20,14 +20,15 @@
 
 #include "MessageHandler.h"
 
-#include <PubSubClient.h>
+#include <Arduino.h>
 #include <stdlib.h>
 
 PublishTask* PublishTask::s_first_task_ = nullptr;
 bool PublishTask::s_has_tasks_ = false;
 
 MessageHandler* MessageHandler::s_first_handler = nullptr;
-PubSubClient* MessageHandler::s_client_ = nullptr;
+MessageHandler::publish_callback MessageHandler::s_cb_ = nullptr;
+void *MessageHandler::s_cb_arg_ = nullptr;
 bool MessageHandler::s_debug_ = false;
 
 PublishTask::PublishTask() :
@@ -62,27 +63,16 @@ MessageHandler::MessageHandler(const __FlashStringHelper* name) :
 
 MessageHandler::~MessageHandler() {}
 
-void MessageHandler::begin(PubSubClient& client, bool debug)
+void MessageHandler::begin(publish_callback cb, void *cb_arg, bool debug)
 {
-  if (s_client_)
-    s_client_->setCallback(nullptr);
-  s_client_ = &client;
+  s_cb_ = cb;
+  s_cb_arg_ = cb_arg;
   s_debug_ = debug;
-  client.setCallback(&MessageHandler::mqttMessageReceived);
 }
 
 bool MessageHandler::publish(const char* topic, const char* payload, bool retained)
 {
-  bool sent;
-#if 0 // enable to debug w/o MQTT broker
-  sent = true;
-#else
-  if (s_client_) {
-    sent = s_client_->publish(topic, payload, retained);
-  } else {
-    sent = false;
-  }
-#endif
+  bool sent = s_cb_(s_cb_arg_, topic, payload, retained);
   if (s_debug_ && sent) {
     Serial.print(F("MQTT send "));
     Serial.print(topic);

@@ -21,16 +21,22 @@
  * @file
  * @brief Handler for incoming MQTT messages and asynchronous publishing task.
  *
- * This library requires PubSubClient and StringView libraries. Optionally,
- * FlashStringLiteral library can be used to define message topics as
- * constexpr expressions in Flash memory.
+ * This library requires StringView library and typically will be used with
+ * PubSubClient MQTT library. Optionally, FlashStringLiteral library can be
+ * used to define message topics as constexpr expressions in Flash memory.
  */
 #pragma once
 
 #include <StringView.h>
 #include <avr/pgmspace.h>
 
-class PubSubClient;
+/*
+ * NOTE: Messages are normally never published synchronously to save RAM. However,
+ * you can define this macro before including the header to force trying to send
+ * the message synchronously before falling back to asynchronous send in
+ * PublishTask::loop().
+ */
+//#define MESSAGE_HANDLER_SYNC_PUBLISH
 
 /// In-place new operator.
 inline void* operator new(size_t, void* ptr) { return ptr; }
@@ -73,7 +79,7 @@ public:
   template<typename Func>
   void publish(Func&& message_writer) {
     static_assert(sizeof(Func) < sizeof(closure_space_), "Too big writer closure, reduce");
-  #if 0 // do not publish synchronosuly to save RAM
+  #ifdef MESSAGE_HANDLER_SYNC_PUBLISH
     if (message_writer())
       return;   // published immediately synchronously
   #endif
@@ -140,6 +146,18 @@ private:
 class MessageHandler
 {
 public:
+  /*!
+   * @brief Signature of a publishing method.
+   *
+   * The signature is intentionally made compatible with PubSubClient, so it can be
+   * easily integrated with PubSubClient.
+   *
+   * @param instance instance pointer as specified in begin().
+   * @param topic,payload,retained parameters to publish() method.
+   * @return @c true, if the message was sent, @c false, if not.
+   */
+  using publish_callback = bool (*)(void* instance, const char* topic, const char* payload, bool retained);
+
   MessageHandler(const MessageHandler&) = delete;
   MessageHandler& operator=(const MessageHandler&) = delete;
 
@@ -151,10 +169,11 @@ public:
   /*!
    * @brief Start sending and receiving messages.
    *
-   * @param client client to register on as message callback.
+   * @param cb callback for sending messages.
+   * @param cb_arg callback argument (instance of PubSubClient).
    * @param debug if set, print debugging messages to Serial output.
    */
-  static void begin(PubSubClient& client, bool debug = false);
+  static void begin(publish_callback cb, void *cb_arg, bool debug = false);
 
   /*!
    * @brief Publish a message.
@@ -274,18 +293,16 @@ public:
   }
 
   /*!
-   * @brief Push message programmatically.
+   * @brief Handle a new message. Calls all registered handlers.
    *
-   * This can be used for debugging purposes to push messages into the MQTT
-   * message handler w/o actual MQTT client.
+   * The method signature is chosen intentionally so that it can be used with
+   * PubSubClient directly as PubSubClient's callback.
    *
    * @param topic MQTT topic.
    * @param payload payload of the MQTT message (NUL-terminated after length).
    * @param length length of the payload.
    */
-  static void debugPushMessage(char* topic, uint8_t* payload, unsigned int length) {
-    return mqttMessageReceived(topic, payload, length);
-  }
+  static void mqttMessageReceived(char* topic, uint8_t* payload, unsigned int length);
 
 private:
   /*!
@@ -297,19 +314,11 @@ private:
    */
   virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) = 0;
 
-  /*!
-   * @brief Handle a new message. Calls all registered handlers.
-   *
-   * @param topic MQTT topic.
-   * @param payload payload of the MQTT message (NUL-terminated after length).
-   * @param length length of the payload.
-   */
-  static void mqttMessageReceived(char* topic, uint8_t* payload, unsigned int length);
-
   MessageHandler* next_;
   const __FlashStringHelper* name_;
   static MessageHandler* s_first_handler;
-  static PubSubClient* s_client_;
+  static publish_callback s_cb_;
+  static void *s_cb_arg_;
   static bool s_debug_;
 };
 

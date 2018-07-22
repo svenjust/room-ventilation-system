@@ -34,85 +34,102 @@
  */
 namespace MQTTTopic
 {
-  constexpr auto Command                    = makeFlashStringLiteral("d15/set/#");
-  constexpr auto CommandDebug               = makeFlashStringLiteral("d15/debugset/#");
-  constexpr auto CmdResetAll                = makeFlashStringLiteral("d15/set/kwl/resetAll_IKNOWWHATIMDOING");
-  constexpr auto CmdCalibrateFans           = makeFlashStringLiteral("d15/set/kwl/calibratefans");
-  constexpr auto CmdFansCalculateSpeedMode  = makeFlashStringLiteral("d15/set/kwl/fans/calculatespeed");
-  constexpr auto CmdFan1Speed               = makeFlashStringLiteral("d15/set/kwl/fan1/standardspeed");
-  constexpr auto CmdFan2Speed               = makeFlashStringLiteral("d15/set/kwl/fan2/standardspeed");
-  constexpr auto CmdGetSpeed                = makeFlashStringLiteral("d15/set/kwl/fans/getspeed");
-  constexpr auto CmdGetTemp                 = makeFlashStringLiteral("d15/set/kwl/temperatur/gettemp");
-  constexpr auto CmdGetvalues               = makeFlashStringLiteral("d15/set/kwl/getvalues");
-  constexpr auto CmdMode                    = makeFlashStringLiteral("d15/set/kwl/lueftungsstufe");
-  constexpr auto CmdAntiFreezeHyst          = makeFlashStringLiteral("d15/set/kwl/antifreeze/hysterese");
-  constexpr auto CmdBypassGetValues         = makeFlashStringLiteral("d15/set/kwl/summerbypass/getvalues");
-  constexpr auto CmdBypassManualFlap        = makeFlashStringLiteral("d15/set/kwl/summerbypass/flap");
-  constexpr auto CmdBypassMode              = makeFlashStringLiteral("d15/set/kwl/summerbypass/mode");
-  constexpr auto CmdBypassHystereseMinutes  = makeFlashStringLiteral("d15/set/kwl/summerbypass/HystereseMinutes");
-  constexpr auto CmdBypassHyst              = makeFlashStringLiteral("d15/set/kwl/summerbypass/HysteresisTemp");
-  constexpr auto CmdBypassTempAbluftMin     = makeFlashStringLiteral("d15/set/kwl/summerbypass/TempAbluftMin");
-  constexpr auto CmdBypassTempAussenluftMin = makeFlashStringLiteral("d15/set/kwl/summerbypass/TempAussenluftMin");
-  constexpr auto CmdHeatingAppCombUse       = makeFlashStringLiteral("d15/set/kwl/heatingapp/combinedUse");
-  constexpr auto CmdSetProgram              = makeFlashStringLiteral("d15/set/kwl/program/");
-  constexpr auto CmdSetProgramSet           = makeFlashStringLiteral("d15/set/kwl/program/set");
+  /// Prefix for all normal commands. Also used for subscribing.
+  constexpr auto Command                    = makeFlashStringLiteral("d15/set/kwl/");
+  /// Prefix for all debug commands. Also used for subscribing.
+  constexpr auto CommandDebug               = makeFlashStringLiteral("d15/debugset/kwl/");
+  /// Prefix for all status values.
+  constexpr auto State                      = makeFlashStringLiteral("d15/state/kwl/");
+  /// Prefix for all debug status values.
+  constexpr auto StateDebug                 = makeFlashStringLiteral("d15/debugstate/kwl/");
+
+  // Remaining commands/values are internally prefixed by Command/State or by
+  // CommandDebug/StateDebug. To differentiate, debug commands and states are
+  // prefixed by single '/' below.
+
+  constexpr auto CmdResetAll                = makeFlashStringLiteral("resetAll_IKNOWWHATIMDOING");
+  constexpr auto CmdCalibrateFans           = makeFlashStringLiteral("calibratefans");
+  constexpr auto CmdFansCalculateSpeedMode  = makeFlashStringLiteral("fans/calculatespeed");
+  constexpr auto CmdFan1Speed               = makeFlashStringLiteral("fan1/standardspeed");
+  constexpr auto CmdFan2Speed               = makeFlashStringLiteral("fan2/standardspeed");
+  constexpr auto CmdGetSpeed                = makeFlashStringLiteral("fans/getspeed");
+  constexpr auto CmdGetTemp                 = makeFlashStringLiteral("temperatur/gettemp");
+  constexpr auto CmdGetvalues               = makeFlashStringLiteral("getvalues");
+  constexpr auto CmdMode                    = makeFlashStringLiteral("lueftungsstufe");
+  constexpr auto CmdAntiFreezeHyst          = makeFlashStringLiteral("antifreeze/hysterese");
+  constexpr auto CmdBypassGetValues         = makeFlashStringLiteral("summerbypass/getvalues");
+  constexpr auto CmdBypassManualFlap        = makeFlashStringLiteral("summerbypass/flap");
+  constexpr auto CmdBypassMode              = makeFlashStringLiteral("summerbypass/mode");
+  constexpr auto CmdBypassHystereseMinutes  = makeFlashStringLiteral("summerbypass/HystereseMinutes");
+  constexpr auto CmdBypassHyst              = makeFlashStringLiteral("summerbypass/HysteresisTemp");
+  constexpr auto CmdBypassTempAbluftMin     = makeFlashStringLiteral("summerbypass/TempAbluftMin");
+  constexpr auto CmdBypassTempAussenluftMin = makeFlashStringLiteral("summerbypass/TempAussenluftMin");
+  constexpr auto CmdHeatingAppCombUse       = makeFlashStringLiteral("heatingapp/combinedUse");
+  constexpr auto CmdSetProgram              = makeFlashStringLiteral("program/");
+  constexpr auto CmdSetProgramSet           = makeFlashStringLiteral("program/set");
   constexpr auto SubtopicProgramData        = makeFlashStringLiteral("data");
   constexpr auto SubtopicProgramEnable      = makeFlashStringLiteral("enable");
   constexpr auto SubtopicProgramGet         = makeFlashStringLiteral("get");
 
-  constexpr auto Heartbeat                  = makeFlashStringLiteral("d15/state/kwl/heartbeat");
-  constexpr auto StatusBits                 = makeFlashStringLiteral("d15/state/kwl/statusbits");
-  constexpr auto Fan1Speed                  = makeFlashStringLiteral("d15/state/kwl/fan1/speed");
-  constexpr auto Fan2Speed                  = makeFlashStringLiteral("d15/state/kwl/fan2/speed");
-  constexpr auto KwlOnline                  = makeFlashStringLiteral("d15/state/kwl/heartbeat");
-  constexpr auto StateKwlMode               = makeFlashStringLiteral("d15/state/kwl/lueftungsstufe");
-  constexpr auto KwlTemperaturAussenluft    = makeFlashStringLiteral("d15/state/kwl/aussenluft/temperatur");
-  constexpr auto KwlTemperaturZuluft        = makeFlashStringLiteral("d15/state/kwl/zuluft/temperatur");
-  constexpr auto KwlTemperaturAbluft        = makeFlashStringLiteral("d15/state/kwl/abluft/temperatur");
-  constexpr auto KwlTemperaturFortluft      = makeFlashStringLiteral("d15/state/kwl/fortluft/temperatur");
-  constexpr auto KwlEffiency                = makeFlashStringLiteral("d15/state/kwl/effiencyKwl");
-  constexpr auto KwlAntifreeze              = makeFlashStringLiteral("d15/state/kwl/antifreeze");
-  constexpr auto KwlBypassState             = makeFlashStringLiteral("d15/state/kwl/summerbypass/flap");
-  constexpr auto KwlBypassMode              = makeFlashStringLiteral("d15/state/kwl/summerbypass/mode");
-  constexpr auto KwlBypassTempAbluftMin     = makeFlashStringLiteral("d15/state/kwl/summerbypass/TempAbluftMin");
-  constexpr auto KwlBypassTempAussenluftMin = makeFlashStringLiteral("d15/state/kwl/summerbypass/TempAussenluftMin");
-  constexpr auto KwlBypassHystereseMinutes  = makeFlashStringLiteral("d15/state/kwl/summerbypass/HystereseMinutes");
-  constexpr auto KwlBypassHysteresisTemp    = makeFlashStringLiteral("d15/state/kwl/summerbypass/HysteresisTemp");
-  constexpr auto KwlHeatingAppCombUse       = makeFlashStringLiteral("d15/state/kwl/heatingapp/combinedUse");
-  constexpr auto KwlProgramIndex            = makeFlashStringLiteral("d15/state/kwl/program/index");
-  constexpr auto KwlProgramSet              = makeFlashStringLiteral("d15/state/kwl/program/set");
-  constexpr auto KwlProgramData             = makeFlashStringLiteral("d15/state/kwl/program/");
+  constexpr auto Heartbeat                  = makeFlashStringLiteral("heartbeat");
+  constexpr auto StatusBits                 = makeFlashStringLiteral("statusbits");
+  constexpr auto Fan1Speed                  = makeFlashStringLiteral("fan1/speed");
+  constexpr auto Fan2Speed                  = makeFlashStringLiteral("fan2/speed");
+  constexpr auto KwlOnline                  = makeFlashStringLiteral("heartbeat");
+  constexpr auto StateKwlMode               = makeFlashStringLiteral("lueftungsstufe");
+  constexpr auto KwlTemperaturAussenluft    = makeFlashStringLiteral("aussenluft/temperatur");
+  constexpr auto KwlTemperaturZuluft        = makeFlashStringLiteral("zuluft/temperatur");
+  constexpr auto KwlTemperaturAbluft        = makeFlashStringLiteral("abluft/temperatur");
+  constexpr auto KwlTemperaturFortluft      = makeFlashStringLiteral("fortluft/temperatur");
+  constexpr auto KwlEffiency                = makeFlashStringLiteral("effiencyKwl");
+  constexpr auto KwlAntifreeze              = makeFlashStringLiteral("antifreeze");
+  constexpr auto KwlBypassState             = makeFlashStringLiteral("summerbypass/flap");
+  constexpr auto KwlBypassMode              = makeFlashStringLiteral("summerbypass/mode");
+  constexpr auto KwlBypassTempAbluftMin     = makeFlashStringLiteral("summerbypass/TempAbluftMin");
+  constexpr auto KwlBypassTempAussenluftMin = makeFlashStringLiteral("summerbypass/TempAussenluftMin");
+  constexpr auto KwlBypassHystereseMinutes  = makeFlashStringLiteral("summerbypass/HystereseMinutes");
+  constexpr auto KwlBypassHysteresisTemp    = makeFlashStringLiteral("summerbypass/HysteresisTemp");
+  constexpr auto KwlHeatingAppCombUse       = makeFlashStringLiteral("heatingapp/combinedUse");
+  constexpr auto KwlProgramIndex            = makeFlashStringLiteral("program/index");
+  constexpr auto KwlProgramSet              = makeFlashStringLiteral("program/set");
+  constexpr auto KwlProgramData             = makeFlashStringLiteral("program/");
 
-  constexpr auto KwlDHT1Temperatur          = makeFlashStringLiteral("d15/state/kwl/dht1/temperatur");
-  constexpr auto KwlDHT2Temperatur          = makeFlashStringLiteral("d15/state/kwl/dht2/temperatur");
-  constexpr auto KwlDHT1Humidity            = makeFlashStringLiteral("d15/state/kwl/dht1/humidity");
-  constexpr auto KwlDHT2Humidity            = makeFlashStringLiteral("d15/state/kwl/dht2/humidity");
-  constexpr auto KwlCO2Abluft               = makeFlashStringLiteral("d15/state/kwl/abluft/co2");
-  constexpr auto KwlVOCAbluft               = makeFlashStringLiteral("d15/state/kwl/abluft/voc");
+  constexpr auto KwlDHT1Temperatur          = makeFlashStringLiteral("dht1/temperatur");
+  constexpr auto KwlDHT2Temperatur          = makeFlashStringLiteral("dht2/temperatur");
+  constexpr auto KwlDHT1Humidity            = makeFlashStringLiteral("dht1/humidity");
+  constexpr auto KwlDHT2Humidity            = makeFlashStringLiteral("dht2/humidity");
+  constexpr auto KwlCO2Abluft               = makeFlashStringLiteral("abluft/co2");
+  constexpr auto KwlVOCAbluft               = makeFlashStringLiteral("abluft/voc");
 
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, und schalten Debugausgaben per mqtt ein und aus
-  constexpr auto KwlDebugsetFan1Getvalues   = makeFlashStringLiteral("d15/debugset/kwl/fan1/getvalues");
-  constexpr auto KwlDebugsetFan2Getvalues   = makeFlashStringLiteral("d15/debugset/kwl/fan2/getvalues");
-  constexpr auto KwlDebugstateFan1          = makeFlashStringLiteral("d15/debugstate/kwl/fan1");
-  constexpr auto KwlDebugstateFan2          = makeFlashStringLiteral("d15/debugstate/kwl/fan2");
-  constexpr auto KwlDebugstatePreheater     = makeFlashStringLiteral("d15/debugstate/kwl/preheater");
-  constexpr auto KwlDebugsetSchedulerGetvalues   = makeFlashStringLiteral("d15/debugset/kwl/scheduler/getvalues");
-  constexpr auto KwlDebugsetSchedulerResetvalues = makeFlashStringLiteral("d15/debugset/kwl/scheduler/resetvalues");
-  constexpr auto KwlDebugstateScheduler    = makeFlashStringLiteral("d15/debugstate/kwl/scheduler");
-  constexpr auto KwlDebugsetCrashGetvalues = makeFlashStringLiteral("d15/debugset/kwl/crash/getvalues");
-  constexpr auto KwlDebugsetCrashResetvalues = makeFlashStringLiteral("d15/debugset/kwl/crash/resetvalues");
-  constexpr auto KwlDebugstateCrash        = makeFlashStringLiteral("d15/debugstate/kwl/crash/");
-  constexpr auto KwlDebugsetNTPTime        = makeFlashStringLiteral("d15/debugset/kwl/ntp/time");
+  constexpr auto KwlDebugsetFan1Getvalues   = makeFlashStringLiteral("/fan1/getvalues");
+  constexpr auto KwlDebugsetFan2Getvalues   = makeFlashStringLiteral("/fan2/getvalues");
+  constexpr auto KwlDebugstateFan1          = makeFlashStringLiteral("/fan1");
+  constexpr auto KwlDebugstateFan2          = makeFlashStringLiteral("/fan2");
+  constexpr auto KwlDebugstatePreheater     = makeFlashStringLiteral("/preheater");
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, es werden Messwerte überschrieben, es kann damit der Sommer-Bypass und die Frostschutzschaltung getestet werden
-  constexpr auto KwlDebugsetTemperaturAussenluft = makeFlashStringLiteral("d15/debugset/kwl/aussenluft/temperatur");
-  constexpr auto KwlDebugsetTemperaturZuluft     = makeFlashStringLiteral("d15/debugset/kwl/zuluft/temperatur");
-  constexpr auto KwlDebugsetTemperaturAbluft     = makeFlashStringLiteral("d15/debugset/kwl/abluft/temperatur");
-  constexpr auto KwlDebugsetTemperaturFortluft   = makeFlashStringLiteral("d15/debugset/kwl/fortluft/temperatur");
+  constexpr auto KwlDebugsetTemperaturAussenluft = makeFlashStringLiteral("/aussenluft/temperatur");
+  constexpr auto KwlDebugsetTemperaturZuluft     = makeFlashStringLiteral("/zuluft/temperatur");
+  constexpr auto KwlDebugsetTemperaturAbluft     = makeFlashStringLiteral("/abluft/temperatur");
+  constexpr auto KwlDebugsetTemperaturFortluft   = makeFlashStringLiteral("/fortluft/temperatur");
+
+  // Die folgenden Topics sind nur für die SW-Entwicklung, um Scheduler info auszulesen
+  constexpr auto KwlDebugsetSchedulerGetvalues   = makeFlashStringLiteral("/scheduler/getvalues");
+  constexpr auto KwlDebugsetSchedulerResetvalues = makeFlashStringLiteral("/scheduler/resetvalues");
+  constexpr auto KwlDebugstateScheduler    = makeFlashStringLiteral("/scheduler");
+
+  // Die folgenden Topics sind nur für die SW-Entwicklung, um Crash info auszulesen
+  constexpr auto KwlDebugsetCrashGetvalues = makeFlashStringLiteral("/crash/getvalues");
+  constexpr auto KwlDebugsetCrashResetvalues = makeFlashStringLiteral("/crash/resetvalues");
+  constexpr auto KwlDebugstateCrash        = makeFlashStringLiteral("/crash/");
+
+  // Die folgenden Topics sind nur für die SW-Entwicklung, um NTP zu simulieren.
+  constexpr auto KwlDebugsetNTPTime        = makeFlashStringLiteral("/ntp/time");
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, um Kalibrierung explizit zu setzen
-  constexpr auto KwlDebugsetFan1PWM         = makeFlashStringLiteral("d15/debugset/kwl/fan1/pwm");
-  constexpr auto KwlDebugsetFan2PWM         = makeFlashStringLiteral("d15/debugset/kwl/fan2/pwm");
-  constexpr auto KwlDebugsetFanPWMStore     = makeFlashStringLiteral("d15/debugset/kwl/fan/pwm/store_IKNOWWHATIMDOING");
+  constexpr auto KwlDebugsetFan1PWM         = makeFlashStringLiteral("/fan1/pwm");
+  constexpr auto KwlDebugsetFan2PWM         = makeFlashStringLiteral("/fan2/pwm");
+  constexpr auto KwlDebugsetFanPWMStore     = makeFlashStringLiteral("/fan/pwm/store_IKNOWWHATIMDOING");
 }
