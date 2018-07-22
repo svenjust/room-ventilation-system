@@ -32,6 +32,8 @@ static_assert(sizeof(KWLPersistentConfig) == 240, "Persistent config size change
 
 void KWLPersistentConfig::loadDefaults()
 {
+  memset(this, 0, sizeof(*this));
+
   KWL_COPY(SpeedSetpointFan1);
   KWL_COPY(SpeedSetpointFan2);
   KWL_COPY(BypassTempAbluftMin);
@@ -53,8 +55,6 @@ void KWLPersistentConfig::loadDefaults()
   }
 
   KWL_COPY(HeatingAppCombUse);
-
-  memset(&programs_, 0, sizeof(programs_));
 }
 
 void KWLPersistentConfig::migrate()

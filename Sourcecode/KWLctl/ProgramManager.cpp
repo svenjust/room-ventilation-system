@@ -54,16 +54,19 @@ void ProgramManager::setProgram(unsigned index, const ProgramData& program)
   config_.setProgram(index, program);
   if (index == unsigned(current_program_))
     current_program_ = -1;
+  run();
   publishProgram(index);
+  publishProgramIndex();
 }
 
-void ProgramManager::enableProgram(unsigned index, bool enabled)
+void ProgramManager::enableProgram(unsigned index, uint8_t progsetmask)
 {
   if (index > KWLConfig::MaxProgramCount)
     return; // ERROR
-  config_.enableProgram(index, enabled);
+  config_.enableProgram(index, progsetmask);
   if (index == unsigned(current_program_))
     current_program_ = -1;
+  run();
   publishProgram(index);
 }
 
@@ -84,8 +87,10 @@ void ProgramManager::run()
 
   // iterate all programs and pick one which hits
   int8_t program = -1;
+  uint8_t setmask = uint8_t(1 << config_.getProgramSetIndex());
   for (int8_t i = 0; i < KWLConfig::MaxProgramCount; ++i) {
-    if (config_.getProgram(unsigned(i)).matches(time)) {
+    auto& p = config_.getProgram(unsigned(i));
+    if (p.is_enabled(setmask) && p.matches(time)) {
       program = i;
       break;
     }
@@ -112,15 +117,12 @@ void ProgramManager::run()
       fan_.setVentilationMode(KWLConfig::StandardKwlMode);
     }
     current_program_ = program;
-    prognum_publisher_.publish(MQTTTopic::KwlProgramIndex, program);
+    publishProgramIndex();
   }
 }
 
 bool ProgramData::matches(HMS hms) const
 {
-  if (!enabled())
-    return false; // inactive program
-
   HMS start(start_h_, start_m_);
   HMS end(end_h_, end_m_);
   uint8_t wd_bit = uint8_t(1 << hms.wd);
@@ -131,9 +133,9 @@ bool ProgramData::matches(HMS hms) const
       if ((weekdays_ & wd_bit) == 0)
         return false; // wrong day
     } else if (hms.compareTime(end) < 0) {
-      // day 2
+      // day 2, we need to check weekday of the start day (i.e., previous one)
       wd_bit <<= 1;
-      if (wd_bit == VALID_FLAG)
+      if (wd_bit == 0x80) // overflow
         wd_bit = 1;
       if ((weekdays_ & wd_bit) == 0)
         return false; // wrong day
@@ -153,6 +155,19 @@ bool ProgramData::matches(HMS hms) const
 
 bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s)
 {
+  if (topic == MQTTTopic::CmdSetProgramSet) {
+    // set program index
+    auto set = s.toInt();
+    if (set < 0 || set > 7) {
+      if (KWLConfig::serialDebugProgram)
+        Serial.println(F("PROG: Invalid program set index"));
+    } else {
+      config_.setProgramSetIndex(uint8_t(set));
+      run();  // to pick proper program, if any change
+      publishProgramIndex();
+    }
+    return true;
+  }
   if (topic.substr(0, MQTTTopic::CmdSetProgram.length()) != MQTTTopic::CmdSetProgram) {
     // wrong topic
     return false;
@@ -191,17 +206,19 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s
       if (KWLConfig::serialDebugProgram)
         Serial.println(F("PROG: Invalid program index"));
     }
-    auto program = current_program_;
-    prognum_publisher_.publish(MQTTTopic::KwlProgramIndex, program);
+    publishProgramIndex();
   } else if (command_str == MQTTTopic::SubtopicProgramData) {
-    // Parse program string "F HH:MM HH:MM M xxxxxxx", where F is flag 0 or 1
-    // whether it's enabled, M is fan mode and xxxxxxx are flags for
-    // weekdays indicating whether to run program on a given weekday (0 or 1).
-    // Weekday flags are optional, if not set, run every day.
-    unsigned enabled, start_h, start_m, end_h, end_m, mode;
-    char wd_buf[8];
-    int rc = sscanf(s.c_str(), "%u:%u %u:%u %u %7s %u",
-                    &start_h, &start_m, &end_h, &end_m, &mode, wd_buf, &enabled);
+    // Parse program string "HH:MM HH:MM F wwwwwww pppppppp", where
+    // F is fan mode, wwwwwww are flags for weekdays indicating whether to run
+    // the program on a given weekday (0 or 1) and pppppppp are program sets
+    // in which to consider the program.
+    // Weekday and program sets flags are optional, if not set, run every day
+    // and in every program set.
+    unsigned start_h, start_m, end_h, end_m, mode;
+    char wd_buf[8], ps_buf[9];
+    char FORMAT[] = "%u:%u %u:%u %u %7s %8s";
+    int rc = sscanf(s.c_str(), FORMAT,
+                    &start_h, &start_m, &end_h, &end_m, &mode, wd_buf, ps_buf);
     if (rc < 5 || !valid_index) {
       if (KWLConfig::serialDebugProgram) {
         Serial.print(F("PROG: Invalid program string or program index, parsed items "));
@@ -235,8 +252,9 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s
     if (rc >= 6) {
       prog.weekdays_ = 0;
       const char* p = wd_buf;
-      for (uint8_t bit = 1; bit < ProgramData::VALID_FLAG; bit <<= 1) {
-        switch (*p++) {
+      const char* e = p + 7;
+      for (uint8_t bit = 1; p < e; bit <<= 1, ++p) {
+        switch (*p) {
         case '0':
           break;
         case '1':
@@ -253,19 +271,51 @@ bool ProgramManager::mqttReceiveMsg(const StringView& topic, const StringView& s
       // all weekdays
       prog.weekdays_ = 0x7f;
     }
-    if (enabled || rc < 7)
-      prog.weekdays_ |= ProgramData::VALID_FLAG;
+    if (rc >= 7) {
+      prog.enabled_progsets_ = 0;
+      const char* p = ps_buf;
+      const char* e = p + 8;
+      for (uint8_t bit = 1; p < e; bit <<= 1, ++p) {
+        switch (*p) {
+        case '0':
+          break;
+        case '1':
+          prog.enabled_progsets_ |= bit;
+          break;
+        default:
+          // invalid string
+          if (KWLConfig::serialDebugProgram)
+            Serial.println(F("PROG: Program set mask must be [01]{8}"));
+          return true;
+        }
+      }
+    } else {
+      // all program sets
+      prog.enabled_progsets_ = 0xff;
+    }
     prog.reserved_ = 0;
     setProgram(index, prog);
   } else if (command_str == MQTTTopic::SubtopicProgramEnable) {
     // enable or disable a program
     if (valid_index) {
-      if (s == F("yes") || s == F("on") || s == F("1"))
-        enableProgram(index, true);
-      else if (s == F("no") || s == F("off") || s == F("0"))
-        enableProgram(index, false);
-      else if (KWLConfig::serialDebugProgram)
-        Serial.println(F("PROG: Invalid enable message, expected yes/on/1/no/off/0"));
+      const char* p = s.c_str();
+      const char* e = p + 8;
+      uint8_t progset = 0;
+      for (uint8_t bit = 1; p < e; bit <<= 1, ++p) {
+        switch (*p) {
+        case '0':
+          break;
+        case '1':
+          progset |= bit;
+          break;
+        default:
+          // invalid string
+          if (KWLConfig::serialDebugProgram)
+            Serial.println(F("PROG: Program set mask must be [01]{8}"));
+          return true;
+        }
+      }
+      enableProgram(index, progset);
     } else {
       if (KWLConfig::serialDebugProgram)
         Serial.println(F("PROG: Invalid program index"));
@@ -280,6 +330,23 @@ void ProgramManager::publishProgram(unsigned index)
 {
   bool all = false;
   publisher_.publish([this, index, all]() mutable { return mqttSendProgram(index, all); });
+}
+
+void ProgramManager::publishProgramIndex()
+{
+  int8_t program = current_program_;
+  uint8_t set = config_.getProgramSetIndex();
+  uint8_t state = 0;
+  prognum_publisher_.publish([program, set, state]() mutable {
+    if (state == 0) {
+      if (publish(MQTTTopic::KwlProgramIndex, program))
+        state = 1;
+      return false;
+    } else if (state == 1) {
+      return publish(MQTTTopic::KwlProgramSet, set);
+    }
+    return true;
+  });
 }
 
 bool ProgramManager::mqttSendProgram(unsigned index, bool& all)
@@ -298,14 +365,17 @@ bool ProgramManager::mqttSendProgram(unsigned index, bool& all)
 
   if (all) {
     MQTTTopic::SubtopicProgramEnable.store(pt);
-    // Send enabled flag only
-    return publish(topic, prog.enabled() ? F("yes") : F("no"), KWLConfig::RetainProgram);
+    // Send enabled flags only
+    char buf[9];
+    char* p = buf;
+    for (uint8_t bit = 1; bit != 0; bit <<= 1)
+      *p++ = (prog.enabled_progsets_ & bit) ? '1' : '0';
+    *p = 0;
+    return publish(topic, buf, KWLConfig::RetainProgram);
   } else {
     MQTTTopic::SubtopicProgramData.store(pt);
-    // Build program string "F HH:MM HH:MM M xxxxxxx F", where HH:MM HH:MM is time
-    // range, M is fan mode, xxxxxxx are flags for weekdays indicating whether to
-    // run program on a given weekday (0 or 1) and F is flag 0 or 1 whether it's enabled.
-    char buffer[27];
+    // Build program string "HH:MM HH:MM M wwwwwww pppppppp"
+    char buffer[32];
     HMS(prog.start_h_, prog.start_m_).writeHM(buffer);
     buffer[5] = ' ';
     HMS(prog.end_h_, prog.end_m_).writeHM(buffer + 6);
@@ -313,10 +383,11 @@ bool ProgramManager::mqttSendProgram(unsigned index, bool& all)
     buffer[12] = char(prog.fan_mode_ + '0');
     buffer[13] = ' ';
     char* p = buffer + 14;
-    for (uint8_t bit = 1; bit < ProgramData::VALID_FLAG; bit <<= 1)
+    for (uint8_t bit = 1; bit < 0x80; bit <<= 1)
       *p++ = (prog.weekdays_ & bit) ? '1' : '0';
     *p++ = ' ';
-    *p++ = prog.enabled() ? '1' : '0';
+    for (uint8_t bit = 1; bit != 0; bit <<= 1)
+      *p++ = (prog.enabled_progsets_ & bit) ? '1' : '0';
     *p = 0;
 
     all = publish(topic, buffer, KWLConfig::RetainProgram);

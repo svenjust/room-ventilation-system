@@ -33,10 +33,7 @@ class HMS;
 class ProgramData
 {
 public:
-  /// Validity flag stored in high bit of weekdays.
-  static constexpr uint8_t VALID_FLAG = 0x80;
-
-  /// Bitmask with weekdays to run the program. Flag in high bit to indicate validity.
+  /// Bitmask with weekdays to run the program.
   uint8_t weekdays_;
   /// Fan mode to set.
   uint8_t fan_mode_;
@@ -48,20 +45,19 @@ public:
   uint8_t end_h_;
   /// End minute.
   uint8_t end_m_;
+  /// Bitmask of program sets, in which this program is enabled.
+  uint8_t enabled_progsets_;
   /// Reserved for future use (set to 0).
-  uint16_t reserved_;
+  uint8_t reserved_;
 
   /// Check whether this program is enabled.
-  bool enabled() const { return (weekdays_ & VALID_FLAG) != 0; }
+  bool is_enabled(uint8_t progset_mask) const { return (enabled_progsets_ & progset_mask) != 0; }
 
   /// Enable or disable this program.
-  void enable(bool enabled) {
-    if (enabled)
-      weekdays_ |= VALID_FLAG;
-    else
-      weekdays_ &= ~VALID_FLAG;
+  void enable(uint8_t progset_mask) {
+    enabled_progsets_ = progset_mask;
   }
 
-  /// Check whether the time lies within the program.
+  /// Check whether the time lies within the program. Assumes the program is enabled.
   bool matches(HMS hms) const;
 };

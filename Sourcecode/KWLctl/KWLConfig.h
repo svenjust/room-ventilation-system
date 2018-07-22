@@ -193,8 +193,8 @@ public:
   static constexpr unsigned StandardBypassMode              =    0;
   /// Hysteretemperatur für Steuerung von Antifreeze.
   static constexpr unsigned StandardAntifreezeHystereseTemp =    3;
-  /// 0 = NO, 1 = YES
-  static constexpr unsigned StandardHeatingAppCombUse       =    0;
+  /// House with fireplace.
+  static constexpr bool StandardHeatingAppCombUse           = false;
 
   /// Daylight savings time default settings.
   static constexpr bool StandardDST                         = false;
@@ -464,7 +464,8 @@ private:
   bool DST_;                          // 18
   uint8_t BypassHysteresisTemp_;      // 19
   int FanPWMSetpoint_[10][2];         // 20-59
-  unsigned HeatingAppCombUse_;        // 60
+  bool HeatingAppCombUse_;            // 60
+  uint8_t program_set_index_;         // 61
   int16_t TimezoneMin_;               // 62
   ProgramData programs_[KWLConfig::MaxProgramCount];  // 64..192
   CrashData crashes_[KWLConfig::MaxCrashReportCount]; // 192..240
@@ -496,6 +497,12 @@ public:
   /// Get program data from the given slot.
   const ProgramData& getProgram(unsigned index) const { return programs_[index]; }
 
+  /// Get current program set index.
+  uint8_t getProgramSetIndex() const { return program_set_index_; }
+
+  /// Set current program set index.
+  void setProgramSetIndex(uint8_t index) { program_set_index_ = index; update(program_set_index_); }
+
   /// Get crash data from given slot.
   const CrashData& getCrash(unsigned index) const { return crashes_[index]; }
 
@@ -509,7 +516,7 @@ public:
   void setProgram(unsigned index, const ProgramData& program) { programs_[index] = program; update(programs_[index]); }
 
   /// Enable or disable program data in the given slot.
-  void enableProgram(unsigned index, bool enable) { programs_[index].enable(enable); update(programs_[index].weekdays_); }
+  void enableProgram(unsigned index, uint8_t mask) { programs_[index].enable(mask); update(programs_[index].enabled_progsets_); }
 };
 
 #undef KWL_GETSET

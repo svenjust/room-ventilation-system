@@ -68,7 +68,7 @@ void Antifreeze::begin(Print& /*initTracer*/)
   pid_preheater_.SetMode(MANUAL);
   pid_preheater_.SetSampleTime(1000 /* TODO use constant intervalSetFan */);  // SetFan ruft Preheater auf, deswegen hier intervalSetFan
 
-  heating_app_comb_use_ = (config_.getHeatingAppCombUse() != 0);
+  heating_app_comb_use_ = config_.getHeatingAppCombUse();
 
   timer_task_.runRepeated(INTERVAL_ANTIFREEZE_CHECK);
   sendMQTT();

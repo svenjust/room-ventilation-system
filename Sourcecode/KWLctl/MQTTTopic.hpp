@@ -55,6 +55,7 @@ namespace MQTTTopic
   constexpr auto CmdBypassTempAussenluftMin = makeFlashStringLiteral("d15/set/kwl/summerbypass/TempAussenluftMin");
   constexpr auto CmdHeatingAppCombUse       = makeFlashStringLiteral("d15/set/kwl/heatingapp/combinedUse");
   constexpr auto CmdSetProgram              = makeFlashStringLiteral("d15/set/kwl/program/");
+  constexpr auto CmdSetProgramSet           = makeFlashStringLiteral("d15/set/kwl/program/set");
   constexpr auto SubtopicProgramData        = makeFlashStringLiteral("data");
   constexpr auto SubtopicProgramEnable      = makeFlashStringLiteral("enable");
   constexpr auto SubtopicProgramGet         = makeFlashStringLiteral("get");
@@ -79,6 +80,7 @@ namespace MQTTTopic
   constexpr auto KwlBypassHysteresisTemp    = makeFlashStringLiteral("d15/state/kwl/summerbypass/HysteresisTemp");
   constexpr auto KwlHeatingAppCombUse       = makeFlashStringLiteral("d15/state/kwl/heatingapp/combinedUse");
   constexpr auto KwlProgramIndex            = makeFlashStringLiteral("d15/state/kwl/program/index");
+  constexpr auto KwlProgramSet              = makeFlashStringLiteral("d15/state/kwl/program/set");
   constexpr auto KwlProgramData             = makeFlashStringLiteral("d15/state/kwl/program/");
 
   constexpr auto KwlDHT1Temperatur          = makeFlashStringLiteral("d15/state/kwl/dht1/temperatur");
