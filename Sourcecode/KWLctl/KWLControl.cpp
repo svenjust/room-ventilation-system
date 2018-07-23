@@ -224,21 +224,29 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
     getAdditionalSensors().forceSend();
   } else if (topic == MQTTTopic::KwlDebugsetSchedulerGetvalues) {
     // send statistics for scheduler
-    auto i1 = Scheduler::TaskTimingStats::begin();
-    auto i2 = Scheduler::TaskPollingStats::begin();
+    auto i1 = Scheduler::TaskPollingStats::begin();
+    auto i2 = Scheduler::TaskTimingStats::begin();
     scheduler_publish_.publish([i1, i2]() mutable {
-      char buffer[120];
-      while (i1 != Scheduler::TaskTimingStats::end()) {
+      char buffer[80];
+      char tbuffer[40];
+      MQTTTopic::KwlDebugstateScheduler.store(tbuffer);
+      char* p = tbuffer + MQTTTopic::KwlDebugstateScheduler.length();
+      static constexpr size_t rsize = sizeof(tbuffer) - MQTTTopic::KwlDebugstateScheduler.length() - 1;
+      while (i1 != Scheduler::TaskPollingStats::end()) {
+        strncpy_P(p, reinterpret_cast<const char*>(i1->getName()), rsize);
+        p[rsize] = 0;
         i1->toString(buffer, sizeof(buffer));
-        if (!publish(MQTTTopic::KwlDebugstateScheduler, buffer, false))
-          return false;
-        ++i1;
+        if (publish(tbuffer, buffer, false))
+          ++i1;
+        return false;
       }
-      while (i2 != Scheduler::TaskPollingStats::end()) {
+      while (i2 != Scheduler::TaskTimingStats::end()) {
+        strncpy_P(p, reinterpret_cast<const char*>(i2->getName()), rsize);
+        p[rsize] = 0;
         i2->toString(buffer, sizeof(buffer));
-        if (!publish(MQTTTopic::KwlDebugstateScheduler, buffer, false))
-          return false;
-        ++i2;
+        if (publish(tbuffer, buffer, false))
+          ++i2;
+        return false;
       }
       return true;
     });
@@ -265,8 +273,9 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
           *p++ = char(index / 10) + '0';
           *p++ = (index % 10) + '0';
           *p = 0;
-          char format[] = "ip %06lx sp %03lx ntp %lu ms %lu";
-          snprintf(buffer, sizeof(buffer), format, c.crash_addr * 2, c.crash_sp, c.real_time, c.millis);
+          static constexpr auto FORMAT = makeFlashStringLiteral("ip %06lx sp %03lx ntp %lu ms %lu");
+          snprintf(buffer, sizeof(buffer), FORMAT.load(),
+                   c.crash_addr * 2, c.crash_sp, c.real_time, c.millis);
           if (MessageHandler::publish(topic, buffer))
             ++index;
           return false;
@@ -321,7 +330,8 @@ void KWLControl::run()
     // publish status via MQTT
     error_publish_.publish([local_err, local_info]() {
       char buffer[11];
-      snprintf(buffer, sizeof(buffer), "0x%04X%04X", local_err, local_info);
+      static constexpr auto FORMAT = makeFlashStringLiteral("0x%04X%04X");
+      snprintf(buffer, sizeof(buffer), FORMAT.load(), local_err, local_info);
       return publish(MQTTTopic::StatusBits, buffer, KWLConfig::RetainStatusBits);
     });
     errors_ = local_err;

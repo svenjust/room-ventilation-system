@@ -220,7 +220,8 @@ void Fan::sendMQTTDebug(int id, unsigned long ts, MessageHandler& h)
     return;
 
   char buffer[100];
-  snprintf(buffer, sizeof(buffer), "Fan%d - M: %lu, gap: %ld, tsf: %ld, ssf: %ld, rpm: %ld",
+  static constexpr auto FORMAT = makeFlashStringLiteral("Fan%d - M: %lu, gap: %ld, tsf: %ld, ssf: %ld, rpm: %ld");
+  snprintf(buffer, sizeof(buffer), FORMAT.load(),
            id, ts,
            long(current_speed_ - speed_setpoint_),
            long(tech_setpoint_), long(speed_setpoint_), long(current_speed_));

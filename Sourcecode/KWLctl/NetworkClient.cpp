@@ -43,7 +43,7 @@ NetworkClient::NetworkClient(KWLPersistentConfig& config, MicroNTP& ntp) :
   ntp_(ntp),
   stats_(F("NetworkClient")),
   timer_task_(stats_, &NetworkClient::run, *this),
-  poll_stats_(F("NetworkClient")),
+  poll_stats_(F("NetworkClientPoll")),
   poll_task_(poll_stats_, &NetworkClient::loop, *this),
   mqtt_send_poll_task_(poll_stats_, &NetworkClient::sendMQTT)
 {}

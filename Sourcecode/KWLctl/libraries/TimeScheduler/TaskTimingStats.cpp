@@ -64,14 +64,10 @@ unsigned long TaskTimingStats::getMaxRuntimeSinceStart() const noexcept
 
 void TaskTimingStats::toString(char* buffer, unsigned size) const noexcept
 {
-  auto namelen = strlen_P(reinterpret_cast<const char*>(name_));
-  if (namelen > size)
-    namelen = size;
-  memcpy_P(buffer, reinterpret_cast<const char*>(name_), namelen);
-  if (namelen < size)
-    snprintf(buffer + namelen, size - namelen,
-      ": max=%lu/%lu, avg=%lu, cnt=%lu-%lu",
-      max_runtime_, getMaxRuntimeSinceStart(), getAvgRuntime(), count_runtime_, adjust_count_runtime_);
+  auto FORMAT = PSTR("max %lu smax %lu avg %lu cnt %lu adj %lu");
+  snprintf_P(buffer, size, FORMAT,
+    max_runtime_, getMaxRuntimeSinceStart(), getAvgRuntime(),
+    count_runtime_, adjust_count_runtime_);
 }
 
 void TaskTimingStats::resetMaximum() noexcept
@@ -120,14 +116,9 @@ unsigned long TaskPollingStats::getMaxPolltimeSinceStart() const noexcept
 
 void TaskPollingStats::toString(char* buffer, unsigned size) const noexcept
 {
-  auto namelen = strlen_P(reinterpret_cast<const char*>(name_));
-  if (namelen > size)
-    namelen = size;
-  memcpy_P(buffer, reinterpret_cast<const char*>(name_), namelen);
-  if (namelen < size)
-    snprintf(buffer + namelen, size - namelen,
-      ": pmax=%lu/%lu, pavg=%lu",
-      max_polltime_, getMaxPolltimeSinceStart(), getAvgPolltime());
+  auto FORMAT = PSTR("pmax %lu spmax %lu pavg %lu");
+  snprintf_P(buffer, size, FORMAT,
+    max_polltime_, getMaxPolltimeSinceStart(), getAvgPolltime());
 }
 
 void TaskPollingStats::resetMaximum() noexcept

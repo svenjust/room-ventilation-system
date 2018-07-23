@@ -77,23 +77,25 @@ public:
   {
   public:
     /// Implicit conversion to char*.
-    inline operator char*() const { return buffer_; }
+    inline operator char*() noexcept { return buffer_; }
+    /// Implicit conversion to const char*.
+    inline operator const char*() const noexcept { return buffer_; }
   private:
     friend class FlashStringLiteral;
-    inline LoadHelper(const char* p) { memcpy_P(buffer_, p, len); }
+    inline LoadHelper(const char* p) noexcept { memcpy_P(buffer_, p, len); }
     char buffer_[len];
   };
 
   /// Construct the literal for given C string literal.
-  constexpr FlashStringLiteral(const char (&s)[len]) :
+  constexpr FlashStringLiteral(const char (&s)[len]) noexcept :
     FlashStringLiteral(s, FlashStringImpl::make_index_sequence<len>())
   {}
 
   /// Convert to helper, which is used to disambiguate const char* and Flash strings.
-  inline operator const __FlashStringHelper*() const { return reinterpret_cast<const __FlashStringHelper*>(data_); }
+  inline operator const __FlashStringHelper*() const noexcept { return reinterpret_cast<const __FlashStringHelper*>(data_); }
 
   /// Get length of the string (without terminating NUL).
-  constexpr size_t length() const { return len - 1; }
+  constexpr size_t length() const noexcept { return len - 1; }
 
   /*!
    * @brief Load the string into memory and return it.
@@ -106,7 +108,7 @@ public:
    *  inside of the statement as temporary. Put the returned object on the
    *  stack in an "auto" variable to extend the lifetime.
    */
-  inline LoadHelper load() const {
+  inline LoadHelper load() const noexcept {
     return LoadHelper(data_);
   }
 
@@ -115,13 +117,13 @@ public:
    *
    * @param buffer buffer to store to. It must have a size of at least length() + 1.
    */
-  inline void store(char* buffer) const {
+  inline void store(char* buffer) const noexcept {
     memcpy_P(buffer, data_, len);
   }
 
 private:
   template<unsigned... Indices>
-  constexpr FlashStringLiteral(const char (&s)[len], FlashStringImpl::index_sequence<Indices...>) :
+  constexpr FlashStringLiteral(const char (&s)[len], FlashStringImpl::index_sequence<Indices...>) noexcept :
     data_{s[Indices]...}
   {}
 

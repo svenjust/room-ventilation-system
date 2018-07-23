@@ -118,7 +118,7 @@ namespace MQTTTopic
   // Die folgenden Topics sind nur für die SW-Entwicklung, um Scheduler info auszulesen
   constexpr auto KwlDebugsetSchedulerGetvalues   = makeFlashStringLiteral("/scheduler/getvalues");
   constexpr auto KwlDebugsetSchedulerResetvalues = makeFlashStringLiteral("/scheduler/resetvalues");
-  constexpr auto KwlDebugstateScheduler    = makeFlashStringLiteral("/scheduler");
+  constexpr auto KwlDebugstateScheduler    = makeFlashStringLiteral("/scheduler/");
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, um Crash info auszulesen
   constexpr auto KwlDebugsetCrashGetvalues = makeFlashStringLiteral("/crash/getvalues");
