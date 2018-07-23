@@ -46,6 +46,8 @@ public:
   static constexpr unsigned ERROR_BIT_FAN1    = 0x0001;
   /// Fan 2 is not working.
   static constexpr unsigned ERROR_BIT_FAN2    = 0x0002;
+  /// A crash report is present (restarted by watchdog).
+  static constexpr unsigned ERROR_BIT_CRASH   = 0x0004;
   /// T1 sensor is not working.
   static constexpr unsigned ERROR_BIT_T1      = 0x0010;
   /// T2 sensor is not working.
@@ -53,7 +55,7 @@ public:
   /// T3 sensor is not working.
   static constexpr unsigned ERROR_BIT_T3      = 0x0040;
   /// T4 sensor is not working.
-  static constexpr unsigned ERROR_BIT_T4      = 0x0080;
+  static constexpr unsigned ERROR_BIT_T4      = 0x0080;  
 
   /// Mask to extract information type from info bits.
   static constexpr unsigned INFO_TYPE_MASK    = 0xff00;
@@ -126,6 +128,9 @@ private:
   virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) override;
 
   void run();
+
+  /// Send status bits.
+  void mqttSendStatus();
 
   /// Called by watchdog to report deadlock.
   static void deadlockDetected(unsigned long pc, unsigned sp, void* arg);

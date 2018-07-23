@@ -301,7 +301,7 @@ public:
 
   // ************************************** M Q T T   R E P O R T I N G *********************************************************************************
 
-  /// Period for sending heartbeat messages.
+  /// Period for sending heartbeat messages. Set to 0 to not send heartbeat.
   static constexpr uint8_t HeartbeatPeriod = 30;
 
   /// Send timestamp as heartbeat.
@@ -502,6 +502,9 @@ public:
 
   /// Set current program set index.
   void setProgramSetIndex(uint8_t index) { program_set_index_ = index; update(program_set_index_); }
+
+  /// Check if any crash report is present.
+  bool hasCrash() const;
 
   /// Get crash data from given slot.
   const CrashData& getCrash(unsigned index) const { return crashes_[index]; }

@@ -48,6 +48,7 @@ namespace MQTTTopic
   // prefixed by single '/' below.
 
   constexpr auto CmdResetAll                = makeFlashStringLiteral("resetAll_IKNOWWHATIMDOING");
+  constexpr auto CmdRestart                 = makeFlashStringLiteral("restart");
   constexpr auto CmdCalibrateFans           = makeFlashStringLiteral("calibratefans");
   constexpr auto CmdFansCalculateSpeedMode  = makeFlashStringLiteral("fans/calculatespeed");
   constexpr auto CmdFan1Speed               = makeFlashStringLiteral("fan1/standardspeed");
@@ -75,7 +76,6 @@ namespace MQTTTopic
   constexpr auto StatusBits                 = makeFlashStringLiteral("statusbits");
   constexpr auto Fan1Speed                  = makeFlashStringLiteral("fan1/speed");
   constexpr auto Fan2Speed                  = makeFlashStringLiteral("fan2/speed");
-  constexpr auto KwlOnline                  = makeFlashStringLiteral("heartbeat");
   constexpr auto StateKwlMode               = makeFlashStringLiteral("lueftungsstufe");
   constexpr auto KwlTemperaturAussenluft    = makeFlashStringLiteral("aussenluft/temperatur");
   constexpr auto KwlTemperaturZuluft        = makeFlashStringLiteral("zuluft/temperatur");
@@ -123,6 +123,7 @@ namespace MQTTTopic
   // Die folgenden Topics sind nur für die SW-Entwicklung, um Crash info auszulesen
   constexpr auto KwlDebugsetCrashGetvalues = makeFlashStringLiteral("/crash/getvalues");
   constexpr auto KwlDebugsetCrashResetvalues = makeFlashStringLiteral("/crash/resetvalues");
+  constexpr auto KwlDebugsetCrashProvoke   = makeFlashStringLiteral("/crash/provoke_IKNOWWHATIMDOING");
   constexpr auto KwlDebugstateCrash        = makeFlashStringLiteral("/crash/");
 
   // Die folgenden Topics sind nur für die SW-Entwicklung, um NTP zu simulieren.

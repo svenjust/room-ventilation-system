@@ -87,13 +87,21 @@ void KWLPersistentConfig::migrate()
   }
 }
 
+bool KWLPersistentConfig::hasCrash() const
+{
+  for (uint8_t i = 0; i < KWLConfig::MaxCrashReportCount; ++i)
+    if (crashes_[i].crash_addr != 0)
+      return true;
+  return false;
+}
+
 void KWLPersistentConfig::storeCrash(uint32_t pc, unsigned sp, uint32_t real_time)
 {
   auto runtime = millis();
   unsigned oldest_crash = 0;
   uint32_t oldest_time = real_time;
   uint32_t longest_runtime = 0;
-  for (size_t i = 0; i < KWLConfig::MaxCrashReportCount; ++i) {
+  for (uint8_t i = 0; i < KWLConfig::MaxCrashReportCount; ++i) {
     if (crashes_[i].crash_addr == 0) {
       // unused slot, take it
       oldest_crash = i;

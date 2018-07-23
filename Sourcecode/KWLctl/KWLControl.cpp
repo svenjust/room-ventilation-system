@@ -24,7 +24,8 @@
 
 #include <EthernetUdp.h>
 #include <Wire.h>
-#include "DeadlockWatchdog.h"
+#include <DeadlockWatchdog.h>
+#include <avr/wdt.h>
 
 // forwards
 extern void loopDisplayUpdate();
@@ -68,25 +69,24 @@ void KWLControl::begin(Print& initTracer)
   // run error check loop every second, but give some time to initialize first
   control_timer_.runRepeated(8000000, 1000000);
 
-  bool found_crash = false;
-  for (size_t i = 0; i < KWLConfig::MaxCrashReportCount; ++i) {
-    auto& c = persistent_config_.getCrash(i);
-    if (c.crash_addr) {
-      if (!found_crash) {
-        found_crash = true;
-        initTracer.println(F("*** NOTE *** Crash reports recorded in EEPROM"));
+  if (persistent_config_.hasCrash()) {
+    initTracer.println(F("*** NOTE *** Crash reports recorded in EEPROM"));
+    for (uint8_t i = 0; i < KWLConfig::MaxCrashReportCount; ++i) {
+      auto& c = persistent_config_.getCrash(i);
+      if (c.crash_addr) {
+        Serial.print(F(" - PC "));
+        Serial.print(c.crash_addr, HEX);
+        Serial.print('/');
+        Serial.print(c.crash_addr * 2, HEX);
+        Serial.print(F(", sp "));
+        Serial.print(c.crash_sp, HEX);
+        Serial.print(F(", timestamp "));
+        Serial.print(c.real_time);
+        Serial.print(F(", millis "));
+        Serial.println(c.millis);
       }
-      Serial.print(F(" - PC "));
-      Serial.print(c.crash_addr, HEX);
-      Serial.print('/');
-      Serial.print(c.crash_addr * 2, HEX);
-      Serial.print(F(", sp "));
-      Serial.print(c.crash_sp, HEX);
-      Serial.print(F(", timestamp "));
-      Serial.print(c.real_time);
-      Serial.print(F(", millis "));
-      Serial.println(c.millis);
     }
+    errors_ = ERROR_BIT_CRASH;
   }
 
   if (antifreeze_.getHeatingAppCombUse()) {
@@ -106,28 +106,8 @@ void KWLControl::begin(Print& initTracer)
 
 void KWLControl::errorsToString(char* buffer, size_t size)
 {
-  /*
-  buffer[0] = 0;
-  if ((errors_ & (ERROR_BIT_FAN1 | ERROR_BIT_FAN2)) == (ERROR_BIT_FAN1 | ERROR_BIT_FAN2))
-    strlcpy_P(buffer, PSTR("Beide Luefter ausgefallen"), size);
-  else if (errors_ & ERROR_BIT_FAN1) {
-    strlcpy_P(buffer, PSTR("Zuluftluefter ausgefallen"), size);
-  }
-  else if (errors_ & ERROR_BIT_FAN2) {
-    strlcpy_P(buffer, PSTR("Abluftluefter ausgefallen"), size);
-  }
-
-  if (errors_ & (ERROR_BIT_T1 | ERROR_BIT_T2 | ERROR_BIT_T3 | ERROR_BIT_T4)) {
-    if (errors_ & (ERROR_BIT_FAN1 | ERROR_BIT_FAN2))
-      strlcat_P(buffer, PSTR("; "), size);
-    strlcat_P(buffer, PSTR("Temperatursensor(en) ausgefallen:"), size);
-    if (errors_ & ERROR_BIT_T1) strlcat_P(buffer, PSTR(" T1"), size);
-    if (errors_ & ERROR_BIT_T2) strlcat_P(buffer, PSTR(" T2"), size);
-    if (errors_ & ERROR_BIT_T3) strlcat_P(buffer, PSTR(" T3"), size);
-    if (errors_ & ERROR_BIT_T4) strlcat_P(buffer, PSTR(" T4"), size);
-  }
-  */
-  if (errors_ == 0) {
+  if ((errors_ & ~ERROR_BIT_CRASH) == 0) {
+    // do not report crash report presence as error string
     buffer[0] = 0;
     return;
   }
@@ -205,7 +185,18 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
       getPersistentConfig().factoryReset();
       // Reboot
       Serial.println(F("Reboot"));
-      delay (1000);
+      Serial.flush();
+      delay(100);
+      wdt_disable();
+      asm volatile ("jmp 0");
+    }
+  } else if (topic == MQTTTopic::CmdRestart) {
+    if (s == F("YES"))   {
+      // Reboot
+      Serial.println(F("Reboot"));
+      Serial.flush();
+      delay(100);
+      wdt_disable();
       asm volatile ("jmp 0");
     }
   } else if (topic == MQTTTopic::KwlDebugsetSchedulerResetvalues) {
@@ -287,6 +278,15 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
   } else if (topic == MQTTTopic::KwlDebugsetCrashResetvalues) {
     // reset crash information
     persistent_config_.resetCrashes();
+    errors_ &= ~ERROR_BIT_CRASH;
+    mqttSendStatus();
+  } else if (topic == MQTTTopic::KwlDebugsetCrashProvoke) {
+    if (s == F("YES"))   {
+      // provoke a crash by making a deadlock
+      Serial.println(F("CRASH: Deadlock provoked"));
+      Serial.flush();
+      while (true) {}
+    }
   } else {
     return false;
   }
@@ -298,7 +298,7 @@ void KWLControl::run()
   // In dieser Funktion wird auf verschiedene Fehler getestet und Felherbitmap gesets.
   // Fehlertext wird auf das Display geschrieben.
 
-  unsigned local_err = 0;
+  unsigned local_err = errors_ & ERROR_BIT_CRASH;
   if (KWLConfig::StandardKwlModeFactor[fan_control_.getVentilationMode()] > 0.01) {
     if (fan_control_.getFan1().getSpeed() < 10 && antifreeze_.getState() == AntifreezeState::OFF)
       local_err |= ERROR_BIT_FAN1;
@@ -328,15 +328,20 @@ void KWLControl::run()
 
   if (errors_ != local_err || info_ != local_info) {
     // publish status via MQTT
-    error_publish_.publish([local_err, local_info]() {
-      char buffer[11];
-      static constexpr auto FORMAT = makeFlashStringLiteral("0x%04X%04X");
-      snprintf(buffer, sizeof(buffer), FORMAT.load(), local_err, local_info);
-      return publish(MQTTTopic::StatusBits, buffer, KWLConfig::RetainStatusBits);
-    });
     errors_ = local_err;
     info_ = local_info;
+    mqttSendStatus();
   }
+}
+
+void KWLControl::mqttSendStatus()
+{
+  error_publish_.publish([this]() {
+    char buffer[11];
+    static constexpr auto FORMAT = makeFlashStringLiteral("0x%04X%04X");
+    snprintf(buffer, sizeof(buffer), FORMAT.load(), errors_, info_);
+    return publish(MQTTTopic::StatusBits, buffer, KWLConfig::RetainStatusBits);
+  });
 }
 
 void KWLControl::deadlockDetected(unsigned long pc, unsigned sp, void* arg)
