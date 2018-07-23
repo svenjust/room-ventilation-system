@@ -1243,13 +1243,14 @@ void loopTouch()
 
 // *** oberer Rand
 void print_header() {
+  static constexpr auto VERSION = KWLConfig::VersionString;
   tft.fillRect(0, 0, 480, 20, colBackColor);
   tft.setCursor(140, 0 + baselineSmall);
   tft.setTextColor(colFontColor);
   tft.setTextSize(fontFactorSmall);
   tft.print(F(" * Pluggit AP 300 * "));
   tft.setCursor(420, 0 + baselineSmall);
-  tft.print(KWLConfig::VersionString);
+  tft.print(VERSION.load());
 }
 
 // *** TFT starten

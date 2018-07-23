@@ -28,7 +28,7 @@
  * then defaults may be overridden there, by using lines in the form:
  *
  * CONFIGURE(name, value)
- * CONFIGURE_OBJ(name, (values...))
+ * CONFIGURE(name, values...)
  *
  * for each configuration parameter from KWLConfig.
  *
@@ -39,8 +39,8 @@
  * @par Example:
  * @code
  * CONFIGURE(RelayOFF, OPEN)
- * CONFIGURE_OBJ(NetworkIPAddress, (192, 168, 42, 201))
- * CONFIGURE_OBJ(NetworkMACAddress, (0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF))
+ * CONFIGURE(NetworkIPAddress, 192, 168, 42, 201)
+ * CONFIGURE(NetworkMACAddress, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF)
  * @endcode
  *
  * You can also define DEBUG macro in UserConfig.h to enable debugging MQTT messages.
@@ -392,27 +392,37 @@ const bool KWLDefaultConfig<FinalConfig>::RetainProgram = FinalConfig::RetainMea
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainStatusBits = FinalConfig::RetainMeasurements;
 
-/*!
- * @brief Helper macro to add configuration for simple parameters in UserConfig.h.
- *
- * If you get an error here, this means that you probably mistyped a configuration parameter name
- * from KWLDefaultConfig or the value is not compatible for the data type.
- *
- * @param name configuration parameter name.
- * @param value value for the parameter.
- */
-#define CONFIGURE(name, value) static constexpr decltype(KWLDefaultConfig<KWLConfig>::name) name = value;
+/// Helper template to convert user-defined configuration objects.
+template<typename T> struct UserConfig {
+  static constexpr T make(const T value) noexcept { return value; }
+};
+
+// specialization for strings
+template<size_t OrigLen> struct UserConfig<const FlashStringLiteral<OrigLen>> {
+  template<size_t Len>
+  static constexpr FlashStringLiteral<Len> make(const char (&s)[Len]) noexcept { return makeFlashStringLiteral(s); }
+};
+
+// specialization for IP address
+template<> struct UserConfig<const IPAddressLiteral> {
+  static constexpr IPAddressLiteral make(uint8_t a, uint8_t b, uint8_t c, uint8_t d) noexcept { return IPAddressLiteral(a, b, c, d); }
+};
+
+// specialization for MAC address
+template<> struct UserConfig<const MACAddressLiteral> {
+  static constexpr MACAddressLiteral make(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e, uint8_t f) noexcept { return MACAddressLiteral(a, b, c, d, e, f); }
+};
 
 /*!
- * @brief Helper macro to add configuration for object parameters in UserConfig.h.
+ * @brief Helper macro to add configuration in UserConfig.h.
  *
  * If you get an error here, this means that you probably mistyped a configuration parameter name
  * from KWLDefaultConfig or the value is not compatible for the data type.
  *
  * @param name configuration parameter name.
- * @param values constructor values (in form (a, b, c), including braces).
+ * @param ... value(s) for the parameter (simple value or comma-separated list, e.g., for IP address).
  */
-#define CONFIGURE_OBJ(name, values) static constexpr decltype(KWLDefaultConfig<KWLConfig>::name) name = decltype(KWLDefaultConfig<KWLConfig>::name) values;
+#define CONFIGURE(name, ...) static constexpr auto name = UserConfig<decltype(KWLDefaultConfig<KWLConfig>::name)>::make(__VA_ARGS__);
 
 /// Actual configuration, including user-specific values.
 class KWLConfig : public KWLDefaultConfig<KWLConfig>
