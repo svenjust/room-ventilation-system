@@ -37,7 +37,7 @@ class KWLPersistentConfig;
 /*!
  * @brief Client to communicate with MQTT protocol over Ethernet.
  */
-class NetworkClient
+class NetworkClient : private MessageHandler
 {
 public:
   NetworkClient(const NetworkClient&) = delete;
@@ -73,6 +73,8 @@ private:
 
   /// Loop task to send MQTT messages.
   static void sendMQTT();
+
+  virtual bool mqttReceiveMsg(const StringView& topic, const StringView& s) override;
 
   /// Maximum size of serial buffer for sending messages over serial port.
   static constexpr uint8_t SERIAL_BUFFER_SIZE = 128;

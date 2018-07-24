@@ -37,7 +37,15 @@ static constexpr unsigned long MQTT_RECONNECT_INTERVAL = 15000000;
 /// MQTT heartbeat period.
 static constexpr unsigned long MQTT_HEARTBEAT_PERIOD = KWLConfig::HeartbeatPeriod * 1000000UL;
 
+namespace {
+  /// MQTT prefix length.
+  static uint8_t s_mqtt_prefix_len = 0;
+  /// MQTT prefix.
+  static const char* s_mqtt_prefix = nullptr;
+}
+
 NetworkClient::NetworkClient(KWLPersistentConfig& config, MicroNTP& ntp) :
+  MessageHandler(F("NetworkClient")),
   mqtt_client_(eth_client_),
   config_(config),
   ntp_(ntp),
@@ -54,27 +62,34 @@ void NetworkClient::begin(Print& initTracer)
   delay(1500);  // to give Ethernet link time to start
   last_lan_reconnect_attempt_time_ = micros();
   lan_ok_ = true;
+  s_mqtt_prefix = config_.getMQTTPrefix();
+  s_mqtt_prefix_len = strlen(s_mqtt_prefix);
 
-  initTracer.print(F("Initialisierung MQTT, broker IP "));
+  initTracer.print(F("Initialisierung MQTT["));
+  initTracer.write(s_mqtt_prefix, s_mqtt_prefix_len);
+  initTracer.print(F("], broker "));
   initTracer.println(IPAddress(KWLConfig::NetworkMQTTBroker));
   mqtt_client_.setServer(KWLConfig::NetworkMQTTBroker, KWLConfig::NetworkMQTTPort);
   mqtt_client_.setCallback([](char* topic, uint8_t* payload, unsigned length) {
     // first check whether it's for us
-    StringView t(topic);
-    if (t.substr(0, MQTTTopic::Command.length()) == MQTTTopic::Command) {
-      // yes, it's our command, cut off the leading part
-      MessageHandler::mqttMessageReceived(topic + MQTTTopic::Command.length(), payload, length);
-    } else if (t.substr(0, MQTTTopic::CommandDebug.length()) == MQTTTopic::CommandDebug) {
-      // yes, it's our debug command, keep leading '/' to differentiate
-      MessageHandler::mqttMessageReceived(topic + MQTTTopic::CommandDebug.length() - 1, payload, length);
-    } else {
-      if (KWLConfig::serialDebug) {
-        Serial.print(F("MQTT: received message on not subscribed topic ["));
-        Serial.print(topic);
-        Serial.print(F("] = ["));
-        Serial.write(payload, length);
-        Serial.println(']');
+    if (memcmp(topic, s_mqtt_prefix, s_mqtt_prefix_len) == 0) {
+      StringView t(topic + s_mqtt_prefix_len);
+      if (t.substr(0, MQTTTopic::Command.length()) == MQTTTopic::Command) {
+        // yes, it's our command, cut off the leading part
+        MessageHandler::mqttMessageReceived(topic + s_mqtt_prefix_len + MQTTTopic::Command.length(), payload, length);
+        return;
+      } else if (t.substr(0, MQTTTopic::CommandDebug.length()) == MQTTTopic::CommandDebug) {
+        // yes, it's our debug command, keep leading '/' to differentiate
+        MessageHandler::mqttMessageReceived(topic + s_mqtt_prefix_len + MQTTTopic::CommandDebug.length() - 1, payload, length);
+        return;
       }
+    }
+    if (KWLConfig::serialDebug) {
+      Serial.print(F("MQTT: received message on not subscribed topic ["));
+      Serial.print(topic);
+      Serial.print(F("] = ["));
+      Serial.write(payload, length);
+      Serial.println(']');
     }
   });
 
@@ -87,15 +102,17 @@ void NetworkClient::begin(Print& initTracer)
     auto topiclen = strlen(topic);
     if (topic[0] == '/') {
       // debug state
-      char real_topic[topiclen + MQTTTopic::StateDebug.length()];
-      MQTTTopic::StateDebug.store(real_topic);
-      memcpy(real_topic + MQTTTopic::StateDebug.length(), topic + 1, topiclen);
+      char real_topic[topiclen + s_mqtt_prefix_len + MQTTTopic::StateDebug.length()];
+      memcpy(real_topic, s_mqtt_prefix, s_mqtt_prefix_len);
+      MQTTTopic::StateDebug.store(real_topic + s_mqtt_prefix_len);
+      memcpy(real_topic + MQTTTopic::StateDebug.length() + s_mqtt_prefix_len, topic + 1, topiclen);
       return client->publish(real_topic, payload, retained);
     } else {
       // normal state
-      char real_topic[topiclen + MQTTTopic::State.length() + 1];
-      MQTTTopic::State.store(real_topic);
-      memcpy(real_topic + MQTTTopic::State.length(), topic, topiclen + 1);
+      char real_topic[topiclen + s_mqtt_prefix_len + MQTTTopic::State.length() + 1];
+      memcpy(real_topic, s_mqtt_prefix, s_mqtt_prefix_len);
+      MQTTTopic::State.store(real_topic + s_mqtt_prefix_len);
+      memcpy(real_topic + MQTTTopic::State.length() + s_mqtt_prefix_len, topic, topiclen + 1);
       return client->publish(real_topic, payload, retained);
     }
   #endif
@@ -131,13 +148,23 @@ void NetworkClient::initEthernet(Print& initTracer)
 bool NetworkClient::mqttConnect()
 {
   Serial.print(F("MQTT connect start at "));
-  Serial.println(micros());
-  static constexpr auto NAME = makeFlashStringLiteral("arduinoClientKwl");
+  Serial.print(micros());
+  Serial.print(F(", prefix: "));
+  Serial.println(s_mqtt_prefix);
+
+  static constexpr auto NAME = makeFlashStringLiteral("kwlClient");
   static constexpr auto WILL_MESSAGE = makeFlashStringLiteral("offline");
-  bool rc = mqtt_client_.connect(NAME.load(),
+  char buffer[9 + NAME.length()];
+  NAME.store(buffer);
+  buffer[NAME.length()] = ':';
+  strcpy(buffer + NAME.length() + 1, config_.getMQTTPrefix());
+  bool rc = mqtt_client_.connect(buffer,
                                  KWLConfig::NetworkMQTTUsername, KWLConfig::NetworkMQTTPassword,
                                  MQTTTopic::Heartbeat.load(), 0, true, WILL_MESSAGE.load());
   if (rc) {
+    // reset prefix, if it was changed in the meantime
+    s_mqtt_prefix = config_.getMQTTPrefix();
+    s_mqtt_prefix_len = strlen(s_mqtt_prefix);
     // subscribe
     subscribed_command_ = subscribed_debug_ = false;
     resubscribe();
@@ -253,17 +280,19 @@ void NetworkClient::loop()
 
 void NetworkClient::resubscribe()
 {
-  char buffer[max(MQTTTopic::Command.length(), MQTTTopic::CommandDebug.length()) + 2];
+  char buffer[max(MQTTTopic::Command.length(), MQTTTopic::CommandDebug.length()) + 2 + s_mqtt_prefix_len];
+  memcpy(buffer, s_mqtt_prefix, s_mqtt_prefix_len);
+  char* p = buffer + s_mqtt_prefix_len;
   if (!subscribed_command_) {
-    MQTTTopic::Command.store(buffer);
-    buffer[MQTTTopic::Command.length()] = '#';
-    buffer[MQTTTopic::Command.length() + 1] = 0;
+    MQTTTopic::Command.store(p);
+    p[MQTTTopic::Command.length()] = '#';
+    p[MQTTTopic::Command.length() + 1] = 0;
     subscribed_command_ = mqtt_client_.subscribe(buffer);
   }
   if (!subscribed_debug_) {
-    MQTTTopic::CommandDebug.store(buffer);
-    buffer[MQTTTopic::CommandDebug.length()] = '#';
-    buffer[MQTTTopic::CommandDebug.length() + 1] = 0;
+    MQTTTopic::CommandDebug.store(p);
+    p[MQTTTopic::CommandDebug.length()] = '#';
+    p[MQTTTopic::CommandDebug.length() + 1] = 0;
     subscribed_debug_ = mqtt_client_.subscribe(buffer);
   }
 }
@@ -271,6 +300,29 @@ void NetworkClient::resubscribe()
 void NetworkClient::sendMQTT()
 {
   PublishTask::loop();
+}
+
+bool NetworkClient::mqttReceiveMsg(const StringView& topic, const StringView& s)
+{
+  if (topic == MQTTTopic::CmdInstallPrefix) {
+    // installation - install new prefix for MQTT communication
+    if (config_.setMQTTPrefix(s.c_str())) {
+      // success, restart MQTT connection
+      if (KWLConfig::serialDebug) {
+        Serial.print(F("Installation: new MQTT prefix: "));
+        Serial.println(s.c_str());
+      }
+      mqtt_client_.disconnect();
+    } else {
+      if (KWLConfig::serialDebug) {
+        Serial.print(F("Installation: too long MQTT prefix: "));
+        Serial.println(s.c_str());
+      }
+    }
+  } else {
+    return false;
+  }
+  return true;
 }
 
 void NetworkClient::run()

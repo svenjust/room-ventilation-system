@@ -41,6 +41,7 @@
  * CONFIGURE(RelayOFF, OPEN)
  * CONFIGURE(NetworkIPAddress, 192, 168, 42, 201)
  * CONFIGURE(NetworkMACAddress, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF)
+ * CONFIGURE(PrefixMQTT, "ap300")
  * @endcode
  *
  * You can also define DEBUG macro in UserConfig.h to enable debugging MQTT messages.
@@ -135,6 +136,9 @@ public:
 
   /// Passwort für den MQTT Broker.
   static constexpr const char* NetworkMQTTPassword = nullptr;
+
+  /// Prefix for all messages to and from the controller.
+  static constexpr auto PrefixMQTT = makeFlashStringLiteral("d15");
 
   // *******************************************E N D E ***  N E T Z W E R K E I N S T E L L U N G E N **************************************************
 
@@ -479,6 +483,7 @@ private:
   int16_t TimezoneMin_;               // 62
   ProgramData programs_[KWLConfig::MaxProgramCount];  // 64..192
   CrashData crashes_[KWLConfig::MaxCrashReportCount]; // 192..240
+  char mqtt_prefix_[8];               // 240..248
 
   /// Initialize with defaults, if version doesn't fit.
   void loadDefaults();
@@ -530,6 +535,12 @@ public:
 
   /// Enable or disable program data in the given slot.
   void enableProgram(unsigned index, uint8_t mask) { programs_[index].enable(mask); update(programs_[index].enabled_progsets_); }
+
+  /// Get prefix for all MQTT messages.
+  const char* getMQTTPrefix() const { return mqtt_prefix_; }
+
+  /// Set prefix for all MQTT messages.
+  bool setMQTTPrefix(const char* prefix);
 };
 
 #undef KWL_GETSET

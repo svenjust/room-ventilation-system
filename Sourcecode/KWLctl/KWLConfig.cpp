@@ -28,7 +28,8 @@ IPAddressLiteral::operator IPAddress() const
 
 #define KWL_COPY(name) name##_ = KWLConfig::Standard##name
 
-static_assert(sizeof(KWLPersistentConfig) == 240, "Persistent config size changed, ensure compatibility or increment version");
+static_assert(sizeof(KWLPersistentConfig) == 248, "Persistent config size changed, ensure compatibility or increment version");
+static constexpr auto PrefixMQTT = KWLConfig::PrefixMQTT;
 
 void KWLPersistentConfig::loadDefaults()
 {
@@ -55,6 +56,9 @@ void KWLPersistentConfig::loadDefaults()
   }
 
   KWL_COPY(HeatingAppCombUse);
+
+  static_assert(KWLConfig::PrefixMQTT.length() < sizeof(mqtt_prefix_), "Too long MQTT prefix");
+  strcpy(mqtt_prefix_, PrefixMQTT.load());
 }
 
 void KWLPersistentConfig::migrate()
@@ -84,6 +88,13 @@ void KWLPersistentConfig::migrate()
     Serial.println(F("Config migration: clearing crash reports"));
     memset(crashes_, 0, sizeof(crashes_));
     update(crashes_);
+  }
+  if (mqtt_prefix_[0] < 33 || mqtt_prefix_[0] > 126) {
+    Serial.print(F("Config migration: setting MQTT prefix: "));
+    static_assert(KWLConfig::PrefixMQTT.length() < sizeof(mqtt_prefix_), "Too long MQTT prefix");
+    strcpy(mqtt_prefix_, PrefixMQTT.load());
+    update(mqtt_prefix_);
+    Serial.println(mqtt_prefix_);
   }
 }
 
@@ -126,4 +137,14 @@ void KWLPersistentConfig::resetCrashes()
 {
   memset(crashes_, 0, sizeof(crashes_));
   update(crashes_);
+}
+
+bool KWLPersistentConfig::setMQTTPrefix(const char* prefix)
+{
+  auto len = strlen(prefix);
+  if (len >= sizeof(mqtt_prefix_))
+    return false;
+  memcpy(mqtt_prefix_, prefix, len + 1);
+  update(mqtt_prefix_);
+  return true;
 }

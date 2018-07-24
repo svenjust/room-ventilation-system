@@ -34,14 +34,16 @@
  */
 namespace MQTTTopic
 {
-  /// Prefix for all normal commands. Also used for subscribing.
-  constexpr auto Command                    = makeFlashStringLiteral("d15/set/kwl/");
-  /// Prefix for all debug commands. Also used for subscribing.
-  constexpr auto CommandDebug               = makeFlashStringLiteral("d15/debugset/kwl/");
-  /// Prefix for all status values.
-  constexpr auto State                      = makeFlashStringLiteral("d15/state/kwl/");
-  /// Prefix for all debug status values.
-  constexpr auto StateDebug                 = makeFlashStringLiteral("d15/debugstate/kwl/");
+  // Global paths. These are prefixed with MQTT prefix (default: d15)
+
+  /// Path for all normal commands. Also used for subscribing.
+  constexpr auto Command                    = makeFlashStringLiteral("/set/kwl/");
+  /// Path for all debug commands. Also used for subscribing.
+  constexpr auto CommandDebug               = makeFlashStringLiteral("/debugset/kwl/");
+  /// Path for all status values.
+  constexpr auto State                      = makeFlashStringLiteral("/state/kwl/");
+  /// Path for all debug status values.
+  constexpr auto StateDebug                 = makeFlashStringLiteral("/debugstate/kwl/");
 
   // Remaining commands/values are internally prefixed by Command/State or by
   // CommandDebug/StateDebug. To differentiate, debug commands and states are
@@ -49,6 +51,7 @@ namespace MQTTTopic
 
   constexpr auto CmdResetAll                = makeFlashStringLiteral("resetAll_IKNOWWHATIMDOING");
   constexpr auto CmdRestart                 = makeFlashStringLiteral("restart");
+  constexpr auto CmdInstallPrefix           = makeFlashStringLiteral("install/prefix");
   constexpr auto CmdCalibrateFans           = makeFlashStringLiteral("calibratefans");
   constexpr auto CmdFansCalculateSpeedMode  = makeFlashStringLiteral("fans/calculatespeed");
   constexpr auto CmdFan1Speed               = makeFlashStringLiteral("fan1/standardspeed");
