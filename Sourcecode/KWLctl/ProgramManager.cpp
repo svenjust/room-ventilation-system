@@ -80,19 +80,21 @@ void ProgramManager::run()
     return;
   }
   auto time = ntp_.currentTimeHMS(config_.getTimezoneMin() * 60L, config_.getDST());
+  auto set_index = config_.getProgramSetIndex();
   if (KWLConfig::serialDebugProgram) {
     Serial.print(F("PROG: check at "));
-    Serial.println(PrintableHMS(time));
+    Serial.print(PrintableHMS(time));
+    Serial.print(F(", set index "));
+    Serial.println(set_index);
   }
 
   // iterate all programs and pick one which hits
   int8_t program = -1;
-  uint8_t setmask = uint8_t(1 << config_.getProgramSetIndex());
+  uint8_t setmask = uint8_t(1 << set_index);
   for (int8_t i = 0; i < KWLConfig::MaxProgramCount; ++i) {
     auto& p = config_.getProgram(unsigned(i));
     if (p.is_enabled(setmask) && p.matches(time)) {
       program = i;
-      break;
     }
   }
   if (program != current_program_) {
