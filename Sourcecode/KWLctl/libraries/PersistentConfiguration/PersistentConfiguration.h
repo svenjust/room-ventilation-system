@@ -33,13 +33,6 @@ class Print;
 class PersistentConfigurationBase
 {
 public:
-  /*!
-   * @brief Perform "factory reset".
-   *
-   * After the restart, EEPROM will be reprogrammed with default values.
-   */
-  void factoryReset();
-
 protected:
   /// Function to load defaults.
   using LoadFnc = void (PersistentConfigurationBase::*)();
@@ -85,6 +78,15 @@ protected:
    * @param bytes_per_row how many bytes to print per row.
    */
   static void dumpRaw(Print& out, unsigned bytes_per_row = 16);
+
+  /*!
+   * @brief Perform "factory reset".
+   *
+   * After the restart, EEPROM will be reprogrammed with default values.
+   *
+   * @param size real size of the config.
+   */
+  void factoryReset(unsigned size);
 
 private:
   /// Version counter.
@@ -144,6 +146,13 @@ public:
    * @return @c true, if data updated, @c false if out of range (too big).
    */
   bool updateAll() { return updateRange(this, sizeof(T)); }
+
+  /*!
+   * @brief Perform "factory reset".
+   *
+   * After the restart, EEPROM will be reprogrammed with default values.
+   */
+  void factoryReset() { PersistentConfigurationBase::factoryReset(sizeof(T)); }
 
 protected:
   /// Default migrate is empty.

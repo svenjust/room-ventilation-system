@@ -72,7 +72,7 @@ void PersistentConfigurationBase::begin(Print& out, unsigned int size, unsigned 
       error = *data++ != EEPROM.read(i);
     if (error) {
       out.println(F("ERROR: EEPROM couldn't be written correctly, will reset and retry on next startup."));
-      factoryReset();
+      factoryReset(size);
     } else {
       out.println(F("New EEPROM contents stored successfully."));
     }
@@ -82,10 +82,10 @@ void PersistentConfigurationBase::begin(Print& out, unsigned int size, unsigned 
   }
 }
 
-void PersistentConfigurationBase::factoryReset()
+void PersistentConfigurationBase::factoryReset(unsigned size)
 {
-  version_ = 0;
-  update(version_);
+  memset(this, 0xff, size);
+  updateRange(this, size);
 }
 
 bool PersistentConfigurationBase::updateRange(const void* ptr, unsigned int size) const {
