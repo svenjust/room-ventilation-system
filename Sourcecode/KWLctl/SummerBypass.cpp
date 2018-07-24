@@ -54,7 +54,7 @@ SummerBypass::SummerBypass(KWLPersistentConfig& config, const TempSensors& temp)
 
 void SummerBypass::begin(Print& initTrace)
 {
-  initTrace.println(F("Initializing summer bypass"));
+  initTrace.println(F("Initialisierung Sommer-Bypass"));
 
   temp_outlet_min_ = config_.getBypassTempAbluftMin();
   temp_outside_min_ = config_.getBypassTempAussenluftMin();
