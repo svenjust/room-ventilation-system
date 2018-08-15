@@ -26,10 +26,11 @@
 
 #include "Relay.h"
 #include "KWLConfig.h"
-#include "TimeScheduler.h"
-#include "MessageHandler.h"
 
 #include <FanRPM.h>
+#include <TimeScheduler.h>
+#include <MessageHandler.h>
+
 #include <PID_v1.h>
 
 class Print;
@@ -100,9 +101,6 @@ private:
 
   /// Called by the interrupt routine for this fan.
   inline void interrupt() { rpm_.interrupt(); }
-
-  /// Called by the fan control to capture current RPM measurement.
-  inline void capture() { rpm_.capture(); }
 
   /// Called by the fan control to update speed from RPM measurement.
   inline void updateSpeed() { current_speed_ = rpm_.getSpeed(); }

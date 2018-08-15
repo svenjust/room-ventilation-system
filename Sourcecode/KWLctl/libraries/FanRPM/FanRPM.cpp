@@ -21,11 +21,11 @@
 
 #include <Arduino.h>
 
-FanRPM::FanRPM() {
-  // currently no additional initialization needed
+FanRPM::FanRPM() noexcept {
+  memset(measurements_, 0, sizeof(measurements_));
 }
 
-void FanRPM::interrupt() {
+void FanRPM::interrupt() noexcept {
   // perform one measurement
   unsigned long timer = micros();
   if (!last_time_) {
@@ -70,28 +70,61 @@ void FanRPM::interrupt() {
   last_ = measurement;
 }
 
-int FanRPM::getSpeed()
+int FanRPM::getSpeed() noexcept
 {
+  auto valid = valid_;
+  auto sum = sum_;
+  auto last_time = last_time_;
+  for (;;) {
+    // Now re-read all data and check for change, if changed, re-read again.
+    // This prevents the need to disable interrupts for reading data.
+    const auto new_valid = valid_;
+    const auto new_sum = sum_;
+    const auto new_last_time = last_time_;
+    if (valid == new_valid && sum == new_sum && last_time == new_last_time)
+      break;  // data read consistently
+    // interrupt in-between changed state, re-read
+    valid = new_valid;
+    sum = new_sum;
+    last_time = new_last_time;
+  }
+
+  if (!valid)
+    return 0;
+
+  // Create pseudo-measurement to check whether fan has stopped
+  // w/o detection in the interrupt routine.
+  const unsigned long measurement = micros() - last_time;
+  if (measurement > (60000000UL / MIN_RPM)) {
+    // assume fan stopped - it is too slow (more than 1s between signals)
+    noInterrupts();
+    last_time_ = 0;
+    last_ = 0;
+    valid_ = false;
+    interrupts();
+    return 0;
+  }
+
   // Captured value is effectively sum of MAX_MEASUREMENT measurements, return average.
-  if (captured_valid_ && captured_sum_)
-    return int((60000000UL * MAX_MEASUREMENTS) / captured_sum_);
+  if (sum)
+    return int((60000000UL * MAX_MEASUREMENTS) / sum);
   else
     return 0;
 }
 
-void FanRPM::dump() {
+void FanRPM::dump(Print& out) noexcept {
   if (!valid_)
-    Serial.print(F("INVALID: "));
-  Serial.print(F("Last: "));
-  Serial.print(last_);
-  Serial.print('@');
-  Serial.print(last_time_);
-  Serial.print(F(", index "));
-  Serial.print(index_);
-  Serial.print(F(": "));
+    out.print(F("INVALID: "));
+  out.print(F("Last: "));
+  out.print(last_);
+  out.print('@');
+  out.print(last_time_);
+  out.print(F(", index "));
+  out.print(index_);
+  out.print(F(": "));
   for (int i = 0; i < MAX_MEASUREMENTS; ++i) {
-    Serial.print(measurements_[i]);
-    Serial.print(';');
+    out.print(measurements_[i]);
+    out.print(';');
   }
-  Serial.println(sum_);
+  out.println(sum_);
 }

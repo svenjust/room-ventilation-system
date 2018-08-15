@@ -21,7 +21,8 @@
 #include "FanControl.h"
 #include "MQTTTopic.hpp"
 #include "KWLConfig.h"
-#include "StringView.h"
+
+#include <StringView.h>
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -137,7 +138,7 @@ void Fan::setSpeed(int id, uint8_t pwmPin, uint8_t dacChannel)
     Serial.print(tech_setpoint_);
     Serial.print(F("\tspeedSetpoint: "));
     Serial.println(speed_setpoint_);
-    rpm_.dump();
+    rpm_.dump(Serial);
   }
 
   // Setzen per PWM
@@ -270,11 +271,6 @@ void FanControl::run()
 {
   // Die Geschwindigkeit der beiden Lüfter wird bestimmt. Die eigentliche Zählung der Tachoimpulse
   // geschieht per Interrupt in countUpFan1 und countUpFan2
-
-  noInterrupts();
-  fan1_.capture();
-  fan2_.capture();
-  interrupts();
 
   fan1_.updateSpeed();
   fan2_.updateSpeed();

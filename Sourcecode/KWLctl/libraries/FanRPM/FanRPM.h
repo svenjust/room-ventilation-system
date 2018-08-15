@@ -24,6 +24,8 @@
 
 #pragma once
 
+class Print;
+
 /*!
  * @brief Stores measurements and computes fan speed.
  *
@@ -32,11 +34,7 @@
  * using an associated interrupt. Interrupt's handling routine must call
  * interrupt() routine.
  *
- * To actually report the measurement, it must be first captured from the
- * volatile internal state using capture() call under interrupts disabled.
- * The routine doesn't disable interrupts by itself, so you can call it
- * for several fans. Afterwards, you can read the speed using get_speed()
- * routine.
+ * To read the measurement, call get_speed() routine.
  *
  * You can dump the internal state to serial console using dump() method,
  * but this method is not synchronized (i.e., it may report erratic data).
@@ -45,34 +43,18 @@ class FanRPM
 {
 public:
   /// Initialize the fan speed measurement.
-  FanRPM();
+  FanRPM() noexcept;
 
   /// Call this method in the interrupt function for the RPM measurement pin.
-  void interrupt();
+  void interrupt() noexcept;
 
   /*!
-   * @brief Capture the current fan speed.
-   *
-   * @note This method must be called under interrupts disabled.
-   *
-   * After capture finishes, you can use get_speed() to get the actual speed.
+   * @brief Get the current speed measurement in rpm.
    */
-  inline void capture()
-  {
-    captured_valid_ = valid_;
-    captured_sum_ = sum_;
-  }
-
-  /*!
-   * @brief Get the last captured measured speed in rpm.
-   *
-   * Before calling this method, call capture() under interrupts disabled
-   * to transfer volatile state.
-   */
-  int getSpeed();
+  int getSpeed() noexcept;
 
   /// Dump the internal state to the serial console (unsynchronized read).
-  void dump();
+  void dump(Print& out) noexcept;
 
 private:
   enum {
@@ -87,17 +69,13 @@ private:
   /// Last measurement time.
   unsigned long last_time_ = 0;
   /// Measurements buffer.
-  unsigned long measurements_[MAX_MEASUREMENTS] = {0, };
+  unsigned long measurements_[MAX_MEASUREMENTS];
   /// Current measurement index. Wraps around the buffer.
   unsigned char index_ = 0;
   /// Set to true, if a valid measurement was found.
   volatile bool valid_ = false;
-  /// Validity flag captured by capture() call.
-  bool captured_valid_ = false;
   /// Last measurement. Used to filter out outliers.
   unsigned long last_ = 0;
   /// Current sum of all measurements.
   volatile unsigned long sum_ = 0;
-  /// Measurement captured by capture() call.
-  unsigned long captured_sum_ = 0;
 };
