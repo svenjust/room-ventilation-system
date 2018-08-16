@@ -49,7 +49,6 @@
 
 #include "KWLControl.hpp"
 
-#include <MCUFRIEND_kbv.h>      // TFT
 #include <MultiPrint.h>
 
 // Actual instance of the control system.
@@ -69,23 +68,16 @@ static void loopWrite100Millis() {
   Setup Routinen
 **********************************************************************/
 
-// External references to TFT
-extern void SetupTftScreen();
-extern void SetupTouch();
-extern MCUFRIEND_kbv tft;
-
-
 // *** SETUP START ***
 void setup()
 {
   Serial.begin(57600); // Serielle Ausgabe starten
 
   // *** TFT AUSGABE ***
-  SetupTftScreen();
-  SetupTouch();
+  kwlControl.getTFT().setup();
 
   // Init tracer which prints to both TFT and Serial.
-  static MultiPrint initTracer(Serial, tft);
+  static MultiPrint initTracer(Serial, kwlControl.getTFT().getTFTPrinter());
 
   initTracer.println(F("Booting... "));
 

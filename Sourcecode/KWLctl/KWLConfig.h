@@ -145,6 +145,12 @@ public:
 
   // ***************************************************  T F T / T O U C H   E I N S T E L L U N G E N *************************************************
 
+  // most mcufriend shields use these pins and Portrait mode:
+  static constexpr uint8_t YP = A1;  // must be an analog pin, use "An" notation!
+  static constexpr uint8_t XM = A2;  // must be an analog pin, use "An" notation!
+  static constexpr uint8_t YM = 7;   // can be a digital pin
+  static constexpr uint8_t XP = 6;   // can be a digital pin
+
   /// Value of touch X input at the left side.
   static constexpr uint16_t TouchLeft = 949;
   /// Value of touch X input at the right side.
@@ -155,6 +161,8 @@ public:
   static constexpr uint16_t TouchBottom = 205;
   /// Swap X and Y inputs.
   static constexpr uint8_t TouchSwapXY = 0;
+  /// Orientation of the TFT display.
+  static constexpr uint8_t TFTOrientation = 3;    //PORTRAIT
 
   // *******************************************E N D E ***  T F T / T O U C H   E I N S T E L L U N G E N **********************************************
 

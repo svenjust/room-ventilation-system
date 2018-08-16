@@ -27,11 +27,6 @@
 #include <DeadlockWatchdog.h>
 #include <avr/wdt.h>
 
-// forwards
-extern void loopDisplayUpdate();
-extern void loopTouch();
-extern void SetupBackgroundScreen();
-
 KWLControl::KWLControl() :
   MessageHandler(F("KWLControl")),
   ntp_(udp_),
@@ -41,11 +36,7 @@ KWLControl::KWLControl() :
   antifreeze_(fan_control_, temp_sensors_, persistent_config_),
   program_manager_(persistent_config_, fan_control_, ntp_),
   control_stats_(F("KWLControl")),
-  control_timer_(control_stats_, &KWLControl::run, *this),
-  display_update_stats_(F("DisplayUpdate")),
-  display_update_(display_update_stats_, &loopDisplayUpdate),
-  process_touch_stats_(F("ProcessTouch")),
-  process_touch_(process_touch_stats_, &loopTouch)
+  control_timer_(control_stats_, &KWLControl::run, *this)
 {}
 
 void KWLControl::begin(Print& initTracer)
@@ -99,7 +90,7 @@ void KWLControl::begin(Print& initTracer)
   // 4 Sekunden Pause für die TFT Anzeige, damit man sie auch lesen kann
   delay(4000);
 
-  SetupBackgroundScreen();   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
+  tft_.begin(initTracer, *this);
 
   DeadlockWatchdog::begin(&deadlockDetected, this);
 }

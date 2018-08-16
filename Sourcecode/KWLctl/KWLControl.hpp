@@ -33,6 +33,7 @@
 #include "ProgramManager.h"
 #include "SummerBypass.h"
 #include "AdditionalSensors.h"
+#include "TFT.h"
 
 /*!
  * @brief Controller for the ventilation system.
@@ -99,6 +100,9 @@ public:
   /// Get NTP client.
   MicroNTP& getNTP() { return ntp_; }
 
+  /// Get TFT controller.
+  TFT& getTFT() { return tft_; }
+
   /// Get set of ERROR_BIT_* bits to describe any error situations.
   unsigned getErrors() const { return errors_; }
 
@@ -157,6 +161,8 @@ private:
   Antifreeze antifreeze_;
   /// Program manager to set daily/weekly programs.
   ProgramManager program_manager_;
+  /// Display control.
+  TFT tft_;
   /// Task to send all scheduler infos reliably.
   PublishTask scheduler_publish_;
   /// Task to send errors.
@@ -169,12 +175,4 @@ private:
   Scheduler::TaskTimingStats control_stats_;
   /// Timer firing checks.
   Scheduler::TimedTask<KWLControl> control_timer_;
-  /// Statistics for display update.
-  Scheduler::TaskPollingStats display_update_stats_;
-  /// Task to update display.
-  Scheduler::PollTask<> display_update_;
-  /// Statistics for touch input.
-  Scheduler::TaskPollingStats process_touch_stats_;
-  /// Task to process touch input.
-  Scheduler::PollTask<> process_touch_;
 };
