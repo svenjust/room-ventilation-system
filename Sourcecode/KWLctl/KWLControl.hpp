@@ -49,6 +49,8 @@ public:
   static constexpr unsigned ERROR_BIT_FAN2    = 0x0002;
   /// A crash report is present (restarted by watchdog).
   static constexpr unsigned ERROR_BIT_CRASH   = 0x0004;
+  /// No NTP time yet.
+  static constexpr unsigned ERROR_BIT_NTP     = 0x0008;
   /// T1 sensor is not working.
   static constexpr unsigned ERROR_BIT_T1      = 0x0010;
   /// T2 sensor is not working.

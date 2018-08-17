@@ -43,17 +43,17 @@ static constexpr bool DEBUG = false;
 /// NTP packet structure.
 struct ntp_packet
 {
-  uint8_t li_vn_mode = 0x1b;   // Eight bits. li, vn, and mode.
+  uint8_t li_vn_mode = 0xe3;   // Eight bits. li, vn, and mode.
                                // li.   Two bits.   Leap indicator.
                                // vn.   Three bits. Version number of the protocol.
                                // mode. Three bits. Client will pick mode 3 for client.
 
   uint8_t stratum = 0;         // Eight bits. Stratum level of the local clock.
-  uint8_t poll = 0;            // Eight bits. Maximum interval between successive messages.
-  uint8_t precision = 0;       // Eight bits. Precision of the local clock.
+  uint8_t poll = 3;            // Eight bits. Maximum interval between successive messages.
+  uint8_t precision = 0xfa;    // Eight bits. Precision of the local clock (microsecond).
 
-  uint32_t rootDelay = 0;      // 32 bits. Total round trip delay time.
-  uint32_t rootDispersion = 0; // 32 bits. Max error aloud from primary clock source.
+  uint32_t rootDelay = 0x100;  // 32 bits. Total round trip delay time.
+  uint32_t rootDispers = 0x100;// 32 bits. Max error due to clock frequency tolerance.
   uint32_t refId = 0;          // 32 bits. Reference clock identifier.
 
   uint32_t refTm_s = 0;        // 32 bits. Reference time-stamp seconds.
@@ -70,6 +70,8 @@ struct ntp_packet
 
   // Total: 384 bits or 48 bytes.
 };
+
+static_assert(sizeof(ntp_packet) == 48, "NTP packet size error");
 
 uint32_t ntohl(uint32_t value) {
   uint32_t tmp_a = (value & 0xff000000) >> 24;
@@ -93,7 +95,8 @@ void MicroNTP::begin(IPAddress server_ip)
     Serial.print(F(" local port "));
     Serial.println(LOCAL_PORT);
   }
-  udp_.begin(LOCAL_PORT);
+  if (!udp_.begin(LOCAL_PORT))
+    Serial.println(F("ERROR: Cannot start NTP client, out of sockets"));
 }
 
 void MicroNTP::loop()
@@ -148,10 +151,29 @@ bool MicroNTP::sendRequest(uint32_t ms)
   udp_.write(reinterpret_cast<const uint8_t*>(&tmp), sizeof(tmp));
   bool res = udp_.endPacket() != 0;
   if (DEBUG) {
-    if (res)
-      Serial.print(F("NTP: sent packet at ms="));
-    else
+    if (res) {
+      Serial.print(F("NTP: sent packet "));
+      auto p = reinterpret_cast<const unsigned char*>(&tmp);
+      for (size_t i = 0; i < sizeof(tmp); ++i) {
+        char buf[4];
+        auto c = *p++;
+        if (c > 15) {
+          utoa(c, buf, 16);
+        } else {
+          buf[0] = '0';
+          utoa(c, buf + 1, 16);
+        }
+        buf[2] = ' ';
+        buf[3] = 0;
+        Serial.write(buf, 3);
+      }
+      Serial.println();
+      Serial.print(F("to "));
+      Serial.print(ip_);
+      Serial.print(F(" at ms="));
+    } else {
       Serial.print(F("NTP: failed to send packet at ms="));
+    }
     Serial.println(ms);
   }
   sent_time_ms_ = ms;

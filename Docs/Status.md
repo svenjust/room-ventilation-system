@@ -66,6 +66,7 @@ Error condition flags are OR-ed together to form an error status (`EEEE`):
     * 0001 - FAN1 (intake) not working
     * 0002 - FAN2 (exhaust) not working
     * 0004 - crash presence bit (see Programming/CrashDebugging.md)
+    * 0008 - NTP time not yet synchronized or NTP server not answering
     * 0010 - T1 sensor (outside air) not working
     * 0020 - T2 sensor (inlet air) not working
     * 0040 - T3 sensor (outlet air) not working

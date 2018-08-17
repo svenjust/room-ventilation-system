@@ -97,7 +97,7 @@ void KWLControl::begin(Print& initTracer)
 
 void KWLControl::errorsToString(char* buffer, size_t size)
 {
-  if ((errors_ & ~ERROR_BIT_CRASH) == 0) {
+  if ((errors_ & ~(ERROR_BIT_CRASH | ERROR_BIT_NTP)) == 0) {
     // do not report crash report presence as error string
     buffer[0] = 0;
     return;
@@ -296,6 +296,8 @@ void KWLControl::run()
     if (fan_control_.getFan2().getSpeed() < 10)
       local_err |= ERROR_BIT_FAN2;
   }
+  if (!ntp_.hasTime())
+    local_err |= ERROR_BIT_NTP;
   if (temp_sensors_.get_t1_outside() <= TempSensors::INVALID)
     local_err |= ERROR_BIT_T1;
   if (temp_sensors_.get_t2_inlet() <= TempSensors::INVALID)

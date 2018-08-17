@@ -729,7 +729,7 @@ void TFT::displayUpdate() noexcept
     (this->*display_update_)();
 
   // Zeige Status
-  unsigned errors = control_->getErrors();
+  unsigned errors = control_->getErrors() & ~(KWLControl::ERROR_BIT_CRASH | KWLControl::ERROR_BIT_NTP);
   unsigned infos = control_->getInfos();
   if (errors != 0) {
     if (errors != last_error_bits_) {
