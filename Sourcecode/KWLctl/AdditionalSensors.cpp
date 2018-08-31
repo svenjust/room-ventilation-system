@@ -32,8 +32,6 @@
 static constexpr unsigned long INTERVAL_DHT_READ              = 10000000;
 /// Interval between two CO2 sensor readings (10s).
 static constexpr unsigned long INTERVAL_MHZ14_READ            = 10000000;
-/// Initial time before reading VOC sensor for the first time (30s).
-static constexpr unsigned long INITIAL_INTERVAL_TGS2600_READ  = 30000000;
 /// Time between VOC sensor readings (1s).
 static constexpr unsigned long INTERVAL_TGS2600_READ          =  1000000;
 
@@ -168,10 +166,11 @@ bool AdditionalSensors::setupMHZ14()
 bool AdditionalSensors::setupTGS2600()
 {
   pinMode(KWLConfig::PinVocSensor, INPUT_PULLUP);
+  analogRead(KWLConfig::PinVocSensor);  // discard a read to get more stable reading
   int analogVal = analogRead(KWLConfig::PinVocSensor);
   if (KWLConfig::serialDebugSensor) Serial.println(analogVal);
-  if (analogVal < 1023) {
-    voc_read_.runRepeated(INITIAL_INTERVAL_TGS2600_READ, INTERVAL_TGS2600_READ);
+  if (analogVal < 1020 /* some reserve for not exact analog read of empty pin */) {
+    voc_read_.runRepeated(INTERVAL_TGS2600_READ, INTERVAL_TGS2600_READ);
     TGS2600_available_ = true;
   } else {
     TGS2600_available_ = false;
@@ -189,8 +188,10 @@ void AdditionalSensors::readDHT1()
   }
   else if (event.temperature != dht1_temp_) {
     dht1_temp_ = event.temperature;
-    Serial.print(F("DHT1 T: "));
-    Serial.println(dht1_temp_);
+    if (KWLConfig::serialDebugSensor) {
+      Serial.print(F("DHT1 T: "));
+      Serial.println(dht1_temp_);
+    }
   }
 
   dht1.humidity().getEvent(&event);
@@ -199,8 +200,10 @@ void AdditionalSensors::readDHT1()
   }
   else if (event.relative_humidity != dht1_hum_) {
     dht1_hum_ = event.relative_humidity;
-    Serial.print(F("DHT1 H: "));
-    Serial.println(dht1_hum_);
+    if (KWLConfig::serialDebugSensor) {
+      Serial.print(F("DHT1 H: "));
+      Serial.println(dht1_hum_);
+    }
   }
 }
 
@@ -214,8 +217,10 @@ void AdditionalSensors::readDHT2()
   }
   else if (event.temperature != dht2_temp_) {
     dht2_temp_ = event.temperature;
-    Serial.print(F("DHT2 T: "));
-    Serial.println(dht2_temp_);
+    if (KWLConfig::serialDebugSensor) {
+      Serial.print(F("DHT2 T: "));
+      Serial.println(dht2_temp_);
+    }
   }
 
   dht2.humidity().getEvent(&event);
@@ -224,8 +229,10 @@ void AdditionalSensors::readDHT2()
   }
   else if (event.relative_humidity != dht2_hum_) {
     dht2_hum_ = event.relative_humidity;
-    Serial.print(F("DHT2 H: "));
-    Serial.println(dht2_hum_);
+    if (KWLConfig::serialDebugSensor) {
+      Serial.print(F("DHT2 H: "));
+      Serial.println(dht2_hum_);
+    }
   }
 }
 
@@ -254,11 +261,13 @@ void AdditionalSensors::readVOC()
 {
   analogRead(KWLConfig::PinVocSensor);  // discard a read to get more stable reading
   int analogVal = analogRead(KWLConfig::PinVocSensor);
+  voc_ = calcSensor_VOC(analogVal);
   if (KWLConfig::serialDebugSensor) {
     Serial.print(F("VOC analogVal: "));
-    Serial.println(analogVal);
+    Serial.print(analogVal);
+    Serial.print(F(", ppm="));
+    Serial.println(voc_);
   }
-  voc_ = calcSensor_VOC(analogVal);
 }
 
 void AdditionalSensors::begin(Print& initTracer)
@@ -296,8 +305,8 @@ void AdditionalSensors::begin(Print& initTracer)
   // TGS2600 VOC Sensor
   if (setupTGS2600()) {
     initTracer.print(F(" VOC"));
-    voc_send_task_.runRepeated(INITIAL_INTERVAL_TGS2600_READ + 1000000, INTERVAL_MQTT_TGS2600);
-    voc_send_oversample_task_.runRepeated(INITIAL_INTERVAL_TGS2600_READ + 1000000, INTERVAL_MQTT_TGS2600_FORCE);
+    voc_send_task_.runRepeated(INTERVAL_MQTT_TGS2600 + 1000000, INTERVAL_MQTT_TGS2600);
+    voc_send_oversample_task_.runRepeated(INTERVAL_MQTT_TGS2600 + 1000000, INTERVAL_MQTT_TGS2600_FORCE);
   }
 
   if (!DHT1_available_ && !DHT2_available_ && !MHZ14_available_ && !TGS2600_available_) {
@@ -367,8 +376,7 @@ void AdditionalSensors::sendCO2(bool force) noexcept
 
 void AdditionalSensors::sendVOC(bool force) noexcept
 {
-  // TODO this was not sent previously, why? Which threshold to use?
-  if (!force && (abs(voc_ - voc_last_sent_) < 10)) {
+  if (!force && (abs(voc_ - voc_last_sent_) < 20)) {
     // not enough change
     return;
   }
