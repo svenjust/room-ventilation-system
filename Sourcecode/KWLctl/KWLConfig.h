@@ -101,7 +101,7 @@ protected:
 public:
 
   // ***************************************************  V E R S I O N S N U M M E R   D E R    S W   *************************************************
-  static constexpr auto VersionString = makeFlashStringLiteral("v0.15");
+  static constexpr auto VersionString = makeFlashStringLiteral("v0.16");
 
 
   // ***************************************************  N E T Z W E R K E I N S T E L L U N G E N *****************************************************
