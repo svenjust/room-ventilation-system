@@ -62,26 +62,40 @@ class HardwareSerial;
 class IPAddressLiteral
 {
 public:
-  constexpr IPAddressLiteral(byte a, byte b, byte c, byte d) : ip{a, b, c, d} {}
-  operator IPAddress() const;
-  constexpr IPAddressLiteral operator&(const IPAddressLiteral& other) const {
+  constexpr IPAddressLiteral() = default;
+  constexpr IPAddressLiteral(byte a, byte b, byte c, byte d) noexcept : ip{a, b, c, d} {}
+  operator IPAddress() const noexcept;
+  constexpr IPAddressLiteral operator&(const IPAddressLiteral& other) const noexcept {
     return IPAddressLiteral(ip[0] & other.ip[0], ip[1] & other.ip[1], ip[2] & other.ip[2], ip[3] & other.ip[3]);
   }
-  constexpr IPAddressLiteral operator|(const IPAddressLiteral& other) const {
+  constexpr IPAddressLiteral operator|(const IPAddressLiteral& other) const noexcept {
     return IPAddressLiteral(ip[0] | other.ip[0], ip[1] | other.ip[1], ip[2] | other.ip[2], ip[3] | other.ip[3]);
   }
+  constexpr byte operator[](unsigned index) const noexcept {
+    return ip[index];
+  }
+  byte& operator[](unsigned index) noexcept {
+    return ip[index];
+  }
 private:
-  byte ip[4];
+  byte ip[4] = {0};
 };
 
 /// Helper to construct MAC address as a literal.
 class MACAddressLiteral
 {
 public:
+  constexpr MACAddressLiteral() = default;
   constexpr MACAddressLiteral(byte a, byte b, byte c, byte d, byte e, byte f) : mac{a, b, c, d, e,f} {}
   void copy_to(byte* out) const { out[0] = mac[0]; out[1] = mac[1]; out[2] = mac[2]; out[3] = mac[3]; out[4] = mac[4]; out[5] = mac[5]; }
+  constexpr byte operator[](unsigned index) const noexcept {
+    return mac[index];
+  }
+  byte& operator[](unsigned index) noexcept {
+    return mac[index];
+  }
 private:
-  byte mac[6];
+  byte mac[6] = {0};
 };
 
 /// Maximum # of fan mode settings. Not configurable.
@@ -380,6 +394,8 @@ template<typename FinalConfig>
 constexpr FlashStringLiteral<6> KWLDefaultConfig<FinalConfig>::VersionString;
 
 template<typename FinalConfig>
+constexpr MACAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkMACAddress;
+template<typename FinalConfig>
 const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkGateway = (FinalConfig::NetworkIPAddress & FinalConfig::NetworkSubnetMask) | IPAddressLiteral(0, 0, 0, 1);
 template<typename FinalConfig>
 const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkDNSServer = FinalConfig::NetworkGateway;
@@ -455,6 +471,11 @@ constexpr double KWLDefaultConfig<FinalConfig>::StandardKwlModeFactor[MAX_FAN_MO
   decltype(name##_) get##name() const { return name##_; } \
   void set##name(decltype(name##_) value) { name##_ = value; update(name##_); }
 
+// Helper for getters and setters.
+#define KWL_GETSET2(name, var) \
+  decltype(var) get##name() const { return var; } \
+  void set##name(decltype(var) value) { var = value; update(var); }
+
 /// Structure used to store crash data in EEPROM.
 struct CrashData
 {
@@ -491,7 +512,18 @@ private:
   int16_t TimezoneMin_;               // 62
   ProgramData programs_[KWLConfig::MaxProgramCount];  // 64..192
   CrashData crashes_[KWLConfig::MaxCrashReportCount]; // 192..240
+
+  // Network configuration:
   char mqtt_prefix_[8];               // 240..248
+  IPAddressLiteral ip_;               // 248
+  IPAddressLiteral netmask_;          // 252
+  IPAddressLiteral gw_;               // 256
+  IPAddressLiteral dns_;              // 260
+  IPAddressLiteral mqtt_;             // 264
+  uint16_t mqtt_port_;                // 268
+  IPAddressLiteral ntp_;              // 270
+  MACAddressLiteral mac_;             // 274
+  // 280
 
   /// Initialize with defaults, if version doesn't fit.
   void loadDefaults();
@@ -513,6 +545,15 @@ public:
   KWL_GETSET(DST)
   KWL_GETSET(HeatingAppCombUse)
   KWL_GETSET(TimezoneMin)
+
+  KWL_GETSET2(NetworkMACAddress, mac_)
+  KWL_GETSET2(NetworkIPAddress, ip_)
+  KWL_GETSET2(NetworkSubnetMask, netmask_)
+  KWL_GETSET2(NetworkGateway, gw_)
+  KWL_GETSET2(NetworkDNSServer, dns_)
+  KWL_GETSET2(NetworkNTPServer, ntp_)
+  KWL_GETSET2(NetworkMQTTBroker, mqtt_)
+  KWL_GETSET2(NetworkMQTTPort, mqtt_port_)
 
   int getFanPWMSetpoint(unsigned fan, unsigned idx) { return FanPWMSetpoint_[idx][fan]; }
   void setFanPWMSetpoint(unsigned fan, unsigned idx, int pwm) { FanPWMSetpoint_[idx][fan] = pwm; update(FanPWMSetpoint_[idx][fan]); }

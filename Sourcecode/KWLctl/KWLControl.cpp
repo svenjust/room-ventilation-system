@@ -54,7 +54,7 @@ void KWLControl::begin(Print& initTracer)
   bypass_.begin(initTracer);
   antifreeze_.begin(initTracer);
   add_sensors_.begin(initTracer);
-  ntp_.begin(KWLConfig::NetworkNTPServer);
+  ntp_.begin(persistent_config_.getNetworkNTPServer());
   program_manager_.begin();
 
   // run error check loop every second, but give some time to initialize first

@@ -21,14 +21,14 @@
 
 #include <IPAddress.h>
 
-IPAddressLiteral::operator IPAddress() const
+IPAddressLiteral::operator IPAddress() const noexcept
 {
   return IPAddress(ip[0], ip[1], ip[2], ip[3]);
 }
 
 #define KWL_COPY(name) name##_ = KWLConfig::Standard##name
 
-static_assert(sizeof(KWLPersistentConfig) == 248, "Persistent config size changed, ensure compatibility or increment version");
+static_assert(sizeof(KWLPersistentConfig) == 280, "Persistent config size changed, ensure compatibility or increment version");
 static constexpr auto PrefixMQTT = KWLConfig::PrefixMQTT;
 
 void KWLPersistentConfig::loadDefaults()
@@ -59,6 +59,14 @@ void KWLPersistentConfig::loadDefaults()
 
   static_assert(KWLConfig::PrefixMQTT.length() < sizeof(mqtt_prefix_), "Too long MQTT prefix");
   strcpy(mqtt_prefix_, PrefixMQTT.load());
+  ip_ = KWLConfig::NetworkIPAddress;
+  netmask_ = KWLConfig::NetworkSubnetMask;
+  gw_ = KWLConfig::NetworkGateway;
+  dns_ = KWLConfig::NetworkDNSServer;
+  mqtt_ = KWLConfig::NetworkMQTTBroker;
+  mqtt_port_ = KWLConfig::NetworkMQTTPort;
+  ntp_ = KWLConfig::NetworkNTPServer;
+  mac_ = KWLConfig::NetworkMACAddress;
 }
 
 void KWLPersistentConfig::migrate()
@@ -95,6 +103,25 @@ void KWLPersistentConfig::migrate()
     strcpy(mqtt_prefix_, PrefixMQTT.load());
     update(mqtt_prefix_);
     Serial.println(mqtt_prefix_);
+  }
+  if (ip_[0] == 0xff) {
+    Serial.print(F("Config migration: setting IP addresses and port"));
+    ip_ = KWLConfig::NetworkIPAddress;
+    netmask_ = KWLConfig::NetworkSubnetMask;
+    gw_ = KWLConfig::NetworkGateway;
+    dns_ = KWLConfig::NetworkDNSServer;
+    mqtt_ = KWLConfig::NetworkMQTTBroker;
+    mqtt_port_ = KWLConfig::NetworkMQTTPort;
+    ntp_ = KWLConfig::NetworkNTPServer;
+    mac_ = KWLConfig::NetworkMACAddress;
+    update(ip_);
+    update(netmask_);
+    update(gw_);
+    update(dns_);
+    update(mqtt_);
+    update(mqtt_port_);
+    update(ntp_);
+    update(mac_);
   }
 }
 

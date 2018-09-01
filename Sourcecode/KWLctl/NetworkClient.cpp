@@ -63,13 +63,13 @@ void NetworkClient::begin(Print& initTracer)
   last_lan_reconnect_attempt_time_ = micros();
   lan_ok_ = true;
   s_mqtt_prefix = config_.getMQTTPrefix();
-  s_mqtt_prefix_len = strlen(s_mqtt_prefix);
+  s_mqtt_prefix_len = uint8_t(strlen(s_mqtt_prefix));
 
   initTracer.print(F("Initialisierung MQTT["));
   initTracer.write(s_mqtt_prefix, s_mqtt_prefix_len);
   initTracer.print(F("], broker "));
-  initTracer.println(IPAddress(KWLConfig::NetworkMQTTBroker));
-  mqtt_client_.setServer(KWLConfig::NetworkMQTTBroker, KWLConfig::NetworkMQTTPort);
+  initTracer.println(IPAddress(config_.getNetworkMQTTBroker()));
+  mqtt_client_.setServer(config_.getNetworkMQTTBroker(), config_.getNetworkMQTTPort());
   mqtt_client_.setCallback([](char* topic, uint8_t* payload, unsigned length) {
     // first check whether it's for us
     if (memcmp(topic, s_mqtt_prefix, s_mqtt_prefix_len) == 0) {
@@ -125,11 +125,11 @@ void NetworkClient::begin(Print& initTracer)
 void NetworkClient::initEthernet(Print& initTracer)
 {
   initTracer.print(F("Initialisierung Ethernet, IP "));
-  IPAddress ip = KWLConfig::NetworkIPAddress;
-  IPAddress gw = KWLConfig::NetworkGateway;
-  IPAddress subnet = KWLConfig::NetworkSubnetMask;
-  IPAddress dns = KWLConfig::NetworkDNSServer;
-  IPAddress ntp = KWLConfig::NetworkNTPServer;
+  IPAddress ip = config_.getNetworkIPAddress();
+  IPAddress gw = config_.getNetworkGateway();
+  IPAddress subnet = config_.getNetworkSubnetMask();
+  IPAddress dns = config_.getNetworkDNSServer();
+  IPAddress ntp = config_.getNetworkNTPServer();
   initTracer.print(ip);
   Serial.print('/');
   Serial.print(subnet);
@@ -141,7 +141,7 @@ void NetworkClient::initEthernet(Print& initTracer)
   Serial.print(ntp);
   initTracer.println();
   uint8_t mac[6];
-  KWLConfig::NetworkMACAddress.copy_to(mac);
+  config_.getNetworkMACAddress().copy_to(mac);
   Ethernet.begin(mac, ip, dns, gw, subnet);
 }
 
@@ -164,7 +164,7 @@ bool NetworkClient::mqttConnect()
   if (rc) {
     // reset prefix, if it was changed in the meantime
     s_mqtt_prefix = config_.getMQTTPrefix();
-    s_mqtt_prefix_len = strlen(s_mqtt_prefix);
+    s_mqtt_prefix_len = uint8_t(strlen(s_mqtt_prefix));
     // subscribe
     subscribed_command_ = subscribed_debug_ = false;
     resubscribe();
