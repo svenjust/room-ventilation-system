@@ -21,6 +21,10 @@
 
 #include <IPAddress.h>
 
+IPAddressLiteral::IPAddressLiteral(const IPAddress& a) noexcept {
+  memcpy(ip, &a, 4);
+}
+
 IPAddressLiteral::operator IPAddress() const noexcept
 {
   return IPAddress(ip[0], ip[1], ip[2], ip[3]);
@@ -104,8 +108,8 @@ void KWLPersistentConfig::migrate()
     update(mqtt_prefix_);
     Serial.println(mqtt_prefix_);
   }
-  if (ip_[0] == 0xff) {
-    Serial.print(F("Config migration: setting IP addresses and port"));
+  if (ip_[0] == 0xff || ip_[0] == 0) {
+    Serial.println(F("Config migration: setting IP addresses and port"));
     ip_ = KWLConfig::NetworkIPAddress;
     netmask_ = KWLConfig::NetworkSubnetMask;
     gw_ = KWLConfig::NetworkGateway;

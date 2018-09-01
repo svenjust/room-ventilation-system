@@ -71,6 +71,7 @@ public:
   constexpr IPAddressLiteral operator|(const IPAddressLiteral& other) const noexcept {
     return IPAddressLiteral(ip[0] | other.ip[0], ip[1] | other.ip[1], ip[2] | other.ip[2], ip[3] | other.ip[3]);
   }
+  IPAddressLiteral(const IPAddress& a) noexcept;
   constexpr byte operator[](unsigned index) const noexcept {
     return ip[index];
   }
