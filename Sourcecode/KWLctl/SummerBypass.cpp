@@ -42,12 +42,6 @@ SummerBypass::SummerBypass(KWLPersistentConfig& config, const TempSensors& temp)
   temp_(temp),
   rel_bypass_power_(KWLConfig::PinBypassPower),
   rel_bypass_direction_(KWLConfig::PinBypassDirection),
-  bypass_mode_(SummerBypassMode(KWLConfig::StandardBypassMode)),
-  temp_outlet_min_(KWLConfig::StandardBypassTempAbluftMin),
-  temp_outside_min_(KWLConfig::StandardBypassTempAussenluftMin),
-  temp_diff_min_(KWLConfig::StandardBypassHysteresisTemp),
-  manual_flap_setpoint_(SummerBypassFlapState(KWLConfig::StandardBypassManualSetpoint)),  // Standardstellung Bypass
-  hysteresis_minutes_(KWLConfig::StandardBypassHystereseMinutes),
   stats_(F("SummerBypass")),
   timer_task_(stats_, &SummerBypass::run, *this)
 {}
@@ -55,13 +49,6 @@ SummerBypass::SummerBypass(KWLPersistentConfig& config, const TempSensors& temp)
 void SummerBypass::begin(Print& initTrace)
 {
   initTrace.println(F("Initialisierung Sommer-Bypass"));
-
-  temp_outlet_min_ = config_.getBypassTempAbluftMin();
-  temp_outside_min_ = config_.getBypassTempAussenluftMin();
-  temp_diff_min_ = config_.getBypassHysteresisTemp();
-  hysteresis_minutes_ = config_.getBypassHystereseMinutes();
-  manual_flap_setpoint_ = SummerBypassFlapState(config_.getBypassManualSetpoint());
-  bypass_mode_ = SummerBypassMode(config_.getBypassMode());
 
   // Relais Ansteuerung Bypass
   rel_bypass_power_.off();
@@ -122,14 +109,14 @@ void SummerBypass::run()
 
   // normal operation, motor is not running
   bool changed = false;
-  if (bypass_mode_ == SummerBypassMode::AUTO) {
+  if (config_.getBypassMode() == SummerBypassMode::AUTO) {
     // Automatic - first compute desired state based on current values
     SummerBypassFlapState desired_setpoint = SummerBypassFlapState::UNKNOWN;
     if ((temp_.get_t1_outside() > TempSensors::INVALID)
         && (temp_.get_t3_outlet() > TempSensors::INVALID)) {
-      if ((temp_.get_t1_outside() < temp_.get_t3_outlet() - temp_diff_min_)  // TODO configurable
-          && (temp_.get_t3_outlet() > temp_outlet_min_)
-          && (temp_.get_t1_outside() > temp_outside_min_)) {
+      if ((temp_.get_t1_outside() < temp_.get_t3_outlet() - config_.getBypassHysteresisTemp())  // TODO configurable
+          && (temp_.get_t3_outlet() > config_.getBypassTempAbluftMin())
+          && (temp_.get_t1_outside() > config_.getBypassTempAussenluftMin())) {
         //ok, dann Klappe öffen
         desired_setpoint = SummerBypassFlapState::OPEN;
       } else {
@@ -144,13 +131,13 @@ void SummerBypass::run()
       Serial.print(F(" auto check T1="));
       Serial.print(temp_.get_t1_outside());
       Serial.print('>');
-      Serial.print(temp_outside_min_);
+      Serial.print(config_.getBypassTempAussenluftMin());
       Serial.print(F(" && T3="));
       Serial.print(temp_.get_t3_outlet());
       Serial.print('>');
-      Serial.print(temp_outlet_min_);
+      Serial.print(config_.getBypassTempAbluftMin());
       Serial.print(F(" && T3-T1>"));
-      Serial.print(temp_diff_min_);
+      Serial.print(config_.getBypassHysteresisTemp());
       Serial.print(F(", desired state: "));
       Serial.print(toString(desired_setpoint));
     }
@@ -158,7 +145,7 @@ void SummerBypass::run()
     if (desired_setpoint != SummerBypassFlapState::UNKNOWN && desired_setpoint != flap_setpoint_) {
       // we have a change request, see if really changeable
       auto current_time = millis();
-      if ((current_time - last_change_time_millis_ >= (hysteresis_minutes_ * 60L * 1000L))
+      if ((current_time - last_change_time_millis_ >= (config_.getBypassHystereseMinutes() * 60L * 1000L))
           || (state_ == SummerBypassFlapState::UNKNOWN)) {
         flap_setpoint_ = desired_setpoint;
         changed = true;
@@ -169,8 +156,8 @@ void SummerBypass::run()
     }
   } else {
     // Manuelle Schaltung
-    if (manual_flap_setpoint_ != flap_setpoint_) {
-      flap_setpoint_ = manual_flap_setpoint_;
+    if (config_.getBypassManualSetpoint() != flap_setpoint_) {
+      flap_setpoint_ = config_.getBypassManualSetpoint();
       if (KWLConfig::serialDebugSummerbypass)
         Serial.print(F(" manual"));
       changed = true;
@@ -202,21 +189,20 @@ bool SummerBypass::mqttReceiveMsg(const StringView& topic, const StringView& s)
     forceSend(true);
   } else if (topic == MQTTTopic::CmdBypassHystereseMinutes) {
     unsigned i = unsigned(s.toInt());
-    hysteresis_minutes_ = i;
     config_.setBypassHystereseMinutes(i);
   } else if (topic == MQTTTopic::CmdBypassManualFlap) {
     if (s == F("open"))
-      manual_flap_setpoint_ = SummerBypassFlapState::OPEN;
+      config_.setBypassManualSetpoint(SummerBypassFlapState::OPEN);
     if (s == F("close"))
-      manual_flap_setpoint_ = SummerBypassFlapState::CLOSED;
+      config_.setBypassManualSetpoint(SummerBypassFlapState::CLOSED);
     // Stellung Bypassklappe bei manuellem Modus
   } else if (topic == MQTTTopic::CmdBypassMode) {
     // Auto oder manueller Modus
     if (s == F("auto"))   {
-      bypass_mode_ = SummerBypassMode::AUTO;
+      config_.setBypassMode(SummerBypassMode::AUTO);
       forceSend();
     } else if (s == F("manual")) {
-      bypass_mode_ = SummerBypassMode::USER;
+      config_.setBypassMode(SummerBypassMode::USER);
       forceSend();
     }
   } else if (topic == MQTTTopic::CmdBypassHyst) {
@@ -225,22 +211,19 @@ bool SummerBypass::mqttReceiveMsg(const StringView& topic, const StringView& s)
         i = 0;
       if (i > MAX_TEMP_HYSTERESIS)
         i = MAX_TEMP_HYSTERESIS;
-      temp_diff_min_ = uint8_t(i);
-      config_.setBypassHysteresisTemp(temp_diff_min_);
+      config_.setBypassHysteresisTemp(uint8_t(i));
       forceSend(true);
   } else if (topic == MQTTTopic::CmdBypassTempAbluftMin) {
       auto i = s.toInt();
       if (i < 0)
         i = 0;
-      temp_outlet_min_ = unsigned(i);
-      config_.setBypassTempAbluftMin(temp_outlet_min_);
+      config_.setBypassTempAbluftMin(unsigned(i));
       forceSend(true);
   } else if (topic == MQTTTopic::CmdBypassTempAussenluftMin) {
       auto i = s.toInt();
       if (i < 0)
         i = 0;
-      temp_outside_min_ = unsigned(i);
-      config_.setBypassTempAussenluftMin(temp_outside_min_);
+      config_.setBypassTempAussenluftMin(unsigned(i));
       forceSend(true);
   } else {
     return false;
@@ -273,14 +256,14 @@ void SummerBypass::sendMQTT(bool all_values)
     if (!publish_if(bitmask, uint8_t(1), MQTTTopic::KwlBypassState, toString(mqtt_state_), KWLConfig::RetainBypassState))
       return false;
     if (!publish_if(bitmask, uint8_t(2), MQTTTopic::KwlBypassMode,
-                    (bypass_mode_ == SummerBypassMode::AUTO) ? F("auto") : F("manual"),
+                    (config_.getBypassMode() == SummerBypassMode::AUTO) ? F("auto") : F("manual"),
                     KWLConfig::RetainBypassConfigState))
       return false;
-    if (!publish_if(bitmask, uint8_t(4), MQTTTopic::KwlBypassTempAbluftMin, temp_outlet_min_, KWLConfig::RetainBypassConfigState))
+    if (!publish_if(bitmask, uint8_t(4), MQTTTopic::KwlBypassTempAbluftMin, config_.getBypassTempAbluftMin(), KWLConfig::RetainBypassConfigState))
       return false;
-    if (!publish_if(bitmask, uint8_t(8), MQTTTopic::KwlBypassTempAussenluftMin, temp_outside_min_, KWLConfig::RetainBypassConfigState))
+    if (!publish_if(bitmask, uint8_t(8), MQTTTopic::KwlBypassTempAussenluftMin, config_.getBypassTempAussenluftMin(), KWLConfig::RetainBypassConfigState))
       return false;
-    if (!publish_if(bitmask, uint8_t(16), MQTTTopic::KwlBypassHystereseMinutes, hysteresis_minutes_, KWLConfig::RetainBypassConfigState))
+    if (!publish_if(bitmask, uint8_t(16), MQTTTopic::KwlBypassHystereseMinutes, config_.getBypassHystereseMinutes(), KWLConfig::RetainBypassConfigState))
       return false;
     return true;
   });

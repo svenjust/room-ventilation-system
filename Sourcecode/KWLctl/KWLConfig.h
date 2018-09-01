@@ -98,6 +98,21 @@ private:
   byte mac[6] = {0};
 };
 
+/// State of the bypass flap.
+enum class SummerBypassFlapState : uint8_t
+{
+  UNKNOWN = 0,  ///< Unknown.
+  CLOSED  = 1,  ///< Closed or closing.
+  OPEN    = 2   ///< Open or opening.
+};
+
+/// Summer bypass operation mode.
+enum class SummerBypassMode : uint8_t
+{
+  AUTO    = 0,  ///< Open/close automatically.
+  USER    = 1   ///< Open/close on external command.
+};
+
 /// Maximum # of fan mode settings. Not configurable.
 static constexpr unsigned MAX_FAN_MODE_CNT = 10;
 
@@ -476,6 +491,11 @@ constexpr double KWLDefaultConfig<FinalConfig>::StandardKwlModeFactor[MAX_FAN_MO
   decltype(var) get##name() const { return var; } \
   void set##name(decltype(var) value) { var = value; update(var); }
 
+// Helper for getters and setters.
+#define KWL_GETSET3(name, var, type) \
+  type get##name() const { return type(var); } \
+  void set##name(type value) { var = decltype(var)(value); update(var); }
+
 /// Structure used to store crash data in EEPROM.
 struct CrashData
 {
@@ -539,8 +559,8 @@ public:
   KWL_GETSET(BypassTempAussenluftMin)
   KWL_GETSET(BypassHystereseMinutes)
   KWL_GETSET(BypassHysteresisTemp)
-  KWL_GETSET(BypassManualSetpoint)
-  KWL_GETSET(BypassMode)
+  KWL_GETSET3(BypassManualSetpoint, BypassManualSetpoint_, SummerBypassFlapState)
+  KWL_GETSET3(BypassMode, BypassMode_, SummerBypassMode)
   KWL_GETSET(AntifreezeHystereseTemp)
   KWL_GETSET(DST)
   KWL_GETSET(HeatingAppCombUse)

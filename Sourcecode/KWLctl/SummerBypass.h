@@ -27,25 +27,11 @@
 #include "TimeScheduler.h"
 #include "MessageHandler.h"
 #include "Relay.h"
+#include "KWLConfig.h"
 
 class Print;
 class KWLPersistentConfig;
 class TempSensors;
-
-/// State of the bypass flap.
-enum class SummerBypassFlapState : uint8_t
-{
-  UNKNOWN = 0,  ///< Unknown.
-  CLOSED  = 1,  ///< Closed or closing.
-  OPEN    = 2   ///< Open or opening.
-};
-
-/// Summer bypass operation mode.
-enum class SummerBypassMode : uint8_t
-{
-  AUTO    = 0,  ///< Open/close automatically.
-  USER    = 1   ///< Open/close on external command.
-};
 
 /*!
  * @brief Summer bypass regulation and status reporting.
@@ -104,8 +90,6 @@ private:
   Relay rel_bypass_power_;
   /// Relay for bypass direction.
   Relay rel_bypass_direction_;
-  /// Bypass mode (automatic or manual).
-  SummerBypassMode bypass_mode_;
   /// Start of last change to compute hysteresis and motor runtime.
   unsigned long last_change_time_millis_ = 0;
   /// Current state of the flap.
@@ -116,16 +100,6 @@ private:
   SummerBypassFlapState mqtt_state_ = SummerBypassFlapState::UNKNOWN;
   /// Set when motor is running and moving the flap.
   bool bypass_motor_running_ = false;
-  /// Minimum temperature for outlet air at which to open bypass.
-  unsigned temp_outlet_min_;
-  /// Minimum outside temperature at which to open bypass.
-  unsigned temp_outside_min_;
-  /// Minimum temperature differente between outside and outtake air to trigger bypass.
-  uint8_t temp_diff_min_;
-  /// Desired flap state in manual mode.
-  SummerBypassFlapState manual_flap_setpoint_;
-  /// How long to wait before potentially changing bypass again.
-  unsigned hysteresis_minutes_;
   /// Countdown for MQTT send.
   int8_t mqtt_countdown_ = 0;
   /// Task to publish MQTT values.
