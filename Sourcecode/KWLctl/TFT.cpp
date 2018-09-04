@@ -160,6 +160,17 @@ static const __FlashStringHelper* bypassModeToString(SummerBypassFlapState mode)
   }
 }
 
+static const char* fanModeToString(FanCalculateSpeedMode mode) noexcept
+{
+  switch (mode) {
+    default:
+    case FanCalculateSpeedMode::PID:
+      return PSTR("PID-Regler");
+    case FanCalculateSpeedMode::PROP:
+      return PSTR("PWM-Wert");
+  }
+}
+
 template<typename Func>
 TFT::MenuAction& TFT::MenuAction::operator=(Func&& f) noexcept
 {
@@ -495,140 +506,65 @@ void TFT::screenSetup() noexcept
 
 // ************************************ ENDE: Screen SETUP  *****************************************************
 
-// ****************************************** Screen: FAN EINSTELLUNGEN ÜBERSICHT ******************************
+// ****************************************** Screen: FAN EINSTELLUNGEN ******************************
 void TFT::screenSetupFan() noexcept
 {
   printScreenTitle(F("Einstellungen Ventilatoren"));
 
-  tft_.setTextColor(colFontColor, colBackColor );
+  // copy current state
+  auto& ref = screen_state_.fan_;
+  auto& config = control_->getPersistentConfig();
+  ref.setpoint_l1_ = config.getSpeedSetpointFan1();
+  ref.setpoint_l2_ = config.getSpeedSetpointFan2();
+  ref.calculate_speed_mode_ = control_->getFanControl().getCalculateSpeedMode();
 
-  tft_.setCursor(18, 121 + BASELINE_MIDDLE);
-  tft_.print (F("L1:  Normdrehzahl Zuluftventilator einstellen"));
-  tft_.setCursor(18, 166 + BASELINE_MIDDLE);
-  tft_.print (F("L2:  Normdrehzahl Abluftventilator einstellen"));
-  tft_.setCursor(18, 211 + BASELINE_MIDDLE);
-  tft_.print(F("KAL: Kalibrierung der Ventilatoransteuerung"));
-  tft_.setCursor(18, 256 + BASELINE_MIDDLE);
-  tft_.print(F("RGL: Regelung der Ventilatoren"));
-
-  newMenuEntry(1, F("<-"),
-    [this]() noexcept {
-      gotoScreen(&TFT::screenSetup);
-    }
-  );
-  newMenuEntry(3, F("L1"),
-    [this]() noexcept {
-      gotoScreen(&TFT::screenSetupFan1);
-    }
-  );
-  newMenuEntry(4, F("L2"),
-    [this]() noexcept {
-      gotoScreen(&TFT::screenSetupFan2);
-    }
-  );
-  newMenuEntry(5, F("KAL"),
-    [this]() noexcept {
-      gotoScreen(&TFT::screenSetupFanCalibration);
-    }
-  );
-  newMenuEntry(6, F("RGL"),
-    [this]() noexcept {
-      gotoScreen(&TFT::screenSetupFanMode);
-    }
-  );
-}
-
-// ************************************ ENDE: Screen FAN EINSTELLUNGEN ÜBERSICHT *****************************************************
-
-// ****************************************** Screen: EINSTELLUNG NORMDREHZAHL L1/L2 *************************
-void TFT::screenSetupFan1() noexcept
-{
-  printScreenTitle(F("Normdrehzahl Zuluftventilator"));
-  screen_state_.fan_.input_standard_speed_setpoint_ = control_->getFanControl().getFan1().getStandardSpeed();
-  screenSetupFan(1);
-}
-
-void TFT::screenSetupFan2() noexcept
-{
-  printScreenTitle(F("Normdrehzahl Abluftventilator"));
-  screen_state_.fan_.input_standard_speed_setpoint_ = control_->getFanControl().getFan2().getStandardSpeed();
-  screenSetupFan(2);
-}
-
-void TFT::screenSetupFan(uint8_t fan_idx) noexcept {
-  screen_state_.fan_.fan_index_ = fan_idx;
-  tft_.setCursor(18, 75 + BASELINE_MIDDLE);
-  tft_.print (F("Mit dem Button 'OK' wird der Wert gespeichert."));
-  tft_.setCursor(18, 100 + BASELINE_MIDDLE);
-  tft_.print (F("Der aktueller Wert betraegt: "));
-  tft_.print (int(control_->getFanControl().getFan1().getStandardSpeed()));
-  tft_.println(F(" U / min"));
-  tft_.setCursor(18, 150 + BASELINE_MIDDLE);
-  tft_.print (F("Neuer Wert: "));
-  displayUpdateFan();
-
-  newMenuEntry(1, F("<-"),
-    [this]() noexcept {
-      gotoScreen(&TFT::screenSetup);
-    }
-  );
-  newMenuEntry(3, F("+ 10"),
-    [this]() noexcept {
-      screen_state_.fan_.input_standard_speed_setpoint_ += 10;
-      if (screen_state_.fan_.input_standard_speed_setpoint_ > 10000)
-        screen_state_.fan_.input_standard_speed_setpoint_ = 10000;
-      displayUpdateFan();
-    }
-  );
-  newMenuEntry(4, F("- 10"),
-    [this]() noexcept {
-      if (screen_state_.fan_.input_standard_speed_setpoint_ > 10)
-        screen_state_.fan_.input_standard_speed_setpoint_ -= 10;
-      else
-        screen_state_.fan_.input_standard_speed_setpoint_ = 0;
-      displayUpdateFan();
-    }
-  );
-  newMenuEntry(6, F("OK"),
-    [this]() noexcept {
-      // Drehzahl Lüfter 1/2
-      if (screen_state_.fan_.fan_index_ == 1) {
-        control_->getFanControl().getFan1().setStandardSpeed(screen_state_.fan_.input_standard_speed_setpoint_);
-        control_->getPersistentConfig().setSpeedSetpointFan1(screen_state_.fan_.input_standard_speed_setpoint_);
-      } else {
-        control_->getFanControl().getFan2().setStandardSpeed(screen_state_.fan_.input_standard_speed_setpoint_);
-        control_->getPersistentConfig().setSpeedSetpointFan2(screen_state_.fan_.input_standard_speed_setpoint_);
+  setupInputAction(
+    [this]() {
+      // input enter action
+      char buf[16];
+      auto& ref = screen_state_.fan_;
+      switch (input_current_row_) {
+        default:
+        case 1: snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.setpoint_l1_); break;
+        case 2: snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.setpoint_l2_); break;
+        case 3: strcpy_P(buf, fanModeToString(ref.calculate_speed_mode_)); break;
       }
-      tft_.setFont(&FreeSans9pt7b);
-      tft_.setTextColor(colFontColor, colBackColor);
-      tft_.setCursor(18, 225 + BASELINE_MIDDLE);
-      tft_.print (F("Wert im EEPROM gespeichert"));
-      tft_.setCursor(18, 250 + BASELINE_MIDDLE);
-      tft_.print (F("Bitte Kalibrierung starten!"));
+      drawCurrentInputField(buf, true);
+    },
+    [this]() {
+      // input leave action
+      input_field_draw_.invoke();
+    },
+    [this]() {
+      // draw action
+      char buf[16];
+      auto& ref = screen_state_.fan_;
+      switch (input_current_row_) {
+        default:
+        case 1: snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.setpoint_l1_); break;
+        case 2: snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.setpoint_l2_); break;
+        case 3: strcpy_P(buf, fanModeToString(ref.calculate_speed_mode_)); break;
+      }
+      drawCurrentInputField(buf, false);
     }
   );
-}
 
-void TFT::displayUpdateFan() noexcept {
-  tft_.setFont(&FreeSans12pt7b);
+  setupInputFieldColumns(280, 70);
+  setupInputFieldRow(1, 1, F("Normdrehzahl Zuluft:"));
+  setupInputFieldRow(2, 1, F("Normdrehzahl Abluft:"));
+  setupInputFieldRow(3, 1, F("Luefterregelung:"));
+
+  tft_.setFont(&FreeSans9pt7b);
   tft_.setTextColor(colFontColor, colBackColor);
-  tft_.fillRect(18, 175, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-  tft_.setCursor(18, 175 + BASELINE_MIDDLE);
-  tft_.print(screen_state_.fan_.input_standard_speed_setpoint_);
-}
-
-// ************************************ ENDE: Screen EINSTELLUNG NORMDREHZAHL L1/L2 *****************************************************
-
-// ****************************************** Screen: KALIBRIERUNG LÜFTER *********************************
-void TFT::screenSetupFanCalibration() noexcept
-{
-  printScreenTitle(F("Kalibrierung Ventilatoren"));
-
-  tft_.setCursor(18, 75 + BASELINE_MIDDLE);
-  tft_.print (F("Bei der Kalibrierung werden die Drehzahlen"));
-  tft_.setCursor(18, 100 + BASELINE_MIDDLE);
-  tft_.print (F("der Luefter eingestellt und die notwendigen"));
   tft_.setCursor(18, 125 + BASELINE_MIDDLE);
+  tft_.print (F("Nach der Aenderung der Normdrehzahlen"));
+  tft_.setCursor(18, 150 + BASELINE_MIDDLE);
+  tft_.print (F("der Luefter muessen diese kalibriert werden."));
+  tft_.setCursor(18, 175 + BASELINE_MIDDLE);
+  tft_.print (F("Bei der Kalibrierung werden die Drehzahlen"));
+  tft_.setCursor(18, 200 + BASELINE_MIDDLE);
+  tft_.print (F("der Luefter eingestellt und die notwendigen"));
+  tft_.setCursor(18, 225 + BASELINE_MIDDLE);
   tft_.print (F("PWM-Werte für jede Stufe gespeichert."));
 
   newMenuEntry(1, F("<-"),
@@ -636,18 +572,87 @@ void TFT::screenSetupFanCalibration() noexcept
       gotoScreen(&TFT::screenSetup);
     }
   );
-  newMenuEntry(6, F("OK"),
+  newMenuEntry(2, F("+"),
     [this]() noexcept {
+      auto& ref = screen_state_.fan_;
+      switch (input_current_row_) {
+        case 1:
+          ref.setpoint_l1_ += 10;
+          if (ref.setpoint_l1_ > FanRPM::MAX_RPM)
+            ref.setpoint_l1_ = FanRPM::MAX_RPM;
+          break;
+        case 2:
+          ref.setpoint_l2_ += 10;
+          if (ref.setpoint_l2_ > FanRPM::MAX_RPM)
+            ref.setpoint_l2_ = FanRPM::MAX_RPM;
+          break;
+        case 3:
+          ref.calculate_speed_mode_ = FanCalculateSpeedMode::PID;
+          break;
+      }
+      input_field_enter_.invoke();
+    }
+  );
+  newMenuEntry(3, F("-"),
+    [this]() noexcept {
+      auto& ref = screen_state_.fan_;
+      switch (input_current_row_) {
+        case 1:
+          if (ref.setpoint_l1_ > FanRPM::MIN_RPM + 10)
+            ref.setpoint_l1_ -= 10;
+          else
+            ref.setpoint_l1_ = FanRPM::MIN_RPM;
+          break;
+        case 2:
+          if (ref.setpoint_l2_ > FanRPM::MIN_RPM + 10)
+            ref.setpoint_l2_ -= 10;
+          else
+            ref.setpoint_l2_ = FanRPM::MIN_RPM;
+          break;
+        case 3:
+          ref.calculate_speed_mode_ = FanCalculateSpeedMode::PROP;
+          break;
+       }
+       input_field_enter_.invoke();
+     }
+  );
+  newMenuEntry(4, F("OK"),
+    [this]() noexcept {
+      resetInput();
+      // write to EEPROM and restart
+      auto& ref = screen_state_.fan_;
+      auto& config = control_->getPersistentConfig();
+      bool changed =
+          config.getSpeedSetpointFan1() != ref.setpoint_l1_ ||
+          config.getSpeedSetpointFan2() != ref.setpoint_l2_;
+      auto msg = F("Neuer Modus wurde gespeichert.");
+      auto screen = &TFT::screenSetup;
+      if (changed) {
+        config.setSpeedSetpointFan1(ref.setpoint_l1_);
+        config.setSpeedSetpointFan2(ref.setpoint_l2_);
+        msg = F("Nenndrehzahlen geaendert.\nBitte Kalibrierung starten.");
+        screen = &TFT::screenSetupFan;
+      }
+      control_->getFanControl().setCalculateSpeedMode(ref.calculate_speed_mode_);
+      doPopup(
+        F("Einstellungen gespeichert"),
+        msg, screen);
+    }
+  );
+  newMenuEntry(6, F("KAL"),
+    [this]() noexcept {
+      auto& ref = screen_state_.fan_;
+      auto& config = control_->getPersistentConfig();
+      config.setSpeedSetpointFan1(ref.setpoint_l1_);
+      config.setSpeedSetpointFan2(ref.setpoint_l2_);
+      control_->getFanControl().setCalculateSpeedMode(ref.calculate_speed_mode_);
       control_->getFanControl().speedCalibrationStart();
-      tft_.setFont(&FreeSans9pt7b);
-      tft_.setTextColor(colFontColor, colBackColor);
-      tft_.setCursor(18, 211 + BASELINE_MIDDLE);
-      tft_.print (F("Kalibrierung Luefter ist gestartet"));
+      doPopup(F("Kalibrierung"), F("Luefterkalibrierung wurde gestartet."), &TFT::screenSetup);
     }
   );
 }
 
-// ************************************ ENDE: Screen KALIBRIERUNG LÜFTER *****************************************************
+// ************************************ ENDE: Screen FAN EINSTELLUNGEN *****************************************************
 
 // ****************************************** Screen: NETZWERKEINSTELLUNGEN ******************************
 void TFT::screenSetupIPAddress() noexcept
@@ -1135,83 +1140,6 @@ void TFT::screenSetupFactoryDefaults() noexcept
 }
 
 // ************************************ ENDE: Screen WERKSEINSTELLUNGEN  *****************************************************
-
-// ****************************************** Screen: REGELUNG VENTILATOREN **********************************
-
-void TFT::screenSetupFanMode() noexcept
-{
-  printScreenTitle(F("Einstellungen Regelung Ventilatoren"));
-  screen_state_.fan_calculate_speed_mode_ = control_->getFanControl().getCalculateSpeedMode();
-
-  tft_.setTextColor(colFontColor, colBackColor );
-
-  tft_.setCursor(18, 75 + BASELINE_MIDDLE);
-  tft_.print (F("Die Luefter koennen mit festen PWM Werten"));
-  tft_.setCursor(18, 100 + BASELINE_MIDDLE);
-  tft_.print (F("oder dynamisch per PID-Regler geregelt"));
-  tft_.setCursor(18, 125 + BASELINE_MIDDLE);
-  tft_.print(F("werden. Aktuelle Einstellung: "));
-  if (screen_state_.fan_calculate_speed_mode_ == FanCalculateSpeedMode::PROP) {
-    tft_.print(F("PWM Wert"));
-  } else {
-    tft_.print(F("PID-Regler"));
-  }
-  tft_.setCursor(18, 175 + BASELINE_MIDDLE);
-  tft_.print (F("Neuer Wert: "));
-  displayUpdateFanMode();
-
-  newMenuEntry(1, F("<-"),
-    [this]() noexcept {
-      gotoScreen(&TFT::screenSetup);
-    }
-  );
-  newMenuEntry(3, F("PWM"),
-    [this]() noexcept {
-      screen_state_.fan_calculate_speed_mode_ = FanCalculateSpeedMode::PROP;
-      displayUpdateFanMode();
-    }
-  );
-  newMenuEntry(4, F("PID"),
-    [this]() noexcept {
-      screen_state_.fan_calculate_speed_mode_ = FanCalculateSpeedMode::PID;
-      displayUpdateFanMode();
-    }
-  );
-  newMenuEntry(6, F("OK"),
-    [this]() noexcept {
-      if ((screen_state_.fan_calculate_speed_mode_ == FanCalculateSpeedMode::PROP || screen_state_.fan_calculate_speed_mode_ == FanCalculateSpeedMode::PID) &&
-          screen_state_.fan_calculate_speed_mode_ != control_->getFanControl().getCalculateSpeedMode()) {
-        control_->getFanControl().setCalculateSpeedMode(screen_state_.fan_calculate_speed_mode_);
-        tft_.setFont(&FreeSans9pt7b);
-        tft_.setTextColor(colFontColor, colBackColor);
-        tft_.fillRect(18, 250, 200, HEIGHT_NUMBER_FIELD, colBackColor);
-        tft_.setCursor(18, 250 + BASELINE_MIDDLE);
-        tft_.print(F("Wert gespeichert."));
-      } else {
-        tft_.setFont(&FreeSans9pt7b);
-        tft_.setTextColor(colFontColor, colBackColor);
-        tft_.fillRect(18, 250, 200, HEIGHT_NUMBER_FIELD, colBackColor);
-        tft_.setCursor(18, 250 + BASELINE_MIDDLE);
-        tft_.print(F("Wert nicht geaendert"));
-      }
-    }
-  );
-}
-
-void TFT::displayUpdateFanMode() noexcept {
-  tft_.setFont(&FreeSans9pt7b);
-  tft_.setTextColor(colFontColor, colBackColor);
-  tft_.fillRect(18, 200, 130, HEIGHT_NUMBER_FIELD, colBackColor);
-  tft_.setCursor(18, 200 + BASELINE_MIDDLE);
-  if (screen_state_.fan_calculate_speed_mode_ == FanCalculateSpeedMode::PROP)
-    tft_.print(F("PWM Wert"));
-  else if (screen_state_.fan_calculate_speed_mode_ == FanCalculateSpeedMode::PID)
-    tft_.print(F("PID-Regler"));
-  else
-    tft_.print(F("???"));
-}
-
-// ************************************ ENDE: Screen REGELUNG VENTILATOREN *****************************************************
 
 void TFT::displayUpdate() noexcept
 {

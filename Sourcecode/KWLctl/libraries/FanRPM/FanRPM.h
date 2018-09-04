@@ -42,6 +42,13 @@ class Print;
 class FanRPM
 {
 public:
+  enum {
+    /// Minimum valid RPM.
+    MIN_RPM = 60,
+    /// Maximum valid RPM.
+    MAX_RPM = 10000
+  };
+
   /// Initialize the fan speed measurement.
   FanRPM() noexcept;
 
@@ -60,10 +67,6 @@ private:
   enum {
     /// Maximum # of measurements to store. Must be power of 2.
     MAX_MEASUREMENTS = 1<<5,
-    /// Minimum valid RPM.
-    MIN_RPM = 60,
-    /// Maximum valid RPM.
-    MAX_RPM = 10000
   };
 
   /// Last measurement time.

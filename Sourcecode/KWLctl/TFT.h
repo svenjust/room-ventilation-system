@@ -105,21 +105,6 @@ private:
   /// Set up screen for setting up various fan parameters.
   void screenSetupFan() noexcept;
 
-  /// Set up screen for normal speed of fan 1.
-  void screenSetupFan1() noexcept;
-
-  /// Set up screen for normal speed of fan 2.
-  void screenSetupFan2() noexcept;
-
-  /// Set up screen for normal speed of fan 1 or 2.
-  void screenSetupFan(uint8_t fan_idx) noexcept;
-
-  /// Update fan speed on the screen.
-  void displayUpdateFan() noexcept;
-
-  /// Set up screen for calibrating fans.
-  void screenSetupFanCalibration() noexcept;
-
   /// Set up screen for reset to factory defaults.
   void screenSetupFactoryDefaults() noexcept;
 
@@ -389,10 +374,12 @@ private:
     /// Fan setup.
     struct
     {
-      /// Input value for the new setpoint.
-      unsigned input_standard_speed_setpoint_;
-      /// Fan index for which we are setting the default speed.
-      uint8_t fan_index_;
+      /// Mode to calculate fan speed.
+      FanCalculateSpeedMode calculate_speed_mode_;
+      /// Setpoint for intake fan.
+      unsigned setpoint_l1_;
+      /// Setpoint for exhaust fan.
+      unsigned setpoint_l2_;
     } fan_;
 
     /// Network setup.
@@ -433,9 +420,6 @@ private:
       /// Current value.
       unsigned cur_;
     } bypass_;
-
-    /// Fan speed calculation mode setup.
-    FanCalculateSpeedMode fan_calculate_speed_mode_;
   };
 
   /// State for individual screens.
