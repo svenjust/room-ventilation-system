@@ -33,6 +33,10 @@
 #include <Fonts/FreeSans12pt7b.h>
 #include <Fonts/FreeSansBold24pt7b.h>
 
+
+/// Delay for 4s to be able to read display messages.
+static constexpr unsigned long STARTUP_DELAY = 4000;
+
 /// Minimum acceptable pressure.
 static constexpr int16_t MINPRESSURE = 20;
 /// Maximum acceptable pressure.
@@ -198,7 +202,7 @@ TFT::TFT() noexcept :
 
 void TFT::begin(Print& /*initTracer*/, KWLControl& control) noexcept {
   control_ = &control;
-  gotoScreen(&TFT::screenMain);   // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
+  millis_startup_delay_start_ = millis();
 }
 
 // ****************************************** Screen: HAUPTSEITE ******************************************
@@ -463,14 +467,15 @@ void TFT::screenSetup() noexcept
 
   tft_.setTextColor(colFontColor, colBackColor );
 
+  tft_.setFont(&FreeSans12pt7b);
   tft_.setCursor(18, 121 + BASELINE_MIDDLE);
   tft_.print (F("FAN: Enstellungen Ventilatoren"));
   tft_.setCursor(18, 166 + BASELINE_MIDDLE);
   tft_.print (F("BYP: Einstellungen Sommer-Bypass"));
   tft_.setCursor(18, 211 + BASELINE_MIDDLE);
   tft_.print(F("NET: Netzwerkeinstellungen"));
-//  tft_.setCursor(18, 256 + BASELINE_MIDDLE);
-//  tft_.print(F("XXX: xxx"));
+  tft_.setCursor(18, 256 + BASELINE_MIDDLE);
+  tft_.print(F("ZEIT: Zeiteinstellungen"));
 
   newMenuEntry(1, F("->"),
     [this]() noexcept {
@@ -497,11 +502,11 @@ void TFT::screenSetup() noexcept
       gotoScreen(&TFT::screenSetupIPAddress);
     }
   );
-//  newMenuEntry(6, F("XXX"),
-//    [this]() noexcept {
-//      gotoScreen(&TFT::screenSetupXXX);
-//    }
-//  );
+  newMenuEntry(6, F("ZEIT"),
+    [this]() noexcept {
+      gotoScreen(&TFT::screenSetupTime);
+    }
+  );
 }
 
 // ************************************ ENDE: Screen SETUP  *****************************************************
@@ -520,22 +525,6 @@ void TFT::screenSetupFan() noexcept
 
   setupInputAction(
     [this]() {
-      // input enter action
-      char buf[16];
-      auto& ref = screen_state_.fan_;
-      switch (input_current_row_) {
-        default:
-        case 1: snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.setpoint_l1_); break;
-        case 2: snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.setpoint_l2_); break;
-        case 3: strcpy_P(buf, fanModeToString(ref.calculate_speed_mode_)); break;
-      }
-      drawCurrentInputField(buf, true);
-    },
-    [this]() {
-      // input leave action
-      input_field_draw_.invoke();
-    },
-    [this]() {
       // draw action
       char buf[16];
       auto& ref = screen_state_.fan_;
@@ -549,23 +538,23 @@ void TFT::screenSetupFan() noexcept
     }
   );
 
-  setupInputFieldColumns(280, 70);
+  setupInputFieldColumns(280, 130);
   setupInputFieldRow(1, 1, F("Normdrehzahl Zuluft:"));
   setupInputFieldRow(2, 1, F("Normdrehzahl Abluft:"));
   setupInputFieldRow(3, 1, F("Luefterregelung:"));
 
   tft_.setFont(&FreeSans9pt7b);
   tft_.setTextColor(colFontColor, colBackColor);
-  tft_.setCursor(18, 125 + BASELINE_MIDDLE);
+  tft_.setCursor(18, 170 + BASELINE_MIDDLE);
   tft_.print (F("Nach der Aenderung der Normdrehzahlen"));
-  tft_.setCursor(18, 150 + BASELINE_MIDDLE);
+  tft_.setCursor(18, 190 + BASELINE_MIDDLE);
   tft_.print (F("der Luefter muessen diese kalibriert werden."));
-  tft_.setCursor(18, 175 + BASELINE_MIDDLE);
+  tft_.setCursor(18, 210 + BASELINE_MIDDLE);
   tft_.print (F("Bei der Kalibrierung werden die Drehzahlen"));
-  tft_.setCursor(18, 200 + BASELINE_MIDDLE);
+  tft_.setCursor(18, 230 + BASELINE_MIDDLE);
   tft_.print (F("der Luefter eingestellt und die notwendigen"));
-  tft_.setCursor(18, 225 + BASELINE_MIDDLE);
-  tft_.print (F("PWM-Werte für jede Stufe gespeichert."));
+  tft_.setCursor(18, 250 + BASELINE_MIDDLE);
+  tft_.print (F("PWM-Werte fuer jede Stufe gespeichert."));
 
   newMenuEntry(1, F("<-"),
     [this]() noexcept {
@@ -590,7 +579,7 @@ void TFT::screenSetupFan() noexcept
           ref.calculate_speed_mode_ = FanCalculateSpeedMode::PID;
           break;
       }
-      input_field_enter_.invoke();
+      input_field_draw_.invoke();
     }
   );
   newMenuEntry(3, F("-"),
@@ -613,7 +602,7 @@ void TFT::screenSetupFan() noexcept
           ref.calculate_speed_mode_ = FanCalculateSpeedMode::PROP;
           break;
        }
-       input_field_enter_.invoke();
+       input_field_draw_.invoke();
      }
   );
   newMenuEntry(4, F("OK"),
@@ -676,7 +665,6 @@ void TFT::screenSetupIPAddress() noexcept
   setupInputAction(
     [this]() {
       // input enter action
-      char buf[8];
       auto& ref = screen_state_.net_;
       IPAddressLiteral* ip;
       switch (input_current_row_) {
@@ -691,11 +679,6 @@ void TFT::screenSetupIPAddress() noexcept
       }
       if (ip)
         ref.cur_ = (*ip)[input_current_col_];
-      if (input_current_row_ != 7)
-        snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.cur_);
-      else
-        snprintf_P(buf, sizeof(buf), PSTR("%02x"), ref.cur_);
-      drawCurrentInputField(buf, true);
     },
     [this]() {
       // input leave action
@@ -716,12 +699,6 @@ void TFT::screenSetupIPAddress() noexcept
       }
       if (ip)
         (*ip)[input_current_col_] = uint8_t(ref.cur_);
-      char buf[8];
-      if (input_current_row_ != 7)
-        snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.cur_);
-      else
-        snprintf_P(buf, sizeof(buf), PSTR("%02x"), ref.cur_);
-      drawCurrentInputField(buf, false);
 
       IPAddress new_ip(ref.ip_);
       IPAddress new_mask(ref.mask_);
@@ -790,7 +767,7 @@ void TFT::screenSetupIPAddress() noexcept
         snprintf_P(buf, sizeof(buf), PSTR("%u"), cur);
       else
         snprintf_P(buf, sizeof(buf), PSTR("%02x"), cur);
-      drawCurrentInputField(buf, false);
+      drawCurrentInputField(buf);
     }
   );
 
@@ -864,6 +841,7 @@ void TFT::screenSetupIPAddressUpdate(int delta) noexcept
 {
   auto& ref = screen_state_.net_;
   uint16_t new_value;
+  input_highlight_ = false;
   if (input_current_row_ == 2) {
     // netmask change is special, it shifts bits
     if (delta < 0) {
@@ -923,7 +901,8 @@ void TFT::screenSetupIPAddressUpdate(int delta) noexcept
     snprintf_P(buf, sizeof(buf), PSTR("%d"), new_value);
   else
     snprintf_P(buf, sizeof(buf), PSTR("%02x"), new_value);
-  drawCurrentInputField(buf, true);
+  input_highlight_ = true;
+  drawCurrentInputField(buf);
 }
 
 void TFT::screenSetupIPAddressUpdateAddress(uint8_t row, IPAddressLiteral& ip, IPAddress new_ip) noexcept
@@ -962,47 +941,7 @@ void TFT::screenSetupBypass() noexcept
   else
     ref.mode_ = unsigned(SummerBypassFlapState::UNKNOWN); // auto
 
-  tft_.setTextColor(colFontColor, colBackColor );
-
   setupInputAction(
-    [this]() {
-      // input enter action
-      auto& ref = screen_state_.bypass_;
-      switch (input_current_row_) {
-        default:
-        case 1: ref.cur_ = ref.temp_outtake_min_; break;
-        case 2: ref.cur_ = ref.temp_outside_min_; break;
-        case 3: ref.cur_ = ref.temp_hysteresis_; break;
-        case 4: ref.cur_ = ref.min_hysteresis_; break;
-        case 5: ref.cur_ = ref.mode_; break;
-      }
-      if (input_current_row_ != 5) {
-        char buf[8];
-        snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.cur_);
-        drawCurrentInputField(buf, true, false);
-      } else {
-        drawCurrentInputField(bypassModeToString(SummerBypassFlapState(ref.cur_)), true, false);
-      }
-    },
-    [this]() {
-      // input leave action
-      auto& ref = screen_state_.bypass_;
-      switch (input_current_row_) {
-        default:
-        case 1: ref.temp_outtake_min_ = ref.cur_; break;
-        case 2: ref.temp_outside_min_ = ref.cur_; break;
-        case 3: ref.temp_hysteresis_ = uint8_t(ref.cur_); break;
-        case 4: ref.min_hysteresis_ = ref.cur_; break;
-        case 5: ref.mode_ = ref.cur_; break;
-      }
-      if (input_current_row_ != 5) {
-        char buf[8];
-        snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.cur_);
-        drawCurrentInputField(buf, false, false);
-      } else {
-        drawCurrentInputField(bypassModeToString(SummerBypassFlapState(ref.cur_)), false, false);
-      }
-    },
     [this]() {
       // draw action
       auto& ref = screen_state_.bypass_;
@@ -1018,9 +957,9 @@ void TFT::screenSetupBypass() noexcept
       if (input_current_row_ != 5) {
         char buf[8];
         snprintf_P(buf, sizeof(buf), PSTR("%u"), cur);
-        drawCurrentInputField(buf, false, false);
+        drawCurrentInputField(buf, false);
       } else {
-        drawCurrentInputField(bypassModeToString(SummerBypassFlapState(cur)), false, false);
+        drawCurrentInputField(bypassModeToString(SummerBypassFlapState(cur)), false);
       }
     }
   );
@@ -1054,7 +993,7 @@ void TFT::screenSetupBypass() noexcept
       auto& ref = screen_state_.bypass_;
       config.setBypassTempAussenluftMin(ref.temp_outside_min_);
       config.setBypassTempAbluftMin(ref.temp_outtake_min_);
-      config.setBypassHysteresisTemp(ref.temp_hysteresis_);
+      config.setBypassHysteresisTemp(uint8_t(ref.temp_hysteresis_));
       config.setBypassHystereseMinutes(ref.min_hysteresis_);
       if (ref.mode_ == unsigned(SummerBypassFlapState::UNKNOWN)) {
         config.setBypassMode(SummerBypassMode::AUTO);
@@ -1074,31 +1013,121 @@ void TFT::screenSetupBypassUpdate(int delta) noexcept
 {
   auto& ref = screen_state_.bypass_;
   int min, max;
+  unsigned* cur;
   switch (input_current_row_) {
-    case 1: min = 5; max = 30; break;
-    case 2: min = 3; max = 25; break;
-    case 3: min = 1; max = 5; break;
-    case 4: min = 5; max = 90; break;
-    case 5: min = 0; max = 2; break;
+    case 1: min = 5; max = 30; cur = &ref.temp_outtake_min_; break;
+    case 2: min = 3; max = 25; cur = &ref.temp_outside_min_; break;
+    case 3: min = 1; max = 5;  cur = &ref.temp_hysteresis_; break;
+    case 4: min = 5; max = 90; cur = &ref.min_hysteresis_; break;
+    case 5: min = 0; max = 2;  cur = &ref.mode_; break;
   }
-  delta += ref.cur_;
+  delta += *cur;
   if (delta < min)
     delta = min;
   if (delta > max)
     delta = max;
-  if (unsigned(delta) == ref.cur_)
+  if (unsigned(delta) == *cur)
     return;
-  ref.cur_ = unsigned(delta);
+  *cur = unsigned(delta);
   if (input_current_row_ != 5) {
     char buf[8];
-    snprintf_P(buf, sizeof(buf), PSTR("%u"), ref.cur_);
-    drawCurrentInputField(buf, true, false);
+    snprintf_P(buf, sizeof(buf), PSTR("%u"), *cur);
+    drawCurrentInputField(buf, false);
   } else {
-    drawCurrentInputField(bypassModeToString(SummerBypassFlapState(ref.cur_)), true, false);
+    drawCurrentInputField(bypassModeToString(SummerBypassFlapState(*cur)), false);
   }
 }
 
 // ************************************ ENDE: Screen BYPASSEINSTELLUNGEN *****************************************************
+
+// ****************************************** Screen: ZEITEINSTELLUNGEN ******************************
+void TFT::screenSetupTime() noexcept
+{
+  printScreenTitle(F("Einstellungen Zeit"));
+
+  // copy time settings
+  auto& ref = screen_state_.time_;
+  auto& config = control_->getPersistentConfig();
+  ref.timezone_ = config.getTimezoneMin();
+  ref.dst_ = config.getDST();
+
+  setupInputAction(
+    [this]() {
+      // draw action
+      auto& ref = screen_state_.time_;
+      char buf[16];
+      switch (input_current_row_) {
+        default:
+        case 1:
+        {
+          auto tz = ref.timezone_;
+          char sign = '+';
+          if (tz < 0) {
+            tz = -tz;
+            sign = '-';
+          }
+          snprintf_P(buf, sizeof(buf), PSTR("%c%02d:%02d"), sign, tz / 60, tz % 60);
+          break;
+        }
+        case 2:
+          strcpy_P(buf, ref.dst_ ? PSTR("Sommerzeit") : PSTR("Winterzeit"));
+          break;
+      }
+      drawCurrentInputField(buf, false);
+    }
+  );
+
+  setupInputFieldColumns(180, 160);
+  setupInputFieldRow(1, 1, F("Zeitzone:"));
+  setupInputFieldRow(2, 1, F("DST Flag:"));
+
+  newMenuEntry(1, F("<-"),
+    [this]() noexcept {
+      gotoScreen(&TFT::screenSetup);
+    }
+  );
+  newMenuEntry(3, F("+"),
+    [this]() noexcept {
+      auto& ref = screen_state_.time_;
+      if (input_current_row_ == 1) {
+        // change tz
+        if (ref.timezone_ < 24*60)
+          ref.timezone_ += 15;
+      } else {
+         ref.dst_ = !ref.dst_;
+      }
+      input_field_draw_.invoke();
+    }
+  );
+  newMenuEntry(4, F("-"),
+    [this]() noexcept {
+      auto& ref = screen_state_.time_;
+      if (input_current_row_ == 1) {
+        // change tz
+        if (ref.timezone_ > -24*60)
+          ref.timezone_ -= 15;
+      } else {
+         ref.dst_ = !ref.dst_;
+      }
+      input_field_draw_.invoke();
+    }
+  );
+  newMenuEntry(6, F("OK"),
+    [this]() noexcept {
+      resetInput();
+      auto& config = control_->getPersistentConfig();
+      auto& ref = screen_state_.time_;
+      config.setTimezoneMin(ref.timezone_);
+      config.setDST(ref.dst_);
+      doPopup(
+        F("Einstellungen gespeichert"),
+        F("Neue Zeiteinstellungen wurden\nin EEPROM gespeichert\nund sind sofort aktiv."),
+        &TFT::screenSetup);
+    }
+  );
+}
+
+// ****************************************** ENDE: Screen ZEITEINSTELLUNGEN ******************************
 
 // ****************************************** Screen: WERKSEINSTELLUNGEN **********************************
 void TFT::screenSetupFactoryDefaults() noexcept
@@ -1145,6 +1174,9 @@ void TFT::displayUpdate() noexcept
 {
   // Das Update wird alle 1000mS durchlaufen
   // Bevor Werte ausgegeben werden, wird auf Änderungen der Werte überprüft, nur geänderte Werte werden auf das Display geschrieben
+
+  if (millis_startup_delay_start_ != 0)
+    return; // still in startup delay
 
   if (KWLConfig::serialDebugDisplay == 1) {
     Serial.println(F("displayUpdate"));
@@ -1248,6 +1280,7 @@ void TFT::gotoScreen(void (TFT::*screenSetup)()) noexcept {
   for (uint8_t i = 0; i < INPUT_ROW_COUNT; ++i)
     input_active_[i] = 0;
   input_current_col_ = input_current_row_ = 0;
+  input_highlight_ = false;
   input_field_enter_ = nullptr;
   input_field_leave_ = nullptr;
   input_field_draw_ = nullptr;
@@ -1323,6 +1356,15 @@ void TFT::printScreenTitle(const __FlashStringHelper* title) noexcept
   tft_.setTextColor(colFontColor, colBackColor);
 }
 
+template<typename Func>
+void TFT::setupInputAction(Func&& draw) noexcept
+{
+  input_field_enter_ = nullptr;
+  input_field_leave_ = nullptr;
+  input_field_draw_ = draw;
+  setupInputFieldColumns();
+}
+
 template<typename Func1, typename Func2, typename Func3>
 void TFT::setupInputAction(Func1&& start_input, Func2&& stop_input, Func3&& draw) noexcept
 {
@@ -1387,7 +1429,10 @@ void TFT::setupInputFieldRow(uint8_t row, uint8_t count, const char* header, con
 void TFT::resetInput() noexcept
 {
   if (input_current_row_) {
+    input_highlight_ = false;
     input_field_leave_.invoke();
+    input_highlight_ = false;
+    input_field_draw_.invoke();
     input_current_col_ = input_current_row_ = 0;
   }
 }
@@ -1434,6 +1479,15 @@ void TFT::drawInputField(uint8_t row, uint8_t col, const __FlashStringHelper* te
 void TFT::loopTouch() noexcept
 {
   // First check timeouts
+  if (millis_startup_delay_start_ > 0) {
+    if (millis() - millis_startup_delay_start_ >= STARTUP_DELAY) {
+      // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
+      millis_startup_delay_start_ = 0;
+      gotoScreen(&TFT::screenMain);
+    }
+    return;
+  }
+
   if (popup_action_) {
     // there is a popup active
     if (millis() - millis_popup_show_time_ > POPUP_TIMEOUT_MS) {
@@ -1530,11 +1584,18 @@ void TFT::loopTouch() noexcept
             if (xpos >= input_x_[i] && xpos < input_x_[i] + input_w_[i]) {
               // hit active input
               if (input_current_row_ != button + 1 || input_current_col_ != i) {
-                if (input_current_row_)
+                if (input_current_row_) {
+                  input_highlight_ = false;
                   input_field_leave_.invoke();
+                  input_highlight_ = false;
+                  input_field_draw_.invoke();
+                }
                 input_current_col_ = i;
                 input_current_row_ = uint8_t(button + 1);
+                input_highlight_ = false;
                 input_field_enter_.invoke();
+                input_highlight_ = true;
+                input_field_draw_.invoke();
               }
               break;
             }

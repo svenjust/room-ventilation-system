@@ -87,9 +87,6 @@ void KWLControl::begin(Print& initTracer)
   // Setup fertig
   initTracer.println(F("Setup completed..."));
 
-  // 4 Sekunden Pause für die TFT Anzeige, damit man sie auch lesen kann
-  delay(4000);
-
   tft_.begin(initTracer, *this);
 
   DeadlockWatchdog::begin(&deadlockDetected, this);

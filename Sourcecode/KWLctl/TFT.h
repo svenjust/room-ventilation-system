@@ -129,6 +129,9 @@ private:
   /// Update current value by given delta.
   void screenSetupBypassUpdate(int delta) noexcept;
 
+  /// Set up timezone.
+  void screenSetupTime() noexcept;
+
   /// Display update function to be called periodically.
   void displayUpdate() noexcept;
 
@@ -161,9 +164,20 @@ private:
    * Actions are called when input_current_* variables are properly set up.
    * Typically, the action will call drawCurrentInputField().
    *
-   * @param start_input action to call after entering an input field (highlights it and sets up input state).
-   * @param stop_input action to call before leaving an input field (redraws w/o highlight).
-   * @param draw action to call to draw a field (current row/column is set).
+   * @param draw action to call to draw a field (current row/column and highlight is set).
+   */
+  template<typename Func>
+  void setupInputAction(Func&& draw) noexcept;
+
+  /*!
+   * @brief Set up input action when the user selected an input field.
+   *
+   * Actions are called when input_current_* variables are properly set up.
+   * Typically, the action will call drawCurrentInputField().
+   *
+   * @param start_input action to call before entering an input field (drawn with highlight after).
+   * @param stop_input action to call after leaving an input field (redraw w/o highlight before).
+   * @param draw action to call to draw a field (current row/column and highlight is set).
    */
   template<typename Func1, typename Func2, typename Func3>
   void setupInputAction(Func1&& start_input, Func2&& stop_input, Func3&& draw) noexcept;
@@ -230,24 +244,22 @@ private:
    * @brief Draw the contents of the current input field, e.g., upon value update.
    *
    * @param text field value.
-   * @param highlight set to @c true to draw the field highlighted.
    * @param right_align if set to @c true, align on the right side, else on the left side.
    */
-  void drawCurrentInputField(const char* text, bool highlight, bool right_align = true) noexcept
+  void drawCurrentInputField(const char* text, bool right_align = true) noexcept
   {
-    drawInputField(input_current_row_, input_current_col_, text, highlight, right_align);
+    drawInputField(input_current_row_, input_current_col_, text, input_highlight_, right_align);
   }
 
   /*!
    * @brief Draw the contents of the current input field, e.g., upon value update.
    *
    * @param text field value.
-   * @param highlight set to @c true to draw the field highlighted.
    * @param right_align if set to @c true, align on the right side, else on the left side.
    */
-  void drawCurrentInputField(const __FlashStringHelper* text, bool highlight, bool right_align = true) noexcept
+  void drawCurrentInputField(const __FlashStringHelper* text, bool right_align = true) noexcept
   {
-    drawInputField(input_current_row_, input_current_col_, text, highlight, right_align);
+    drawInputField(input_current_row_, input_current_col_, text, input_highlight_, right_align);
   }
 
   /// Print a menu entry with given color for the frame.
@@ -297,6 +309,9 @@ private:
   /// Bound member function to update display for the current screen (called every second).
   void (TFT::*display_update_)() = nullptr;
 
+  /// Time at which startup delay started or 0 for normal operation.
+  unsigned long millis_startup_delay_start_ = 0;
+
   // Touch and menu handling:
 
   /// Maximum menu button count.
@@ -324,6 +339,8 @@ private:
   uint8_t input_current_row_;
   /// Currently selected input column (0-based).
   uint8_t input_current_col_;
+  /// Highlight to use when drawing a field.
+  bool input_highlight_ = false;
   /// Action to call when the user selected an input field. Fields input_current_* already updated.
   MenuAction input_field_enter_;
   /// Action to call when the user deselected an input field. Fields input_current_* point to left field.
@@ -412,14 +429,20 @@ private:
       /// Minimum outside temperature to open bypass.
       unsigned temp_outside_min_;
       /// Bypass temperature hysteresis.
-      uint8_t temp_hysteresis_;
+      unsigned temp_hysteresis_;
       /// Bypass hysteresis in minutes.
       unsigned min_hysteresis_;
       /// Bypass mode.
       unsigned mode_;
-      /// Current value.
-      unsigned cur_;
     } bypass_;
+
+    /// Time setup.
+    struct {
+      /// Timezone.
+      int16_t timezone_;
+      /// Daylight savings time flag.
+      bool dst_;
+    } time_;
   };
 
   /// State for individual screens.
