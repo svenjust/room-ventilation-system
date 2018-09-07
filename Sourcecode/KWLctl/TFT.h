@@ -84,6 +84,19 @@ private:
     char state_[6];
   };
 
+  /// State for popup editing flags.
+  struct PopupFlagsState
+  {
+    /// Pointer to flags to be edited.
+    uint8_t* flags_;
+    /// Count of flags.
+    uint8_t flag_count_;
+    /// Length of one flag name.
+    uint8_t flag_name_length_;
+    /// Flag names (flag_count_ * flag_name_length_ characters).
+    const __FlashStringHelper* flag_names_;
+  };
+
   /// Set up main screen.
   void screenMain() noexcept;
 
@@ -101,6 +114,9 @@ private:
 
   /// Set up screen for setting up various parameters.
   void screenSetup() noexcept;
+
+  /// Set up screen 2 for setting up various parameters.
+  void screenSetup2() noexcept;
 
   /// Set up screen for setting up various fan parameters.
   void screenSetupFan() noexcept;
@@ -132,6 +148,15 @@ private:
   /// Set up timezone.
   void screenSetupTime() noexcept;
 
+  /// Set up screen for setting up antifreeze parameters.
+  void screenSetupAntifreeze() noexcept;
+
+  /// Set up screen for setting up programs parameters.
+  void screenSetupProgram() noexcept;
+
+  /// Update value on program screen.
+  void screenSetupProgramUpdate(int8_t delta) noexcept;
+
   /// Display update function to be called periodically.
   void displayUpdate() noexcept;
 
@@ -144,6 +169,9 @@ private:
 
   /// Clear background behind title line and print new title line.
   void printScreenTitle(const __FlashStringHelper* title) noexcept;
+
+  /// Safely get touch point.
+  TSPoint getPoint() noexcept;
 
   /// Poll for touch events.
   void loopTouch() noexcept;
@@ -193,7 +221,17 @@ private:
    * @param width width of one column.
    * @param spacing spacing between columns.
    */
-  void setupInputFieldColumns(int left = 180, int width = 50, int spacing = 10) noexcept;
+  void setupInputFieldColumns(unsigned left = 180, unsigned width = 50, unsigned spacing = 10) noexcept;
+
+  /*!
+   * @brief Set up input field column width for a specified row.
+   *
+   * This overrides row defaults set by setupInputFieldColumns().
+   *
+   * @param row Row for which to set the new width.
+   * @param width Column width for the row.
+   */
+  void setupInputFieldColumnWidth(uint8_t row, unsigned width) noexcept;
 
   /*!
    * @brief Set up input field row.
@@ -219,6 +257,9 @@ private:
    * @brief Reset active input field, if any.
    */
   void resetInput() noexcept;
+
+  /// Update all input fields on screen (except current).
+  void updateAllInputFields() noexcept;
 
   /*!
    * @brief Draw the contents of an input field, e.g., upon screen setup.
@@ -288,11 +329,31 @@ private:
    */
   void doPopup(const __FlashStringHelper* title, const __FlashStringHelper* message, void (TFT::*screenSetup)()) noexcept;
 
+  /*!
+   * @brief Set flags to edit in popup and draw them.
+   *
+   * @param flags flags state to use.
+   */
+  void setPopupFlags(PopupFlagsState& flags) noexcept;
+
+  /*!
+   * @brief Draw one popup flag.
+   *
+   * @param idx flag index (0-based).
+   */
+  void drawPopupFlag(uint8_t idx) noexcept;
+
   /// Restart the controller immediately.
   void doRestartImpl() noexcept;
 
   /// Set up display before first use.
   void setupDisplay() noexcept;
+
+  /// Turn screen off.
+  void screenOff();
+
+  /// Turn screen on.
+  void screenOn();
 
   /// Set up touch input.
   void setupTouch();
@@ -314,6 +375,9 @@ private:
 
   // Touch and menu handling:
 
+  /// Flag set when the sceen is off.
+  bool screen_off_ = false;
+
   /// Maximum menu button count.
   static constexpr unsigned MENU_BTN_COUNT = 6;
   /// Last menu button, which was highlighted.
@@ -329,10 +393,12 @@ private:
   static constexpr unsigned INPUT_COL_COUNT = 4;
   /// Maximum # of input field rows.
   static constexpr unsigned INPUT_ROW_COUNT = 7;
-  /// Input field X coordinates.
-  int input_x_[INPUT_COL_COUNT];
-  /// Input field width.
-  int input_w_[INPUT_COL_COUNT];
+  /// First input field X coordinates.
+  int input_x_;
+  /// Spacing between input fields.
+  int input_spacing_;
+  /// Input field width for individual rows.
+  int input_w_[INPUT_ROW_COUNT];
   /// Bitmask of active input fields for individual menu rows.
   uint8_t input_active_[INPUT_ROW_COUNT];
   /// Currently selected input row (1-based, like menus).
@@ -364,6 +430,10 @@ private:
   unsigned long millis_popup_show_time_ = 0;
   /// Action for popup timeout and OK button.
   void (TFT::*popup_action_)() = nullptr;
+  /// Popup flags to use.
+  PopupFlagsState* popup_flags_ = nullptr;
+  /// Last entered screen.
+  void (TFT::*last_screen_)() = nullptr;
 
   /// Per-screen state values, e.g., last display values or input values.
   union screen_state
@@ -385,6 +455,7 @@ private:
     struct
     {
       float dht1_temp_, dht2_temp_;
+      float dht1_hum_, dht2_hum_;
       int mhz14_co2_ppm_, tgs2600_voc_ppm_;
     } addt_sensors_;
 
@@ -443,6 +514,23 @@ private:
       /// Daylight savings time flag.
       bool dst_;
     } time_;
+
+    /// Antifreeze setup.
+    struct {
+      /// Antifreeze temperature hysteresis.
+      unsigned temp_hysteresis_;
+      /// Flag whether using heating application together with ventilation system.
+      bool heating_app_;
+    } antifreeze_;
+
+    struct {
+      /// Current program index to edit.
+      int8_t index_;
+      /// Program data of the current program.
+      ProgramData pgm_;
+      /// Currently edited popup flags.
+      PopupFlagsState popup_flags_;
+    } program_;
   };
 
   /// State for individual screens.

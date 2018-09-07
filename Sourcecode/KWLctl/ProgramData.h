@@ -24,6 +24,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <string.h>
 
 class HMS;
 
@@ -60,4 +61,14 @@ public:
 
   /// Check whether the time lies within the program. Assumes the program is enabled.
   bool matches(HMS hms) const;
+
+  friend bool operator==(const ProgramData& l, const ProgramData& r) noexcept
+  {
+    return memcmp(&l, &r, sizeof(ProgramData)) == 0;
+  }
+
+  friend bool operator!=(const ProgramData& l, const ProgramData& r) noexcept
+  {
+    return memcmp(&l, &r, sizeof(ProgramData)) != 0;
+  }
 };

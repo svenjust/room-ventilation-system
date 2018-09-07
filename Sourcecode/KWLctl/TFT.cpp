@@ -60,8 +60,14 @@ static constexpr unsigned long INTERVAL_DISPLAY_UPDATE = 5000000;
 static constexpr unsigned long INTERVAL_MENU_BTN = 500;
 /// Interval for returning back to main screen if nothing pressed (1m).
 static constexpr unsigned long INTERVAL_TOUCH_TIMEOUT = 60000;
+/// Interval for turning off the display (if possible) if nothing pressed (5m).
+static constexpr unsigned long INTERVAL_DISPLAY_TIMEOUT = 5 * 60000;
 /// If the user doesn't confirm the popup within this time, it will be closed automatically.
 static constexpr unsigned long POPUP_TIMEOUT_MS = 10000;
+/// If the user doesn't change anything in popup flags within this time, it will be closed automatically.
+static constexpr unsigned long POPUP_FLAG_TIMEOUT_MS = 30000;
+/// Minimum time in ms to not react on input on screen turned off.
+static constexpr unsigned long SCREEN_OFF_MIN_TIME = 2000;
 
 // Pseudo-constants initialized at TFT initialization based on font data:
 
@@ -99,6 +105,8 @@ static uint16_t TS_BOT  = KWLConfig::TouchBottom;
 #define colMenuBackColor            0xFFFF
 #define colMenuFontColor            0x0000
 #define colMenuBtnFrameHL           0xF800
+#define colInputBackColor           0x31A6 // 20% grau
+#define colInputFontColor           0xFFFF
 
 /*
   // Schwarz auf weiss
@@ -133,7 +141,7 @@ static constexpr byte INPUT_FIELD_HEIGHT = 35;
 static constexpr byte INPUT_FIELD_YOFFSET = 52;
 
 /// Popup width.
-static constexpr int POPUP_W = 340;
+static constexpr int POPUP_W = 370;
 /// Popup title height.
 static constexpr int POPUP_TITLE_H = 30;
 /// Popup text area height.
@@ -142,6 +150,12 @@ static constexpr int POPUP_H = 150;
 static constexpr int POPUP_BTN_W = 60;
 /// Popup button height.
 static constexpr int POPUP_BTN_H = 30;
+/// Popup flag edit button width.
+static constexpr int POPUP_FLAG_W = 35;
+/// Popup flag edit button spacing.
+static constexpr int POPUP_FLAG_SPACING = 10;
+/// Popup flag edit button height.
+static constexpr int POPUP_FLAG_H = 30;
 /// Popup X position.
 static constexpr int POPUP_X = (480 - TOUCH_BTN_WIDTH - POPUP_W) / 2;
 /// Popup Y position.
@@ -150,6 +164,10 @@ static constexpr int POPUP_Y = (320 - POPUP_H - POPUP_TITLE_H) / 2;
 static constexpr int POPUP_BTN_Y = POPUP_Y + POPUP_TITLE_H + POPUP_H - 10 - POPUP_BTN_H;
 /// Popup button Y position.
 static constexpr int POPUP_BTN_X = (480 - TOUCH_BTN_WIDTH - POPUP_BTN_W) / 2;
+/// Popup flags Y position.
+static constexpr int POPUP_FLAG_Y = POPUP_BTN_Y - 10 - POPUP_BTN_H;
+/// Popup flags X position.
+static constexpr int POPUP_FLAG_X = POPUP_X + POPUP_FLAG_SPACING;
 
 static const __FlashStringHelper* bypassModeToString(SummerBypassFlapState mode) noexcept
 {
@@ -173,6 +191,36 @@ static const char* fanModeToString(FanCalculateSpeedMode mode) noexcept
     case FanCalculateSpeedMode::PROP:
       return PSTR("PWM-Wert");
   }
+}
+
+/// Helper function to update data in range.
+template<typename T, typename TD>
+static void update_minmax(T& value, TD diff, T min, T max) noexcept
+{
+  TD sum = TD(value) + diff;
+  if (sum < TD(min))
+    sum = TD(min);
+  else if (sum > TD(max))
+    sum = TD(max);
+  value = T(sum);
+}
+
+/// Helper to format flag array.
+void format_flags(char* buf, const __FlashStringHelper* flag_names, uint8_t flag_count, uint8_t flag_name_length, uint16_t flags) noexcept
+{
+  uint16_t mask = 1;
+  const char* src = reinterpret_cast<const char*>(flag_names);
+  for (uint8_t i = 0; i < flag_count; ++i, mask <<= 1) {
+    for (uint8_t j = 0; j < flag_name_length; ++j) {
+      if (mask & flags)
+        *buf = char(pgm_read_byte(src));
+      else
+        *buf = '-';
+      ++buf;
+      ++src;
+    }
+  }
+  *buf = 0;
 }
 
 template<typename Func>
@@ -266,6 +314,11 @@ void TFT::screenMain() noexcept
     }
   );
 
+  newMenuEntry(6, F("Off"),
+    [this]() noexcept {
+      screenOff();
+    }
+  );
   // Ende Menu Screen 1
 }
 
@@ -390,6 +443,8 @@ void TFT::screenAdditionalSensors() noexcept
   display_update_ = &TFT::displayUpdateAdditionalSensors;
   screen_state_.addt_sensors_.dht1_temp_ =
   screen_state_.addt_sensors_.dht2_temp_ = -1000;
+  screen_state_.addt_sensors_.dht1_hum_ =
+  screen_state_.addt_sensors_.dht2_hum_ = -1000;
   screen_state_.addt_sensors_.mhz14_co2_ppm_ =
   screen_state_.addt_sensors_.tgs2600_voc_ppm_ = INT16_MIN / 2;
 
@@ -420,6 +475,15 @@ void TFT::displayUpdateAdditionalSensors() noexcept
       tft_.setCursor(240 - int(w), 166 + BASELINE_MIDDLE);
       tft_.print(buffer);
     }
+    if (abs(double(screen_state_.addt_sensors_.dht1_hum_ - control_->getAdditionalSensors().getDHT1Hum())) > 0.1) {
+      screen_state_.addt_sensors_.dht1_hum_ = control_->getAdditionalSensors().getDHT1Hum();
+      tft_.fillRect(240, 166, 100, HEIGHT_NUMBER_FIELD, colBackColor);
+      dtostrf(double(screen_state_.addt_sensors_.dht1_hum_), 5, 1, buffer);
+      strcat_P(buffer, PSTR("%"));
+      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
+      tft_.setCursor(340 - int(w), 166 + BASELINE_MIDDLE);
+      tft_.print(buffer);
+    }
   }
   // DHT 2
   if (control_->getAdditionalSensors().hasDHT2()) {
@@ -429,6 +493,15 @@ void TFT::displayUpdateAdditionalSensors() noexcept
       dtostrf(double(screen_state_.addt_sensors_.dht2_temp_), 5, 1, buffer);
       tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
       tft_.setCursor(240 - int(w), 192 + BASELINE_MIDDLE);
+      tft_.print(buffer);
+    }
+    if (abs(double(screen_state_.addt_sensors_.dht2_hum_ - control_->getAdditionalSensors().getDHT2Hum())) > 0.1) {
+      screen_state_.addt_sensors_.dht2_hum_ = control_->getAdditionalSensors().getDHT2Hum();
+      tft_.fillRect(240, 192, 100, HEIGHT_NUMBER_FIELD, colBackColor);
+      dtostrf(double(screen_state_.addt_sensors_.dht2_hum_), 5, 1, buffer);
+      strcat_P(buffer, PSTR("%"));
+      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
+      tft_.setCursor(340 - int(w), 192 + BASELINE_MIDDLE);
       tft_.print(buffer);
     }
   }
@@ -479,7 +552,7 @@ void TFT::screenSetup() noexcept
 
   newMenuEntry(1, F("->"),
     [this]() noexcept {
-      gotoScreen(&TFT::screenSetupFactoryDefaults);
+      gotoScreen(&TFT::screenSetup2);
     }
   );
   newMenuEntry(2, F("<-"),
@@ -505,6 +578,54 @@ void TFT::screenSetup() noexcept
   newMenuEntry(6, F("ZEIT"),
     [this]() noexcept {
       gotoScreen(&TFT::screenSetupTime);
+    }
+  );
+}
+
+void TFT::screenSetup2() noexcept
+{
+  printScreenTitle(F("Einstellungen"));
+
+  tft_.setTextColor(colFontColor, colBackColor );
+
+  tft_.setFont(&FreeSans12pt7b);
+  tft_.setCursor(18, 121 + BASELINE_MIDDLE);
+  tft_.print (F("AF: Enstellungen Frostschutz"));
+  tft_.setCursor(18, 166 + BASELINE_MIDDLE);
+  tft_.print (F("PGM: Programmeinstellungen"));
+//  tft_.setCursor(18, 211 + BASELINE_MIDDLE);
+//  tft_.print(F("XXX: XXXeinstellungen"));
+  tft_.setCursor(18, 256 + BASELINE_MIDDLE);
+  tft_.print(F("RST: Werkseinstellungen"));
+
+  newMenuEntry(1, F("<-"),
+    [this]() noexcept {
+      gotoScreen(&TFT::screenSetup);
+    }
+  );
+//  newMenuEntry(2, F("XXX"),
+//    [this]() noexcept {
+//      gotoScreen(&TFT::screenSetupXXX);
+//    }
+//  );
+  newMenuEntry(3, F("AF"),
+    [this]() noexcept {
+      gotoScreen(&TFT::screenSetupAntifreeze);
+    }
+  );
+  newMenuEntry(4, F("PGM"),
+    [this]() noexcept {
+      gotoScreen(&TFT::screenSetupProgram);
+    }
+  );
+//  newMenuEntry(5, F("XXX"),
+//    [this]() noexcept {
+//      gotoScreen(&TFT::screenSetupXXX);
+//    }
+//  );
+  newMenuEntry(6, F("RST"),
+    [this]() noexcept {
+      gotoScreen(&TFT::screenSetupFactoryDefaults);
     }
   );
 }
@@ -538,9 +659,10 @@ void TFT::screenSetupFan() noexcept
     }
   );
 
-  setupInputFieldColumns(280, 130);
+  setupInputFieldColumns(260, 90);
   setupInputFieldRow(1, 1, F("Normdrehzahl Zuluft:"));
   setupInputFieldRow(2, 1, F("Normdrehzahl Abluft:"));
+  setupInputFieldColumnWidth(3, 130);
   setupInputFieldRow(3, 1, F("Luefterregelung:"));
 
   tft_.setFont(&FreeSans9pt7b);
@@ -771,13 +893,12 @@ void TFT::screenSetupIPAddress() noexcept
     }
   );
 
-  setupInputFieldColumns(195, 45);
-  input_w_[0] = 70;
-  input_x_[0] = 170;
+  setupInputFieldColumns(180, 45);
   setupInputFieldRow(1, 4, F("IP Adresse:"), F("."));
   setupInputFieldRow(2, 4, F("Netzmaske:"), F("."));
   setupInputFieldRow(3, 4, F("Gateway:"), F("."));
   setupInputFieldRow(4, 4, F("MQTT IP:"), F("."));
+  setupInputFieldColumnWidth(5, 80);
   setupInputFieldRow(5, 1, F("MQTT port:"));
   setupInputFieldRow(6, 4, F("NTP IP:"), F("."));
   {
@@ -964,11 +1085,12 @@ void TFT::screenSetupBypass() noexcept
     }
   );
 
-  setupInputFieldColumns(240, 170);
+  setupInputFieldColumns(240, 60);
   setupInputFieldRow(1, 1, F("Temp. Abluft Min:"));
   setupInputFieldRow(2, 1, F("Temp. Aussen Min:"));
   setupInputFieldRow(3, 1, F("Temp. Hysteresis:"));
   setupInputFieldRow(4, 1, F("Hysteresis Minuten:"));
+  setupInputFieldColumnWidth(5, 170);
   setupInputFieldRow(5, 1, F("Modus:"));
 
   newMenuEntry(1, F("<-"),
@@ -1078,6 +1200,7 @@ void TFT::screenSetupTime() noexcept
   );
 
   setupInputFieldColumns(180, 160);
+  setupInputFieldColumnWidth(1, 100);
   setupInputFieldRow(1, 1, F("Zeitzone:"));
   setupInputFieldRow(2, 1, F("DST Flag:"));
 
@@ -1129,6 +1252,280 @@ void TFT::screenSetupTime() noexcept
 
 // ****************************************** ENDE: Screen ZEITEINSTELLUNGEN ******************************
 
+// ****************************************** Screen: FROSTSCHUTZEINSTELLUNGEN ******************************
+void TFT::screenSetupAntifreeze() noexcept
+{
+  printScreenTitle(F("Einstellungen Frostschutz"));
+
+  // copy antifreeze settings
+  auto& ref = screen_state_.antifreeze_;
+  auto& config = control_->getPersistentConfig();
+  ref.temp_hysteresis_ = config.getAntifreezeHystereseTemp();
+  ref.heating_app_ = config.getHeatingAppCombUse();
+
+  setupInputAction(
+    [this]() {
+      // draw action
+      auto& ref = screen_state_.antifreeze_;
+      char buf[8];
+      switch (input_current_row_) {
+        default:
+        case 1:
+        {
+          snprintf_P(buf, sizeof(buf), PSTR("%d"), ref.temp_hysteresis_);
+          break;
+        }
+        case 2:
+          strcpy_P(buf, ref.heating_app_ ? PSTR("JA") : PSTR("NEIN"));
+          break;
+      }
+      drawCurrentInputField(buf, false);
+    }
+  );
+
+  setupInputFieldColumns(300, 80);
+  setupInputFieldRow(1, 1, F("Temperaturhysterese:"));
+  setupInputFieldRow(2, 1, F("Kaminbetrieb:"));
+
+  newMenuEntry(1, F("<-"),
+    [this]() noexcept {
+      gotoScreen(&TFT::screenSetup2);
+    }
+  );
+  newMenuEntry(3, F("+"),
+    [this]() noexcept {
+      auto& ref = screen_state_.antifreeze_;
+      if (input_current_row_ == 1) {
+        // change tz
+        if (ref.temp_hysteresis_ < 10)
+          ref.temp_hysteresis_ += 1;
+      } else {
+         ref.heating_app_ = !ref.heating_app_;
+      }
+      input_field_draw_.invoke();
+    }
+  );
+  newMenuEntry(4, F("-"),
+    [this]() noexcept {
+      auto& ref = screen_state_.antifreeze_;
+      if (input_current_row_ == 1) {
+        // change tz
+        if (ref.temp_hysteresis_ > 1)
+          ref.temp_hysteresis_ -= 1;
+      } else {
+         ref.heating_app_ = !ref.heating_app_;
+      }
+      input_field_draw_.invoke();
+    }
+  );
+  newMenuEntry(6, F("OK"),
+    [this]() noexcept {
+      resetInput();
+      auto& config = control_->getPersistentConfig();
+      auto& ref = screen_state_.antifreeze_;
+      config.setAntifreezeHystereseTemp(ref.temp_hysteresis_);
+      config.setHeatingAppCombUse(ref.heating_app_);
+      control_->getAntifreeze().begin(Serial);  // restart antifreeze
+      doPopup(
+        F("Einstellungen gespeichert"),
+        F("Einstellungen der Frostschutzschaltung\nwurden in EEPROM gespeichert\nund sind sofort aktiv."),
+        &TFT::screenSetup2);
+    }
+  );
+}
+
+// ****************************************** ENDE: Screen FROSTSCHUTZEINSTELLUNGEN ******************************
+
+// ****************************************** Screen: PROGRAMMEINSTELLUNGEN ******************************
+void TFT::screenSetupProgram() noexcept
+{
+  printScreenTitle(F("Einstellungen Programmmanager"));
+
+  if (last_screen_ != &TFT::screenSetupProgram) {
+    // only reset when entering the screen, not when already in and after popup
+    auto& ref = screen_state_.program_;
+    ref.index_ = -1;
+    memset(&ref.pgm_, 0, sizeof(ref.pgm_));
+  }
+
+  setupInputAction(
+    [this]() {
+      // draw action
+      auto& ref = screen_state_.program_;
+      if (ref.index_ < 0) {
+        // empty screen
+        drawCurrentInputField("", false);
+        return;
+      }
+      char buf[16];
+      switch (input_current_row_) {
+        default:
+        case 1:
+          snprintf_P(buf, sizeof(buf), PSTR("%02d"), ref.index_);
+          break;
+        case 2:
+          snprintf_P(buf, sizeof(buf), PSTR("%d"), ref.pgm_.fan_mode_);
+          break;
+        case 3:
+          snprintf_P(buf, sizeof(buf), PSTR("%02d"), (input_current_col_ == 0) ? ref.pgm_.start_h_ : ref.pgm_.start_m_);
+          break;
+        case 4:
+          snprintf_P(buf, sizeof(buf), PSTR("%02d"), (input_current_col_ == 0) ? ref.pgm_.end_h_ : ref.pgm_.end_m_);
+          break;
+        case 5:
+          format_flags(buf, F("MoDiMiDoFrSaSo"), 7, 2, ref.pgm_.weekdays_);
+          break;
+        case 6:
+          format_flags(buf, F("01234567"), 8, 1, ref.pgm_.enabled_progsets_);
+          break;
+      }
+      drawCurrentInputField(buf, false);
+    }
+  );
+
+  setupInputFieldColumns(210, 40);
+  setupInputFieldRow(1, 1, F("Programm:"));
+  setupInputFieldRow(2, 1, F("Stufe:"));
+  setupInputFieldRow(3, 2, F("Startzeit:"), F(":"));
+  setupInputFieldRow(4, 2, F("Endzeit:"), F(":"));
+  setupInputFieldColumnWidth(5, 200);
+  setupInputFieldRow(5, 1, F("Wochentage:"));
+  setupInputFieldColumnWidth(6, 120);
+  setupInputFieldRow(6, 1, F("Programmsaetze:"));
+
+  newMenuEntry(1, F("<-"),
+    [this]() noexcept {
+      screenSetupProgramUpdate(0);
+    }
+  );
+  newMenuEntry(3, F("+"),
+    [this]() noexcept {
+      screenSetupProgramUpdate(1);
+    }
+  );
+  newMenuEntry(4, F("-"),
+    [this]() noexcept {
+      screenSetupProgramUpdate(-1);
+    }
+  );
+  newMenuEntry(5, F("OK"),
+    [this]() noexcept {
+      // store changes
+      resetInput();
+      auto& config = control_->getPersistentConfig();
+      auto& ref = screen_state_.program_;
+      if (ref.index_ >= 0) {
+        config.setProgram(uint8_t(ref.index_), ref.pgm_);
+        doPopup(
+          F("Einstellungen gespeichert"),
+          F("Neue Programmeinstellungen\nwurden in EEPROM gespeichert\nund sind sofort aktiv."),
+          &TFT::screenSetupProgram);
+      } else {
+        doPopup(
+          F("Keine Programmnummer"),
+          F("Bitte zuerst Programmnummer waehlen."),
+          &TFT::screenSetupProgram);
+      }
+    }
+  );
+  newMenuEntry(6, F("RST"),
+    [this]() noexcept {
+      // reload program, cancel changes
+      resetInput();
+      auto& config = control_->getPersistentConfig();
+      auto& ref = screen_state_.program_;
+      if (ref.index_ >= 0) {
+        ref.pgm_ = config.getProgram(uint8_t(ref.index_));
+        doPopup(
+          F("Einstellungen zurueckgesetzt"),
+          F("Die Programmeinstellungen\nwurden zurueckgesetzt."),
+          &TFT::screenSetupProgram);
+      }
+    }
+  );
+}
+
+void TFT::screenSetupProgramUpdate(int8_t delta) noexcept
+{
+  auto& ref = screen_state_.program_;
+  auto& config = control_->getPersistentConfig();
+  if (input_current_row_ == 1 || delta == 0) {
+    // index change, check whether program data changed
+    if (ref.index_ >= 0 && ref.pgm_ != config.getProgram(uint8_t(ref.index_))) {
+      // program changed, but not saved
+      doPopup(
+        F("Einstellungen nicht gespeichert"),
+        F("Die geaenderte Programmeinstellungen\nbitte zuerst speichern mit OK oder\nzuruecksetzen mit RST."),
+        &TFT::screenSetupProgram);
+      return;
+    }
+    // data unchanged
+    if (delta == 0) {
+      // special case for "<-" button
+      gotoScreen(&TFT::screenSetup2);
+      return;
+    }
+    ref.index_ += delta;
+    if (ref.index_ < 0) {
+      ref.index_ = -1;
+      memset(&ref.pgm_, 0, sizeof(ref.pgm_));
+    } else {
+      if (ref.index_ >= KWLConfig::MaxProgramCount)
+        ref.index_ = KWLConfig::MaxProgramCount - 1;
+      ref.pgm_ = config.getProgram(uint8_t(ref.index_));
+    }
+    // refresh all program display fields, since new program was loaded in pgm_
+    updateAllInputFields();
+    input_field_draw_.invoke();
+    return;
+  }
+  if (ref.index_ == -1) {
+    doPopup(
+      F("Keine Programmnummer"),
+      F("Bitte zuerst Programmnummer waehlen."),
+      &TFT::screenSetupProgram);
+    return; // no update, if no program selected
+  }
+
+  // normal field update
+  const bool is_min = (input_current_col_ == 1);
+  const uint8_t max = is_min ? 59 : 23;
+  switch (input_current_row_) {
+    case 2:
+      update_minmax<uint8_t>(ref.pgm_.fan_mode_, delta, 0, KWLConfig::StandardModeCnt - 1);
+      break;
+    case 3:
+      update_minmax<uint8_t>(is_min ? ref.pgm_.start_m_ : ref.pgm_.start_h_, delta, 0, max);
+      break;
+    case 4:
+      update_minmax<uint8_t>(is_min ? ref.pgm_.end_m_ : ref.pgm_.end_h_, delta, 0, max);
+      break;
+    case 5:
+      // popup with weekday flags
+      doPopup(F("Einstellungen Wochentage"), F("Wochentage, an denen\ndas Programm laufen soll:"), &TFT::screenSetupProgram);
+      // setup popup flags
+      ref.popup_flags_.flags_ = &ref.pgm_.weekdays_;
+      ref.popup_flags_.flag_name_length_ = 2;
+      ref.popup_flags_.flag_count_ = 7;
+      ref.popup_flags_.flag_names_ = F("MoDiMiDoFrSaSo");
+      setPopupFlags(ref.popup_flags_);
+      return;
+    case 6:
+      // popup with set flags
+      doPopup(F("Einstellungen Programmsatz"), F("Programmsaetze, in denen\ndas Programm laufen soll:"), &TFT::screenSetupProgram);
+      // setup popup flags
+      ref.popup_flags_.flags_ = &ref.pgm_.enabled_progsets_;
+      ref.popup_flags_.flag_name_length_ = 1;
+      ref.popup_flags_.flag_count_ = 8;
+      ref.popup_flags_.flag_names_ = F("01234567");
+      setPopupFlags(ref.popup_flags_);
+      return;
+  }
+  input_field_draw_.invoke();
+}
+
+// ****************************************** ENDE: Screen PROGRAMMEINSTELLUNGEN ******************************
+
 // ****************************************** Screen: WERKSEINSTELLUNGEN **********************************
 void TFT::screenSetupFactoryDefaults() noexcept
 {
@@ -1146,7 +1543,7 @@ void TFT::screenSetupFactoryDefaults() noexcept
 
   newMenuEntry(1, F("<-"),
     [this]() noexcept {
-      gotoScreen(&TFT::screenSetup);
+      gotoScreen(&TFT::screenSetup2);
     }
   );
   newMenuEntry(6, F("OK"),
@@ -1175,12 +1572,11 @@ void TFT::displayUpdate() noexcept
   // Das Update wird alle 1000mS durchlaufen
   // Bevor Werte ausgegeben werden, wird auf Änderungen der Werte überprüft, nur geänderte Werte werden auf das Display geschrieben
 
-  if (millis_startup_delay_start_ != 0)
-    return; // still in startup delay
+  if (millis_startup_delay_start_ != 0 || screen_off_)
+    return; // still in startup delay or display timeout
 
-  if (KWLConfig::serialDebugDisplay == 1) {
-    Serial.println(F("displayUpdate"));
-  }
+  if (KWLConfig::serialDebugDisplay == 1)
+    Serial.println(F("TFT: displayUpdate"));
 
   // Netzwerkverbindung anzeigen
   tft_.setCursor(20, 0 + BASELINE_MIDDLE);
@@ -1264,9 +1660,8 @@ void TFT::displayUpdate() noexcept
 // menu_btn_action_[0..5] gesetzt, wenn Menüeintrag sichtbar und aktiviert ist, ansonsten nicht gesetzt
 
 void TFT::gotoScreen(void (TFT::*screenSetup)()) noexcept {
-  if (KWLConfig::serialDebugDisplay == 1) {
-    Serial.println(F("SetupBackgroundScreen"));
-  }
+  if (KWLConfig::serialDebugDisplay == 1)
+    Serial.println(F("TFT: go to new screen"));
 
   // Screen Hintergrund
   tft_.fillRect(0, 30, 480 - TOUCH_BTN_WIDTH, 270, colBackColor);
@@ -1285,6 +1680,7 @@ void TFT::gotoScreen(void (TFT::*screenSetup)()) noexcept {
   input_field_leave_ = nullptr;
   input_field_draw_ = nullptr;
   (this->*screenSetup)();
+  last_screen_ = screenSetup;
   displayUpdate();
 }
 
@@ -1374,14 +1770,18 @@ void TFT::setupInputAction(Func1&& start_input, Func2&& stop_input, Func3&& draw
   setupInputFieldColumns();
 }
 
-void TFT::setupInputFieldColumns(int left, int width, int spacing) noexcept
+void TFT::setupInputFieldColumns(unsigned left, unsigned width, unsigned spacing) noexcept
 {
-  for (uint8_t i = 0; i < INPUT_COL_COUNT; ++i)
-  {
-    input_x_[i] = left;
-    input_w_[i] = width;
-    left += (width + spacing);
-  }
+  input_x_ = int(left);
+  input_spacing_ = int(spacing);
+  for (uint8_t i = 0; i < INPUT_ROW_COUNT; ++i)
+    input_w_[i] = int(width);
+}
+
+void TFT::setupInputFieldColumnWidth(uint8_t row, unsigned width) noexcept
+{
+  if (row > 0 && row <= INPUT_ROW_COUNT)
+    input_w_[row - 1] = int(width);
 }
 
 void TFT::setupInputFieldRow(uint8_t row, uint8_t count, const __FlashStringHelper* header, const __FlashStringHelper* separator) noexcept
@@ -1397,9 +1797,11 @@ void TFT::setupInputFieldRow(uint8_t row, uint8_t count, const __FlashStringHelp
     int16_t  x1, y1;
     uint16_t tw, th;
     tft_.getTextBounds(separator, 0, 0, &x1, &y1, &tw, &th);
+    auto x = input_x_;
+    auto w = input_w_[row];
     for (uint8_t i = 0; i < count - 1; ++i) {
-      int x1 = input_x_[i] + input_w_[i];
-      int x2 = input_x_[i + 1];
+      int x1 = x + w;
+      int x2 = x1 + input_spacing_;
       tft_.setCursor((x1 + x2 - int(tw)) / 2, y + 15 + BASELINE_SMALL);
       tft_.print(separator);
     }
@@ -1426,6 +1828,29 @@ void TFT::setupInputFieldRow(uint8_t row, uint8_t count, const char* header, con
   tft_.print(header);
 }
 
+void TFT::updateAllInputFields() noexcept
+{
+  auto cur_row = input_current_row_;
+  auto cur_col = input_current_col_;
+  auto cur_high = input_highlight_;
+  input_highlight_ = false;
+
+  for (uint8_t i = 1; i <= INPUT_ROW_COUNT; ++i) {
+    input_current_row_ = i;
+    auto row_mask = input_active_[i - 1];
+    for (uint8_t j = 0, mask = 1; j < 8; ++j, mask <<= 1) {
+      if ((row_mask & mask) != 0 && ((j != cur_col) || (i != cur_row))) {
+        input_current_col_ = j;
+        input_field_draw_.invoke();
+      }
+    }
+  }
+
+  input_current_row_ = cur_row;
+  input_current_col_ = cur_col;
+  input_highlight_ = cur_high;
+}
+
 void TFT::resetInput() noexcept
 {
   if (input_current_row_) {
@@ -1444,18 +1869,18 @@ void TFT::drawInputField(uint8_t row, uint8_t col, const char* text, bool highli
     return; // error
   --row;
 
-  int x = input_x_[col];
-  int w = input_w_[col];
+  int w = input_w_[row];
+  int x = input_x_ + col * (w + input_spacing_);
   int y = INPUT_FIELD_YOFFSET + 1 + INPUT_FIELD_HEIGHT * row;
 
   if (highlight) {
     // Highlighted field
-    tft_.fillRect(x, y, w, INPUT_FIELD_HEIGHT, colMenuBackColor);
+    tft_.fillRect(x, y, w, INPUT_FIELD_HEIGHT - 2, colMenuBackColor);
     tft_.setTextColor(colMenuFontColor, colMenuBackColor);
   } else {
     // Normal field
-    tft_.fillRect(x, y, w, INPUT_FIELD_HEIGHT, colBackColor);
-    tft_.setTextColor(colFontColor, colBackColor);
+    tft_.fillRect(x, y, w, INPUT_FIELD_HEIGHT - 2, colInputBackColor);
+    tft_.setTextColor(colInputFontColor, colInputBackColor);
   }
 
   int16_t  x1, y1;
@@ -1465,7 +1890,7 @@ void TFT::drawInputField(uint8_t row, uint8_t col, const char* text, bool highli
   tft_.getTextBounds(const_cast<char*>(text), 0, 0, &x1, &y1, &tw, &th);
   if (right_align)
     x += w - 10 - int(tw);
-  tft_.setCursor(x + 5, y + 15 + BASELINE_SMALL);
+  tft_.setCursor(x + 5, y + 12 + BASELINE_SMALL);
   tft_.print(text);
 }
 
@@ -1476,6 +1901,22 @@ void TFT::drawInputField(uint8_t row, uint8_t col, const __FlashStringHelper* te
   drawInputField(row, col, buffer, highlight, right_align);
 }
 
+TSPoint TFT::getPoint() noexcept
+{
+  TSPoint tp = ts_.getPoint();   //tp.x, tp.y are ADC values
+
+  // if sharing pins, you'll need to fix the directions of the touchscreen pins
+  pinMode(KWLConfig::XM, OUTPUT);
+  pinMode(KWLConfig::YP, OUTPUT);
+  pinMode(KWLConfig::XP, OUTPUT);
+  pinMode(KWLConfig::YM, OUTPUT);
+  //    digitalWrite(XM, HIGH);
+  //    digitalWrite(YP, HIGH);
+  // we have some minimum pressure we consider 'valid'
+  // pressure of 0 means no pressing!
+  return tp;
+}
+
 void TFT::loopTouch() noexcept
 {
   // First check timeouts
@@ -1483,43 +1924,66 @@ void TFT::loopTouch() noexcept
     if (millis() - millis_startup_delay_start_ >= STARTUP_DELAY) {
       // Bootmeldungen löschen, Hintergrund für Standardanzeige starten
       millis_startup_delay_start_ = 0;
+      if (KWLConfig::serialDebugDisplay)
+        Serial.println(F("TFT: Initial delay done, going to main screen"));
       gotoScreen(&TFT::screenMain);
     }
     return;
   }
 
+  if (screen_off_) {
+    // touching the screen will turn it on
+    auto time = millis();
+    if (time - millis_last_touch_ < SCREEN_OFF_MIN_TIME)
+      return; // cannot turn on earlier
+    millis_last_touch_ = time - SCREEN_OFF_MIN_TIME;  // to react immediately afterwards
+
+    TSPoint tp = getPoint();
+    if (tp.z > MINPRESSURE && tp.z < MAXPRESSURE) {
+      if (KWLConfig::serialDebugDisplay)
+        Serial.println(F("TFT: Wake up from sleep on touch"));
+      screenOn();
+    }
+    return;
+  }
   if (popup_action_) {
     // there is a popup active
-    if (millis() - millis_popup_show_time_ > POPUP_TIMEOUT_MS) {
+    auto timeout = POPUP_TIMEOUT_MS;
+    if (popup_flags_)
+      timeout = POPUP_FLAG_TIMEOUT_MS;
+    if (millis() - millis_popup_show_time_ > timeout) {
       // popup timed out, do the default action
+      if (KWLConfig::serialDebugDisplay)
+        Serial.println(F("TFT: Popup timed out"));
       auto tmp = popup_action_;
       popup_action_ = nullptr;
       gotoScreen(tmp);
       return;
     }
-  } else if (millis() - millis_last_touch_ > INTERVAL_TOUCH_TIMEOUT) {
-    // go to main screen if too long not touched
-    millis_last_touch_ = millis();
-    if (display_update_ != &TFT::displayUpdateMain)
-      gotoScreen(&TFT::screenMain);
+  } else {
+    auto time = millis() - millis_last_touch_;
+    if (time > INTERVAL_DISPLAY_TIMEOUT) {
+      // turn off display
+      if (KWLConfig::serialDebugDisplay)
+        Serial.println(F("TFT: Display timed out, turning it off"));
+      screenOff();
+      return;
+    } else if (time > INTERVAL_TOUCH_TIMEOUT) {
+      // go to main screen if too long not touched
+      if (display_update_ != &TFT::displayUpdateMain) {
+        if (KWLConfig::serialDebugDisplay)
+          Serial.println(F("TFT: Touch timeout, go to main screen"));
+        gotoScreen(&TFT::screenMain);
+      }
+    }
   }
 
   setMenuBorder(0);
 
   if (millis() - millis_last_menu_btn_press_ > INTERVAL_MENU_BTN) {
 
+    TSPoint tp = getPoint();   //tp.x, tp.y are ADC values
     int16_t xpos, ypos;  //screen coordinates
-    TSPoint tp = ts_.getPoint();   //tp.x, tp.y are ADC values
-
-    // if sharing pins, you'll need to fix the directions of the touchscreen pins
-    pinMode(KWLConfig::XM, OUTPUT);
-    pinMode(KWLConfig::YP, OUTPUT);
-    pinMode(KWLConfig::XP, OUTPUT);
-    pinMode(KWLConfig::YM, OUTPUT);
-    //    digitalWrite(XM, HIGH);
-    //    digitalWrite(YP, HIGH);
-    // we have some minimum pressure we consider 'valid'
-    // pressure of 0 means no pressing!
 
     if (tp.z > MINPRESSURE && tp.z < MAXPRESSURE) {
       // is controller wired for Landscape ? or are we oriented in Landscape?
@@ -1546,12 +2010,32 @@ void TFT::loopTouch() noexcept
       }
 
       if (popup_action_) {
-        // popup is showing, check for OK button only
-        if (xpos >= POPUP_BTN_X - 10 && xpos < POPUP_BTN_X + POPUP_BTN_W + 10 &&
-            ypos >= POPUP_BTN_Y - 10 && ypos < POPUP_BTN_Y + POPUP_BTN_H + 10) {
+        // popup is showing
+        if (popup_flags_ &&
+            ypos >= POPUP_FLAG_Y - 10 && ypos <= POPUP_FLAG_Y + POPUP_FLAG_H + 5 &&
+            xpos >= POPUP_FLAG_X - POPUP_FLAG_SPACING / 2) {
+          // check for editable flags
+          uint8_t idx = uint8_t((xpos - POPUP_FLAG_X + POPUP_FLAG_SPACING / 2) / (POPUP_FLAG_W + POPUP_FLAG_SPACING));
+          if (idx < popup_flags_->flag_count_) {
+            // flip the flag
+            if (KWLConfig::serialDebugDisplay) {
+              Serial.print(F("TFT: Popup flag touched: "));
+              Serial.println(idx);
+            }
+            *popup_flags_->flags_ ^= uint8_t(1U << idx);
+            drawPopupFlag(idx);
+            millis_last_menu_btn_press_ = millis();
+            return;
+          }
+        }
+        // check for OK button
+        if (xpos >= POPUP_BTN_X - 20 && xpos < POPUP_BTN_X + POPUP_BTN_W + 20 &&
+            ypos >= POPUP_BTN_Y - 20 && ypos < POPUP_BTN_Y + POPUP_BTN_H + 20) {
           // popup button hit, call action
           auto tmp = popup_action_;
           popup_action_ = nullptr;
+          if (KWLConfig::serialDebugDisplay)
+            Serial.println(F("TFT: Popup OK button touched"));
           gotoScreen(tmp);
         }
       } else if (xpos >= 480 - TOUCH_BTN_WIDTH) {
@@ -1564,7 +2048,7 @@ void TFT::loopTouch() noexcept
           millis_last_menu_btn_press_ = millis();
 
           if (KWLConfig::serialDebugDisplay) {
-            Serial.print(F("DoMenuAction, button="));
+            Serial.print(F("TFT: menu button touched: "));
             Serial.println(menuBtnPressed);
           }
 
@@ -1577,12 +2061,21 @@ void TFT::loopTouch() noexcept
         if (unsigned(button) < INPUT_ROW_COUNT && input_active_[button]) {
           // potentially touched an input field
           auto mask = input_active_[button];
-          for (uint8_t i = 0, bit = 1; i < INPUT_COL_COUNT; ++i, bit <<= 1) {
+          auto w = input_w_[button] + input_spacing_;
+          auto x = input_x_ + input_spacing_ / 2;
+          // TODO kill loop, we can simply divide to get the position
+          for (uint8_t i = 0, bit = 1; i < INPUT_COL_COUNT; ++i, bit <<= 1, x += w) {
             if ((mask & bit) == 0)
               continue;
             // active input field
-            if (xpos >= input_x_[i] && xpos < input_x_[i] + input_w_[i]) {
+            if (xpos >= x && xpos < x + w) {
               // hit active input
+              if (KWLConfig::serialDebugDisplay) {
+                Serial.print(F("TFT: Input field touched: row="));
+                Serial.print(button + 1);
+                Serial.print(F(", col="));
+                Serial.println(i);
+              }
               if (input_current_row_ != button + 1 || input_current_col_ != i) {
                 if (input_current_row_) {
                   input_highlight_ = false;
@@ -1600,6 +2093,7 @@ void TFT::loopTouch() noexcept
               break;
             }
           }
+          millis_last_menu_btn_press_ = millis();
         }
       }
     }
@@ -1614,6 +2108,7 @@ void TFT::printHeader() noexcept {
   static constexpr auto VERSION = KWLConfig::VersionString;
   tft_.fillRect(0, 0, 480, 20, colBackColor);
   tft_.setCursor(140, 0 + BASELINE_SMALL);
+  tft_.setFont(&FreeSans9pt7b);
   tft_.setTextColor(colFontColor);
   tft_.setTextSize(1);
   tft_.print(F(" * Pluggit AP 300 * "));
@@ -1641,16 +2136,16 @@ void TFT::doPopup(const __FlashStringHelper* title, const __FlashStringHelper* m
   // print title
   tft_.getTextBounds(title, 0, 0, &tx, &ty, &tw, &th);
   tft_.setTextColor(colMenuFontColor, colMenuBackColor);
-  tft_.setCursor(POPUP_X + (POPUP_W - tw) / 2, POPUP_Y + (POPUP_TITLE_H - th) / 2 + BASELINE_MIDDLE);
+  tft_.setCursor(POPUP_X + (POPUP_W - tw) / 2, int16_t(POPUP_Y + (POPUP_TITLE_H - th) / 2) + BASELINE_MIDDLE);
   tft_.print(title);
 
   // print button text
   tft_.getTextBounds(F("OK"), 0, 0, &tx, &ty, &tw, &th);
   tft_.setTextColor(colMenuFontColor, colMenuBackColor);
-  tft_.setCursor(POPUP_BTN_X + (POPUP_BTN_W - tw) / 2, POPUP_BTN_Y + (POPUP_BTN_H - th) / 2 + BASELINE_MIDDLE);
+  tft_.setCursor(POPUP_BTN_X + (POPUP_BTN_W - tw) / 2, int16_t(POPUP_BTN_Y + (POPUP_BTN_H - th) / 2) + BASELINE_MIDDLE);
   tft_.print(F("OK"));
 
-  // print message itself
+  // print message, if any
   tft_.setFont(&FreeSans9pt7b);
   tft_.getTextBounds(F("OK"), 0, 0, &tx, &ty, &tw, &th);
   tft_.setTextColor(colFontColor, colBackColor);
@@ -1665,10 +2160,46 @@ void TFT::doPopup(const __FlashStringHelper* title, const __FlashStringHelper* m
       tft_.print(c);
     }
   }
-  //tft_.print(message);
 
   popup_action_ = screenSetup;
+  popup_flags_ = nullptr;
   millis_popup_show_time_ = millis();
+}
+
+void TFT::setPopupFlags(PopupFlagsState& flags) noexcept
+{
+  popup_flags_ = &flags;
+  for (uint8_t i = 0; i < flags.flag_count_; ++i)
+    drawPopupFlag(i);
+}
+
+void TFT::drawPopupFlag(uint8_t idx) noexcept
+{
+  auto x = POPUP_FLAG_X + idx * (POPUP_FLAG_W + POPUP_FLAG_SPACING);
+  auto y = POPUP_FLAG_Y;
+  bool highlight = (*popup_flags_->flags_ & (1U << idx)) != 0;
+
+  char flag_name[8];
+  const char* src = reinterpret_cast<const char*>(popup_flags_->flag_names_) + idx * popup_flags_->flag_name_length_;
+  char* dst = flag_name;
+  for (uint8_t i = 0; i < popup_flags_->flag_name_length_; ++i)
+    *dst++ = char(pgm_read_byte(src++));
+  *dst = 0;
+  tft_.setFont(&FreeSans9pt7b);
+  int16_t tx, ty;
+  uint16_t tw, th;
+  tft_.getTextBounds(flag_name, 0, 0, &tx, &ty, &tw, &th);
+
+  if (highlight) {
+    tft_.fillRect(x, y, POPUP_FLAG_W, POPUP_FLAG_H, colMenuBackColor);
+    tft_.setTextColor(colMenuFontColor, colMenuBackColor);
+  } else {
+    tft_.fillRect(x + 1, y + 1, POPUP_FLAG_W - 2, POPUP_FLAG_H - 2, colBackColor);
+    tft_.drawRect(x, y, POPUP_FLAG_W, POPUP_FLAG_H, colMenuBackColor);
+    tft_.setTextColor(colFontColor, colBackColor);
+  }
+  tft_.setCursor(x + int16_t(POPUP_FLAG_W - tw) / 2, (y + int16_t(POPUP_FLAG_H - th) / 2) + BASELINE_MIDDLE);
+  tft_.print(flag_name);
 }
 
 void TFT::doRestartImpl() noexcept
@@ -1717,6 +2248,31 @@ void TFT::setupDisplay() noexcept
 
   printHeader();
   tft_.setCursor(0, 30 + BASELINE_SMALL);
+}
+
+void TFT::screenOff()
+{
+  if (KWLConfig::serialDebugDisplay)
+    Serial.println(F("TFT: Display off"));
+  screen_off_ = true;
+  // since we can't really turn off the display, make it at least black
+  tft_.fillScreen(TFT_BLACK);
+  millis_last_touch_ = millis();
+}
+
+void TFT::screenOn()
+{
+  screen_off_ = false;
+  if (KWLConfig::serialDebugDisplay)
+    Serial.println(F("TFT: Display on"));
+  // now redraw everything
+  printHeader();
+  last_error_bits_ = last_info_bits_ = 0;
+  last_lan_ok_ = true;
+  last_mqtt_ok_ = true;
+  gotoScreen(&TFT::screenMain);
+  millis_last_touch_ = millis();
+  millis_last_menu_btn_press_ = 0;
 }
 
 void TFT::setupTouch()

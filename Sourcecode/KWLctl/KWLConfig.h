@@ -198,7 +198,7 @@ public:
 
 
   // ******************************************* W E R K S E I N S T E L L U N G E N ********************************************************************
-  // Definition der Werkeinstellungen.
+  // Definition der Werkseinstellungen.
   // Es können bis zu 10 Lüftungsstufen definiert werden. Im Allgemeinen sollten 4 oder 6 Stufen ausreichen.
   // Die Originalsteuerung stellt 3 Stufen zur Verfügung
   //
