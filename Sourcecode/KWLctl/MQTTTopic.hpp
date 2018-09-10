@@ -74,6 +74,7 @@ namespace MQTTTopic
   constexpr auto SubtopicProgramData        = makeFlashStringLiteral("data");
   constexpr auto SubtopicProgramEnable      = makeFlashStringLiteral("enable");
   constexpr auto SubtopicProgramGet         = makeFlashStringLiteral("get");
+  constexpr auto CmdScreenshot              = makeFlashStringLiteral("screenshot");
 
   constexpr auto Heartbeat                  = makeFlashStringLiteral("heartbeat");
   constexpr auto StatusBits                 = makeFlashStringLiteral("statusbits");

@@ -47,6 +47,9 @@ public:
   /// Get printer for printing boot messages on TFT. Only valid after call to setup().
   Print& getTFTPrinter() noexcept { return tft_; }
 
+  /// Get display handler. Only valid after call to setup().
+  MCUFRIEND_kbv& getTFT() noexcept { return tft_; }
+
   /// Start TFT component.
   void begin(Print& initTracer, KWLControl& control) noexcept;
 

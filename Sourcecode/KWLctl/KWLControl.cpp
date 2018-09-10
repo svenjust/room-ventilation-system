@@ -21,6 +21,7 @@
 #include "KWLControl.hpp"
 #include "KWLConfig.h"
 #include "MQTTTopic.hpp"
+#include "ScreenshotService.h"
 
 #include <EthernetUdp.h>
 #include <Wire.h>
@@ -252,8 +253,7 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
           *p++ = char(index / 10) + '0';
           *p++ = (index % 10) + '0';
           *p = 0;
-          static constexpr auto FORMAT = makeFlashStringLiteral("ip %06lx sp %03lx ntp %lu ms %lu");
-          snprintf(buffer, sizeof(buffer), FORMAT.load(),
+          snprintf_P(buffer, sizeof(buffer), PSTR("ip %06lx sp %03lx ntp %lu ms %lu"),
                    c.crash_addr * 2, c.crash_sp, c.real_time, c.millis);
           if (MessageHandler::publish(topic, buffer))
             ++index;
@@ -274,6 +274,49 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
       Serial.println(F("CRASH: Deadlock provoked"));
       Serial.flush();
       while (true) {}
+    }
+  } else if (topic == MQTTTopic::CmdScreenshot) {
+    IPAddress ip;
+    uint16_t port = 4444;
+    {
+      auto ip_str = s.c_str();
+      auto port_str = strchr(ip_str, ':');
+      if (port_str) {
+        *const_cast<char*>(port_str++) = 0;
+        port = uint16_t(atoi(port_str));
+      }
+      if (!ip.fromString(ip_str)) {
+        Serial.println(F("Screenshot: invalid IP address"));
+        return true;
+      }
+      if (!port) {
+        Serial.println(F("Screenshot: invalid port specified"));
+        return true;
+      }
+    }
+    if (KWLConfig::serialDebug) {
+      Serial.print(F("Screenshot: trigger for "));
+      Serial.print(ip);
+      Serial.print(':');
+      Serial.print(port);
+      Serial.print(F(" received at "));
+      Serial.println(millis());
+    }
+    EthernetClient client;
+    if (!client.connect(ip, port)) {
+      if (KWLConfig::serialDebug) {
+        Serial.println(F("Screenshot: cannot connect"));
+        return true;
+      }
+    }
+    if (KWLConfig::serialDebug)
+      Serial.println(F("Screenshot: connected"));
+    ScreenshotService::make(tft_.getTFT(), client);
+    client.flush();
+    client.stop();
+    if (KWLConfig::serialDebug) {
+      Serial.print(F("Screenshot: done at "));
+      Serial.println(millis());
     }
   } else {
     return false;
@@ -328,8 +371,7 @@ void KWLControl::mqttSendStatus()
 {
   error_publish_.publish([this]() {
     char buffer[11];
-    static constexpr auto FORMAT = makeFlashStringLiteral("0x%04X%04X");
-    snprintf(buffer, sizeof(buffer), FORMAT.load(), errors_, info_);
+    snprintf_P(buffer, sizeof(buffer), PSTR("0x%04X%04X"), errors_, info_);
     return publish(MQTTTopic::StatusBits, buffer, KWLConfig::RetainStatusBits);
   });
 }
