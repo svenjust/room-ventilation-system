@@ -181,16 +181,6 @@ public:
   static constexpr uint8_t YM = 7;   // can be a digital pin
   static constexpr uint8_t XP = 6;   // can be a digital pin
 
-  /// Value of touch X input at the left side.
-  static constexpr uint16_t TouchLeft = 949;
-  /// Value of touch X input at the right side.
-  static constexpr uint16_t TouchRight  = 201;
-  /// Value of touch Y input at the top side.
-  static constexpr uint16_t TouchTop = 943;
-  /// Value of touch Y input at the bottom side.
-  static constexpr uint16_t TouchBottom = 205;
-  /// Swap X and Y inputs.
-  static constexpr uint8_t TouchSwapXY = 0;
   /// Orientation of the TFT display.
   static constexpr uint8_t TFTOrientation = 3;    //PORTRAIT
 
@@ -506,6 +496,29 @@ struct CrashData
   uint32_t crash_sp:14;   ///< SP at the time of crash.
 };
 
+/// Touchscreen calibration settings.
+struct TouchCalibration
+{
+  /// Signal mapping to left/right boundaries.
+  uint16_t left_, right_;
+  /// Signal mapping to top/bottom boundaries.
+  uint16_t top_, bottom_;
+  /// X/Y swap flag.
+  bool swap_xy_;
+  /// Calibration flag.
+  bool calibrated_;
+
+  /// Reset contained calibration.
+  void reset(int16_t w = 1000, int16_t h = 1000) {
+    left_ = 0;
+    right_ = uint16_t(w);
+    top_ = 0;
+    bottom_ = uint16_t(h);
+    swap_xy_ = false;
+    calibrated_ = false;
+  }
+};
+
 /*!
  * @brief Persistent configuration of the ventilation system.
  */
@@ -544,7 +557,10 @@ private:
   uint16_t mqtt_port_;                // 268
   IPAddressLiteral ntp_;              // 270
   MACAddressLiteral mac_;             // 274
-  // 280
+
+  // Touchscreen configuration
+  TouchCalibration touch_;            // 280..290
+  // 290
 
   /// Initialize with defaults, if version doesn't fit.
   void loadDefaults();
@@ -611,6 +627,12 @@ public:
 
   /// Set prefix for all MQTT messages.
   bool setMQTTPrefix(const char* prefix);
+
+  /// Get TFT calibration.
+  const TouchCalibration& getTouchCalibration() const { return touch_; }
+
+  /// Set new TFT calibration.
+  void setTouchCalibration(const TouchCalibration& touch) { touch_ = touch; update(touch_); }
 };
 
 #undef KWL_GETSET

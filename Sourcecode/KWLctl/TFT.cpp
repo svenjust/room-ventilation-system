@@ -59,6 +59,8 @@ static constexpr unsigned long POPUP_FLAG_TIMEOUT_MS = 30000;
 static constexpr unsigned long SCREEN_OFF_MIN_TIME = 2000;
 /// Delay for 4s to be able to read display messages.
 static constexpr unsigned long STARTUP_DELAY = 4000;
+/// If touching main screen for 8s continously, call TFT calibration.
+static constexpr unsigned long CALIBRATION_TIME = 8000;
 
 // Pseudo-constants initialized at TFT initialization based on font data:
 
@@ -70,14 +72,6 @@ static int BASELINE_MIDDLE     = 0;
 static int BASELINE_BIGNUMBER  = 0;
 /// Height for number field.
 static int HEIGHT_NUMBER_FIELD = 0;
-
-// Pseudo-constants initialized at TFT initialization time based on orientation:
-
-static uint16_t TS_LEFT = KWLConfig::TouchLeft;
-static uint16_t TS_RT   = KWLConfig::TouchRight;
-static uint16_t TS_TOP  = KWLConfig::TouchTop;
-static uint16_t TS_BOT  = KWLConfig::TouchBottom;
-
 
 // FARBEN:
 
@@ -112,7 +106,7 @@ Screen layout:
    - vertical:
       - 0+30 pixels header, static
       - 30+20 pixels page header, dynamic (also used by menu)
-      - 50+270 pixels page contents, dynamic
+      - 50+250 pixels page contents, dynamic
       - 300+20 pixels status string
    - horizontal:
       - 0+420 drawing area, dynamic
@@ -296,9 +290,6 @@ protected:
   /// React to touch input release, passes time in milliseconds.
   virtual void release(unsigned long time) noexcept {}
 
-  /// Get time in milliseconds at which the last touch input was detected.
-  unsigned long getLastTouchTime() const noexcept { return owner_.millis_last_touch_; }
-
   /// Controller to use.
   TFT& owner_;
   /// Reference to low-level TFT object.
@@ -473,7 +464,10 @@ public:
    *
    * @param owner owner of the screen.
    */
-  explicit Screen(TFT& owner) noexcept : Control(owner) {}
+  explicit Screen(TFT& owner) noexcept :
+    Control(owner),
+    last_input_time_(millis())
+  {}
 
   template<typename Control>
   Control& getControls() noexcept {
@@ -511,8 +505,17 @@ protected:
   /// Update the screen periodically, if needed.
   virtual void update() noexcept;
 
+  virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept override
+  {
+    last_input_time_ = time;
+    return false;
+  }
+
   /// Check whether the screen contains changed values.
   virtual bool is_changed() noexcept { return false; }
+
+private:
+  unsigned long last_input_time_;
 };
 
 /// Screensaver with black screen.
@@ -812,6 +815,9 @@ protected:
     // always eat touch input on popup
     return true;
   }
+
+  /// Check whether a popup is being displayed.
+  bool isPopupPending() const noexcept { return popup_action_ != nullptr; }
 
 private:
   /// Implementation for doPopup()
@@ -1437,8 +1443,6 @@ protected:
 
   virtual void update() noexcept override
   {
-    ScreenWithSmallTitle::update();
-
     char buffer[8];
     auto& fan = getControl().getFanControl();
     auto& temp = getControl().getTempSensors();
@@ -1530,6 +1534,28 @@ protected:
       tft_.setCursor(240 - int(w), 270 + BASELINE_MIDDLE);
       tft_.print(buffer);
     }
+    ScreenWithSmallTitle::update();
+  }
+
+  virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept
+  {
+    if (ScreenWithSmallTitle::touch(x, y, time))
+      return true;
+    if (!touch_start_) {
+      touch_start_ = time;
+    } else if (time - touch_start_ > CALIBRATION_TIME) {
+      if (KWLConfig::serialDebugDisplay)
+        Serial.println(F("TFT: Very long touch detected, starting touch calibration"));
+      gotoScreen<TFT::ScreenCalibration>();
+      return true;
+    }
+    return false;
+  }
+
+  virtual void release(unsigned long time) noexcept
+  {
+    ScreenWithSmallTitle::release(time);
+    touch_start_ = 0;
   }
 
 private:
@@ -1540,6 +1566,7 @@ private:
   int kwl_mode_ = -1;
   int efficiency_ = -1;
   double t1_ = -1000, t2_ = -1000, t3_ = -1000, t4_ = -1000;
+  unsigned long touch_start_ = 0;
 };
 
 /// Screen displaying additional sensors.
@@ -2860,27 +2887,240 @@ protected:
   }
 };
 
+/// Calibration screen.
+class TFT::ScreenCalibration : public ScreenWithHeader
+{
+public:
+  /// Screen ID.
+  static constexpr uint32_t ID = 1U << 15;
+  /// Screen IDs of this screen and all base classes.
+  static constexpr uint32_t IDS = ID | Screen::IDS;
+
+  using control_type = ControlMenuButtons;
+
+  explicit ScreenCalibration(TFT& owner) noexcept :
+    ScreenWithHeader(owner)
+  {
+  }
+
+protected:
+  virtual void init() noexcept override
+  {
+    // NOTE: intentionally not initializing header here
+    Screen::init();
+
+    tft_.fillScreen(TFT_BLACK);
+    tft_.setTextColor(colFontColor, colBackColor);
+
+    tft_.setFont(&FreeSans12pt7b);
+    tft_.setCursor(50, 80 + BASELINE_MIDDLE);
+    tft_.print(F("Bildschirmkalibrierung"));
+
+
+    tft_.setFont(&FreeSans9pt7b);
+    tft_.setCursor(50, 125 + BASELINE_SMALL);
+    tft_.print(F("Beruehren Sie fuer eine Sekunde den jeweiligen"));
+    tft_.setCursor(50, 150 + BASELINE_SMALL);
+    tft_.print(F("Punkt auf dem Bildschirm."));
+    tft_.setCursor(50, 200 + BASELINE_SMALL);
+    tft_.print(F("Antippen um zu starten..."));
+
+    // set mapping to indentity in TFT
+    const_cast<TouchCalibration*>(owner_.cal_)->reset(tft_.width(), tft_.height());
+  }
+
+private:
+  /// Marker radius.
+  static constexpr int16_t MARKER_RADIUS = 16;
+  /// Offset of the center of the marker from the TFT boundary.
+  static constexpr int16_t MARKER_OFFSET = 20;
+
+  /// Draw a marker.
+  void drawMarker(int16_t x, int16_t y, uint16_t color) noexcept
+  {
+    tft_.fillRect(x - MARKER_RADIUS, y - 1, 2 * MARKER_RADIUS + 1, 3, color);
+    tft_.fillRect(x - 1, y - MARKER_RADIUS, 3, 2 * MARKER_RADIUS + 1, color);
+  }
+
+  virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept override
+  {
+    if (stage_ >= 4)
+      return ScreenWithHeader::touch(x, y, time);
+
+    if (!touch_start_time_)
+      touch_start_time_ = time;
+
+    auto delta = time - touch_start_time_;
+    if (KWLConfig::serialDebugDisplay) {
+      Serial.print(F("TFT: calibration touch delta ms="));
+      Serial.print(delta);
+      Serial.print(F(" in stage "));
+      Serial.println(stage_);
+    }
+    if (stage_ < 0) {
+      if (delta > 200) {
+        tft_.fillRect(50, 200, 400, 20, TFT_BLACK);
+        tft_.setCursor(50, 200 + BASELINE_SMALL);
+        stage_ = 0;
+        startMeasurement();
+      }
+      return true;
+    }
+    if (delta > 1000) {
+      // completed, record measurement
+      x_[stage_] = x;
+      y_[stage_] = y;
+      tft_.print(F(".OK "));
+      if (++stage_ == 4)
+        finish();
+      else
+        startMeasurement();
+    }
+    return true;
+  }
+
+  virtual void release(unsigned long time) noexcept override
+  {
+    if (KWLConfig::serialDebugDisplay)
+      Serial.println(F("TFT: calibration touch release"));
+    touch_start_time_ = 0;
+  }
+
+  virtual void update() noexcept override
+  {
+    // NOTE: intentionally overridden as empty, unless popup is already showing
+    if (isPopupPending())
+      ScreenWithHeader::update();
+ }
+
+  /// Start the next measurement.
+  void startMeasurement() noexcept
+  {
+    if (KWLConfig::serialDebugDisplay) {
+      Serial.print(F("TFT: starting calibration measurement "));
+      Serial.println(stage_);
+    }
+    int16_t x;
+    int16_t y;
+    if (stage_ & 2) {
+      y = tft_.height() - MARKER_OFFSET;
+      tft_.print('B');
+    } else {
+      y = MARKER_OFFSET;
+      tft_.print('T');
+    }
+    if (stage_ & 1) {
+      x = tft_.width() - MARKER_OFFSET;
+      tft_.print('R');
+    } else {
+      x = MARKER_OFFSET;
+      tft_.print('L');
+    }
+    tft_.print('.');
+    if (m_x_)
+      drawMarker(m_x_, m_y_, TFT_BLACK);
+    drawMarker(x, y, colFontColor);
+    m_x_ = x;
+    m_y_ = y;
+    touch_start_time_ = 0;
+  }
+
+  /// Finish measurement.
+  void finish() noexcept
+  {
+    drawMarker(m_x_, m_y_, TFT_BLACK);
+    if (KWLConfig::serialDebugDisplay) {
+      Serial.print(F("TFT: Calibration points:"));
+      for (uint8_t i = 0; i < 4; ++i) {
+        Serial.print(' ');
+        Serial.print('(');
+        Serial.print(x_[i]);
+        Serial.print(',');
+        Serial.print(y_[i]);
+        Serial.print(')');
+      }
+      Serial.println();
+    }
+
+    TouchCalibration cal;
+
+    // detect X/Y swap
+    if (abs(x_[0] - x_[2]) > abs(x_[0] - x_[1])) {
+      // swapped X/Y
+      if (KWLConfig::serialDebugDisplay)
+        Serial.println(F("TFT: detected swapped X/Y axis"));
+      cal.swap_xy_ = true;
+      for (uint8_t i = 0; i < 4; ++i) {
+        auto t = x_[i];
+        x_[i] = y_[i];
+        y_[i] = t;
+      }
+    } else {
+      cal.swap_xy_ = false;
+    }
+
+    auto xl = (x_[0] + x_[2]) / 2;
+    auto xr = (x_[1] + x_[3]) / 2;
+    float diff_per_pixel = float(xr - xl) / (tft_.width() - 2 * MARKER_OFFSET);
+    cal.left_ = uint16_t(xl - int16_t(diff_per_pixel * MARKER_OFFSET));
+    cal.right_ = uint16_t(cal.left_ + (diff_per_pixel * tft_.width()));
+
+    auto yt = (y_[0] + y_[1]) / 2;
+    auto yb = (y_[2] + y_[3]) / 2;
+    diff_per_pixel = float(yb - yt) / (tft_.height() - 2 * MARKER_OFFSET);
+    cal.top_ = uint16_t(yt - int16_t(diff_per_pixel * MARKER_OFFSET));
+    cal.bottom_ = uint16_t(cal.top_ + (diff_per_pixel * tft_.height()));
+    cal.calibrated_ = true;
+
+    if (KWLConfig::serialDebugDisplay) {
+      Serial.print(F("TFT: New calibration: X: ("));
+      Serial.print(cal.left_);
+      Serial.print(',');
+      Serial.print(cal.right_);
+      Serial.print(F("), Y: ("));
+      Serial.print(cal.top_);
+      Serial.print(',');
+      Serial.print(cal.bottom_);
+      Serial.println(')');
+    }
+
+    // store in EEPROM
+    getControl().getPersistentConfig().setTouchCalibration(cal);
+    doPopup<ScreenMain>(
+          F("Kalibrierung abgeschlossen"),
+          F("Neue Kalibrierung wurde in EEPROM\ngespeichert."));
+  }
+
+  /// Current calibration stage.
+  int8_t stage_ = -1;
+  /// Collected X values.
+  int16_t x_[4];
+  /// Collected Y values.
+  int16_t y_[4];
+  /// Last shown marker position.
+  int16_t m_x_ = 0, m_y_ = 0;
+  /// Start time at which we started detecting touch.
+  unsigned long touch_start_time_ = 0;
+};
+
 void TFT::Screen::update() noexcept
 {
-  auto last_touch = getLastTouchTime();
-  if (last_touch) {
-    auto time = millis() - last_touch;
-    if (time > INTERVAL_DISPLAY_TIMEOUT) {
-      // turn off display
-      if (KWLConfig::serialDebugDisplay)
-        Serial.println(F("TFT: Display timed out, turning it off"));
-      gotoScreen<ScreenSaver>();
-      return;
-    } else if (time > INTERVAL_TOUCH_TIMEOUT) {
-      // go to main screen if too long not touched
-      if (owner_.current_screen_id_ != ScreenMain::ID) {
-        // current screen is not the main screen
-        if (KWLConfig::serialDebugDisplay) {
-          Serial.print(F("TFT: Touch timeout, go to main screen, previous="));
-          Serial.println(owner_.current_screen_id_);
-        }
-        gotoScreen<ScreenMain>();
+  auto time = millis() - last_input_time_;
+  if (time > INTERVAL_DISPLAY_TIMEOUT) {
+    // turn off display
+    if (KWLConfig::serialDebugDisplay)
+      Serial.println(F("TFT: Display timed out, turning it off"));
+    gotoScreen<ScreenSaver>();
+    return;
+  } else if (time > INTERVAL_TOUCH_TIMEOUT) {
+    // go to main screen if too long not touched
+    if (owner_.current_screen_id_ != ScreenMain::ID) {
+      // current screen is not the main screen
+      if (KWLConfig::serialDebugDisplay) {
+        Serial.print(F("TFT: Touch timeout, go to main screen, previous="));
+        Serial.println(owner_.current_screen_id_);
       }
+      gotoScreen<ScreenMain>();
     }
   }
 }
@@ -2899,6 +3139,25 @@ TFT::TFT() noexcept :
 void TFT::begin(Print& /*initTracer*/, KWLControl& control) noexcept {
   control_ = &control;
   current_screen_->update();  // update initial screen to get timestamp for wait start
+
+  cal_ = &control.getPersistentConfig().getTouchCalibration();
+  if (cal_->calibrated_) {
+    if (KWLConfig::serialDebugDisplay) {
+      Serial.print(F("TFT: Calibration is: LEFT = "));
+      Serial.print(cal_->left_);
+      Serial.print(F(" RT = "));
+      Serial.print(cal_->right_);
+      Serial.print(F(" TOP = "));
+      Serial.print(cal_->top_);
+      Serial.print(F(" BOT = "));
+      Serial.println(cal_->bottom_);
+      Serial.print(F("TFT: Wiring is: "));
+      Serial.println(cal_->swap_xy_ ? F("SwapXY") : F("PORTRAIT"));
+    }
+  } else {
+    if (KWLConfig::serialDebugDisplay)
+      Serial.println(F("TFT: No calibration yet"));
+  }
 }
 
 template<typename ScreenClass>
@@ -2924,6 +3183,8 @@ inline void TFT::gotoScreen() noexcept
 
   last_screen_ids_ = ScreenClass::IDS;
   current_screen_id_ = ScreenClass::ID;
+
+  touch_in_progress_ = false;
 
   displayUpdate();
 }
@@ -2966,18 +3227,34 @@ void TFT::loopTouch() noexcept
 
   if (tp.z > MINPRESSURE && tp.z < MAXPRESSURE) {
     // pressed
-    int16_t xpos, ypos;  //screen coordinates
+
+    if (!cal_->calibrated_ && current_screen_id_ != ScreenCalibration::ID) {
+      // cannot yet pass touch further, we need touch calibration
+      if (KWLConfig::serialDebugDisplay)
+        Serial.println(F("TFT: touch on uncalibrated display"));
+
+      if (!touch_in_progress_) {
+        touch_in_progress_ = true;
+        millis_last_touch_ = time;
+      }
+      if (time - millis_last_touch_ > 200 && current_screen_id_ == ScreenMain::ID) {
+        gotoScreen<ScreenCalibration>();
+      }
+      if (current_screen_id_ == ScreenSaver::ID)
+        current_screen_->touch(0, 0, time);
+      return;
+    }
 
     // is controller wired for Landscape ? or are we oriented in Landscape?
-    if (KWLConfig::TouchSwapXY != (KWLConfig::TFTOrientation & 1))
+    if (cal_->swap_xy_)
       SWAP(tp.x, tp.y);
 
     // scale from 0->1023 to tft_.width  i.e. left = 0, rt = width
     // most mcufriend have touch (with icons) that extends below the TFT
     // screens without icons need to reserve a space for "erase"
     // scale the ADC values from ts.getPoint() to screen values e.g. 0-239
-    xpos = int(map(tp.x, TS_LEFT, TS_RT, 0, tft_.width()));
-    ypos = int(map(tp.y, TS_TOP, TS_BOT, 0, tft_.height()));
+    int16_t xpos = int(map(tp.x, cal_->left_, cal_->right_, 0, tft_.width()));
+    int16_t ypos = int(map(tp.y, cal_->top_, cal_->bottom_, 0, tft_.height()));
 
     if (KWLConfig::serialDebugDisplay) {
       Serial.print(F("Touch (xpos/ypos, tp.x/tp.y): "));
@@ -3011,6 +3288,8 @@ void TFT::loopTouch() noexcept
       current_control_->release(time);
     if (current_screen_)
       current_screen_->release(time);
+    if (!cal_->calibrated_)
+      millis_last_touch_ = 0;
   }
 }
 
@@ -3058,35 +3337,17 @@ void TFT::setupTouch()
 {
   uint16_t tmp;
   auto identifier = tft_.readID();
-  switch (KWLConfig::TFTOrientation) {      // adjust for different aspects
-    case 0:   break;        //no change,  calibrated for PORTRAIT
-    case 1:   tmp = TS_LEFT; TS_LEFT = TS_BOT; TS_BOT = TS_RT; TS_RT = TS_TOP; TS_TOP = tmp;  break;
-    case 2:   SWAP(TS_LEFT, TS_RT);  SWAP(TS_TOP, TS_BOT); break;
-    case 3:   tmp = TS_LEFT; TS_LEFT = TS_TOP; TS_TOP = TS_RT; TS_RT = TS_BOT; TS_BOT = tmp;  break;
-  }
   ts_ = TouchScreen(KWLConfig::XP, KWLConfig::YP, KWLConfig::XM, KWLConfig::YM, 300);     //call the constructor AGAIN with new values.
 
   // Dump debug info:
 
-  Serial.print(F("Found "));
-  Serial.println(F(" LCD driver"));
-  Serial.print(F("ID = 0x"));
+  Serial.println(F("TFT: LCD driver ID = 0x"));
   Serial.println(identifier, HEX);
-  Serial.print(F("Screen is "));
+  Serial.print(F("TFT: Screen is "));
   Serial.print(tft_.width());
   Serial.print('x');
   Serial.println(tft_.height());
-  Serial.print(F("Calibration is: LEFT = "));
-  Serial.print(TS_LEFT);
-  Serial.print(F(" RT = "));
-  Serial.print(TS_RT);
-  Serial.print(F(" TOP = "));
-  Serial.print(TS_TOP);
-  Serial.print(F(" BOT = "));
-  Serial.println(TS_BOT);
-  Serial.print(F("Wiring is: "));
-  Serial.println(KWLConfig::TouchSwapXY ? F("SwapXY") : F("PORTRAIT"));
-  Serial.print(F("YP = "));
+  Serial.print(F("TFT: YP = "));
   Serial.print(KWLConfig::YP);
   Serial.print(F(" XM = "));
   Serial.println(KWLConfig::XM);

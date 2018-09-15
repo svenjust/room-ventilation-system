@@ -36,6 +36,7 @@ class TFT
 {
 public:
   class Screen;
+  class ScreenCalibration;
   class Control;
 
   TFT() noexcept;
@@ -58,6 +59,7 @@ public:
 
 private:
   friend class Screen;
+  friend class ScreenCalibration;
   friend class Control;
 
   /*!
@@ -117,6 +119,9 @@ private:
 
   /// Currently-displayed control.
   Control* current_control_ = nullptr;
+
+  /// Calibration for touch.
+  const TouchCalibration* cal_;
 
   /// Set if a touch is currently detected.
   bool touch_in_progress_ = false;

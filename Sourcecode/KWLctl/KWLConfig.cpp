@@ -32,7 +32,7 @@ IPAddressLiteral::operator IPAddress() const noexcept
 
 #define KWL_COPY(name) name##_ = KWLConfig::Standard##name
 
-static_assert(sizeof(KWLPersistentConfig) == 280, "Persistent config size changed, ensure compatibility or increment version");
+static_assert(sizeof(KWLPersistentConfig) == 290, "Persistent config size changed, ensure compatibility or increment version");
 static constexpr auto PrefixMQTT = KWLConfig::PrefixMQTT;
 
 void KWLPersistentConfig::loadDefaults()
@@ -71,6 +71,7 @@ void KWLPersistentConfig::loadDefaults()
   mqtt_port_ = KWLConfig::NetworkMQTTPort;
   ntp_ = KWLConfig::NetworkNTPServer;
   mac_ = KWLConfig::NetworkMACAddress;
+  touch_.reset();
 }
 
 void KWLPersistentConfig::migrate()
@@ -126,6 +127,12 @@ void KWLPersistentConfig::migrate()
     update(mqtt_port_);
     update(ntp_);
     update(mac_);
+  }
+  if ((touch_.left_ == 0 || touch_.left_ == 0xffff) &&
+      (touch_.right_ == 0 || touch_.right_ == 0xffff)) {
+    Serial.println(F("Config migration: clearing touchscreen calibration"));
+    touch_.reset();
+    update(touch_);
   }
 }
 
