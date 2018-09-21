@@ -31,7 +31,9 @@
 // Fonts einbinden
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSans12pt7b.h>
-#include <Fonts/FreeSansBold24pt7b.h>
+#include "number_font.h"  // only for 0-9
+
+#include "icons.h"
 
 
 /// Minimum acceptable pressure.
@@ -68,8 +70,8 @@ static constexpr unsigned long CALIBRATION_TIME = 8000;
 static int BASELINE_SMALL      = 0;
 /// Baseline for middle font.
 static int BASELINE_MIDDLE     = 0;
-/// Baseline for big font (fan mode).
-static int BASELINE_BIGNUMBER  = 0;
+/// Width of fan speed number.
+static int WIDTH_BIGNUMBER = 0;
 /// Height for number field.
 static int HEIGHT_NUMBER_FIELD = 0;
 
@@ -101,6 +103,10 @@ static int HEIGHT_NUMBER_FIELD = 0;
   #define colFontColor                0x000000 // 255 255 255
 */
 
+// Highlight fields of main screen with blue background to check proper usage
+#define DEBUG_HIGHLIGHT 0
+//#define DEBUG_HIGHLIGHT 12
+
 /*
 Screen layout:
    - vertical:
@@ -115,8 +121,6 @@ Screen layout:
 
 /// Menu button width.
 static constexpr byte TOUCH_BTN_WIDTH = 60;
-/// Menu button height.
-static constexpr byte TOUCH_BTN_HEIGHT = 45;
 /// First menu button Y offset.
 static constexpr byte TOUCH_BTN_YOFFSET = 30;
 
@@ -306,6 +310,19 @@ public:
     memset(menu_btn_action_, 0, sizeof(menu_btn_action_));
   }
 
+  void setMenuButtonCount(uint8_t count) noexcept
+  {
+    if (count > MAX_MENU_BTN_COUNT)
+      count = MAX_MENU_BTN_COUNT;
+    else if (count < 2)
+      count = 2;
+    btn_count_ = count;
+    btn_h_ = uint8_t(270 / btn_count_);
+    if (btn_h_ > TOUCH_BTN_WIDTH)
+      btn_h_ = TOUCH_BTN_WIDTH;
+    btn_y_ = uint8_t(TOUCH_BTN_YOFFSET + 270 - btn_h_ * btn_count_);
+  }
+
   /*!
    * @brief Set up new menu entry when creating a screen.
    *
@@ -316,12 +333,45 @@ public:
   template<typename Func>
   void newMenuEntry(byte mnuBtn, const __FlashStringHelper* mnuTxt, Func&& action) noexcept
   {
-    if (mnuBtn < 1 || mnuBtn > MENU_BTN_COUNT) {
+    if (mnuBtn < 1 || mnuBtn > btn_count_) {
       Serial.println(F("Trying to set menu action for invalid index"));
       return;
     }
     menu_btn_action_[mnuBtn - 1] = action;
-    drawMenuButton(mnuBtn, mnuTxt, colMenuBtnFrame);
+    drawMenuButton(mnuBtn, colMenuBtnFrame,
+      [this, mnuTxt](int16_t bx, int16_t by, int16_t bw, int16_t bh) {
+        int16_t  x1, y1;
+        uint16_t w, h;
+        tft_.setFont(&FreeSans12pt7b);
+        tft_.setTextColor(colMenuFontColor, colMenuBackColor);
+        tft_.getTextBounds(mnuTxt, 0, 0, &x1, &y1, &w, &h);
+        tft_.setCursor(bx + (bw - int16_t(w)) / 2 , by + (bh - int16_t(h)) / 2 + BASELINE_SMALL);
+        tft_.print(mnuTxt);
+      }
+    );
+  }
+
+  /*!
+   * @brief Set up new menu entry when creating a screen.
+   *
+   * @param mnuBtn button index.
+   * @param mnuIcon button icon.
+   * @param iconSize icon size in pixels (assumed square).
+   * @param action action to execute when button pressed.
+   */
+  template<typename Func>
+  void newMenuEntry(byte mnuBtn, const uint8_t mnuIcon[], uint8_t iconSize, Func&& action) noexcept
+  {
+    if (mnuBtn < 1 || mnuBtn > btn_count_) {
+      Serial.println(F("Trying to set menu action for invalid index"));
+      return;
+    }
+    menu_btn_action_[mnuBtn - 1] = action;
+    drawMenuButton(mnuBtn, colMenuBtnFrame,
+      [this, mnuIcon, iconSize](int16_t bx, int16_t by, int16_t bw, int16_t bh) {
+        tft_.drawBitmap(bx + (bw - iconSize) / 2, by + (bh - iconSize) / 2, mnuIcon, iconSize, iconSize, colMenuFontColor);
+      }
+    );
   }
 
 protected:
@@ -332,7 +382,7 @@ protected:
     Control::init();
 
     // Menu Hintergrund
-    tft_.fillRect(480 - TOUCH_BTN_WIDTH , TOUCH_BTN_YOFFSET, TOUCH_BTN_WIDTH , 320 - TOUCH_BTN_YOFFSET - 20, colMenuBackColor );
+    tft_.fillRect(480 - TOUCH_BTN_WIDTH, TOUCH_BTN_YOFFSET, TOUCH_BTN_WIDTH , 320 - TOUCH_BTN_YOFFSET - 20, colMenuBackColor );
     last_highlighed_menu_btn_ = 0;
   }
 
@@ -344,8 +394,8 @@ protected:
     if (time - millis_last_menu_btn_press_ > INTERVAL_MENU_BTN &&
         x >= 480 - TOUCH_BTN_WIDTH) {
       // we are in menu area and there was enough time between touches
-      uint8_t button = uint8_t((y - TOUCH_BTN_YOFFSET) / TOUCH_BTN_HEIGHT);
-      if (button < MENU_BTN_COUNT) {
+      uint8_t button = uint8_t((y - btn_y_) / btn_h_);
+      if (button < btn_count_) {
         // touched a menu button
         millis_last_menu_btn_press_ = time;
 
@@ -375,35 +425,27 @@ protected:
 
 private:
   /// Print a menu entry with given color for the frame.
-  void drawMenuButton(byte mnuBtn, const __FlashStringHelper* mnuTxt, uint16_t colFrame) noexcept
+  template<typename DrawFunc>
+  void drawMenuButton(byte mnuBtn, uint16_t colFrame, DrawFunc&& func) noexcept
   {
     // ohne mnuTxt wird vom Button nur der Rand gezeichnet
-    if (mnuBtn > 0 && mnuBtn <= MENU_BTN_COUNT && menu_btn_action_[mnuBtn - 1]) {
+    if (mnuBtn > 0 && mnuBtn <= btn_count_ && menu_btn_action_[mnuBtn - 1]) {
       int x, y;
       x = 480 - TOUCH_BTN_WIDTH + 1;
-      y = TOUCH_BTN_YOFFSET + 1 + TOUCH_BTN_HEIGHT * (mnuBtn - 1);
+      y = btn_y_ + 1 + int(btn_h_) * (mnuBtn - 1);
 
       if (colFrame == colMenuBtnFrameHL) {
         // Highlight Frame
-        tft_.drawRoundRect(x, y, TOUCH_BTN_WIDTH - 2, TOUCH_BTN_HEIGHT - 2, 5, colFrame);
-        tft_.drawRoundRect(x + 1, y + 1, TOUCH_BTN_WIDTH - 4, TOUCH_BTN_HEIGHT - 4, 5, colFrame);
-        tft_.drawRoundRect(x + 2, y + 2, TOUCH_BTN_WIDTH - 6, TOUCH_BTN_HEIGHT - 6, 5, colFrame);
+        tft_.drawRoundRect(x, y, TOUCH_BTN_WIDTH - 2, btn_h_ - 2, 5, colFrame);
+        tft_.drawRoundRect(x + 1, y + 1, TOUCH_BTN_WIDTH - 4, btn_h_ - 4, 5, colFrame);
+        tft_.drawRoundRect(x + 2, y + 2, TOUCH_BTN_WIDTH - 6, btn_h_ - 6, 5, colFrame);
       } else {
-        tft_.drawRoundRect(x, y, TOUCH_BTN_WIDTH - 2, TOUCH_BTN_HEIGHT - 2, 5, colFrame);
-        tft_.drawRoundRect(x + 1, y + 1, TOUCH_BTN_WIDTH - 4, TOUCH_BTN_HEIGHT - 4, 5, colMenuBackColor);
-        tft_.drawRoundRect(x + 2, y + 2, TOUCH_BTN_WIDTH - 6, TOUCH_BTN_HEIGHT - 6, 5, colMenuBackColor);
+        tft_.drawRoundRect(x, y, TOUCH_BTN_WIDTH - 2, btn_h_ - 2, 5, colFrame);
+        tft_.drawRoundRect(x + 1, y + 1, TOUCH_BTN_WIDTH - 4, btn_h_ - 4, 5, colMenuBackColor);
+        tft_.drawRoundRect(x + 2, y + 2, TOUCH_BTN_WIDTH - 6, btn_h_ - 6, 5, colMenuBackColor);
       }
 
-      char buffer[8];
-      int16_t  x1, y1;
-      uint16_t w, h;
-
-      strncpy_P(buffer, reinterpret_cast<const char*>(mnuTxt), 8);
-      tft_.setFont(&FreeSans12pt7b);
-      tft_.setTextColor(colMenuFontColor, colMenuBackColor);
-      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-      tft_.setCursor(480 - TOUCH_BTN_WIDTH / 2 - w / 2 , y + 15 + BASELINE_SMALL);
-      tft_.print(buffer);
+      func(x, y, TOUCH_BTN_WIDTH - 2, btn_h_ - 2);
     }
   }
 
@@ -414,26 +456,34 @@ private:
       return;
 
     if (last_highlighed_menu_btn_)
-      drawMenuButton(last_highlighed_menu_btn_, F(""), colMenuBtnFrame);
+      drawMenuButton(last_highlighed_menu_btn_, colMenuBtnFrame, empty_draw_func);
     if (menuBtn)
-      drawMenuButton(menuBtn, F(""), colMenuBtnFrameHL);
+      drawMenuButton(menuBtn, colMenuBtnFrameHL, empty_draw_func);
 
     last_highlighed_menu_btn_ = menuBtn;
   }
 
+  /// Draw function doing nothing.
+  static void empty_draw_func(int16_t bx, int16_t by, int16_t bw, int16_t bh) noexcept {}
+
   /// Maximum menu button count.
-  static constexpr uint8_t MENU_BTN_COUNT = 6;
+  static constexpr uint8_t MAX_MENU_BTN_COUNT = 6;
+  /// Menu button height.
+  uint8_t btn_h_ = 45;
+  /// First menu button Y offset.
+  uint8_t btn_y_ = TOUCH_BTN_YOFFSET;
+  /// Menu button count.
+  uint8_t btn_count_ = 6;
   /// Last menu button, which was highlighted.
   byte last_highlighed_menu_btn_ = 0;
   /// Time at which the menu button was last pressed.
   unsigned long millis_last_menu_btn_press_ = 0;
   /// Menu actions.
-  MenuAction menu_btn_action_[MENU_BTN_COUNT];
+  MenuAction menu_btn_action_[MAX_MENU_BTN_COUNT];
 };
 
 class ScreenMain;
 class ScreenSaver;
-class ScreenAdditionalSensors;
 class ScreenSetup;
 class ScreenSetup2;
 class ScreenSetupFan;
@@ -608,7 +658,8 @@ protected:
     if (!lastScreenWas<ScreenWithHeader>()) {
       // draw the header
       static constexpr auto VERSION = KWLConfig::VersionString;
-      tft_.fillRect(0, 0, 480, 30, colBackColor);
+      if (!lastScreenWas<ScreenSaver>())
+        tft_.fillRect(0, 0, 480, 30, colBackColor);
       tft_.setCursor(140, 0 + BASELINE_SMALL);
       tft_.setFont(&FreeSans9pt7b);
       tft_.setTextColor(colFontColor);
@@ -619,9 +670,10 @@ protected:
     }
 
     // clear screen contents
-    tft_.fillRect(0, 30, 480 - control_width_, 270, colBackColor);
+    if (!lastScreenWas<ScreenSaver>())
+      tft_.fillRect(0, 30, 480 - control_width_, 270, colBackColor);
 
-    if (!lastScreenWas<ScreenWithHeader>()) {
+    if (!lastScreenWas<ScreenWithHeader>() && !lastScreenWas<ScreenSaver>()) {
       // clear status line
       tft_.fillRect(0, 300, 480, 20, colBackColor);
     }
@@ -651,7 +703,7 @@ protected:
     auto& net = control.getNetworkClient();
 
     // Netzwerkverbindung anzeigen
-    tft_.setCursor(20, 0 + BASELINE_MIDDLE);
+    tft_.setCursor(20, 0 + BASELINE_SMALL);
     tft_.setFont(&FreeSans9pt7b);  // Kleiner Font
     if (!net.isLANOk()) {
       if (last_lan_ok_ != net.isLANOk() || force_display_update_) {
@@ -1367,6 +1419,13 @@ private:
 /// Main screen displaying current status.
 class ScreenMain final : public ScreenWithSmallTitle
 {
+  static constexpr int16_t XX = 18;
+  static constexpr int16_t XY = 145;
+  static constexpr int16_t HX = 280;
+  static constexpr int16_t HY = 60;
+  static constexpr int16_t SX = XX + 120 - 32;
+  static constexpr int16_t SY = XY + 45 + 23 - 32;
+
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 4;
@@ -1375,7 +1434,7 @@ public:
 
   using control_type = ControlMenuButtons;
 
-  explicit ScreenMain(TFT& owner) noexcept : ScreenWithSmallTitle(owner, F("Lueftungsstufe")) {}
+  explicit ScreenMain(TFT& owner) noexcept : ScreenWithSmallTitle(owner, F("Messwerte")) {}
 
 protected:
   virtual void init() noexcept override
@@ -1384,39 +1443,80 @@ protected:
 
     tft_.setFont(&FreeSans9pt7b);
 
-    tft_.setCursor(150, 140 + BASELINE_SMALL);
-    tft_.print(F("Temperatur"));
+    // fan symbol
+    tft_.drawBitmap(XX + 90 - 64, 64, icon_noun_Fan_1833383_64x64, 64, 64, colFontColor);
 
-    tft_.setCursor(270, 140 + BASELINE_SMALL);
-    tft_.print(F("Luefterdrehzahl"));
+    // heat exchange symbol
+    tft_.drawLine(XX + 120, XY + 5, XX + 80, XY + 45, colFontColor);
+    tft_.drawLine(XX + 119, XY + 5, XX + 79, XY + 45, colFontColor);
+    tft_.fillRect(XX + 79, XY + 45, 2, 45, colFontColor);
+    tft_.drawLine(XX + 80, XY + 90, XX + 120, XY + 130, colFontColor);
+    tft_.drawLine(XX + 79, XY + 90, XX + 119, XY + 130, colFontColor);
+    tft_.drawLine(XX + 120, XY + 130, XX + 160, XY + 90, colFontColor);
+    tft_.drawLine(XX + 121, XY + 130, XX + 161, XY + 90, colFontColor);
+    tft_.fillRect(XX + 160, XY + 45, 2, 45, colFontColor);
+    tft_.drawLine(XX + 160, XY + 45, XX + 120, XY + 5, colFontColor);
+    tft_.drawLine(XX + 161, XY + 45, XX + 121, XY + 5, colFontColor);
 
-    tft_.setCursor(18, 166 + BASELINE_MIDDLE);
-    tft_.print(F("Aussenluft"));
+    // arrow for outside air
+    tft_.fillRect(XX, XY - 1, 80, 2, colFontColor);
+    tft_.drawLine(XX + 80, XY, XX + 100, XY + 20, colFontColor);
+    tft_.drawLine(XX + 80, XY - 1, XX + 100, XY + 19, colFontColor);
+    tft_.fillRect(XX + 90, XY + 19, 10, 2, colFontColor);
+    tft_.fillRect(XX + 99, XY + 10, 2, 10, colFontColor);
 
-    tft_.setCursor(18, 192 + BASELINE_MIDDLE);
-    tft_.print(F("Zuluft"));
+    // arrow for exhaust air
+    tft_.fillRect(XX, XY + 134, 80, 2, colFontColor);
+    tft_.drawLine(XX + 80, XY + 135, XX + 100, XY + 115, colFontColor);
+    tft_.drawLine(XX + 80, XY + 134, XX + 100, XY + 114, colFontColor);
+    tft_.drawLine(XX, XY + 134, XX + 7, XY + 127, colFontColor);
+    tft_.drawLine(XX, XY + 135, XX + 7, XY + 128, colFontColor);
+    tft_.drawLine(XX, XY + 135, XX + 7, XY + 142, colFontColor);
+    tft_.drawLine(XX, XY + 134, XX + 7, XY + 141, colFontColor);
 
-    tft_.setCursor(18, 218 + BASELINE_MIDDLE);
-    tft_.print(F("Abluft"));
+    // arrow for inlet air
+    tft_.drawLine(XX + 140, XY + 115, XX + 160, XY + 135, colFontColor);
+    tft_.drawLine(XX + 140, XY + 114, XX + 160, XY + 134, colFontColor);
+    tft_.fillRect(XX + 160, XY + 134, 80, 2, colFontColor);
+    tft_.drawLine(XX + 240, XY + 135, XX + 233, XY + 128, colFontColor);
+    tft_.drawLine(XX + 240, XY + 134, XX + 233, XY + 127, colFontColor);
+    tft_.drawLine(XX + 240, XY + 135, XX + 233, XY + 142, colFontColor);
+    tft_.drawLine(XX + 240, XY + 134, XX + 233, XY + 141, colFontColor);
+    tft_.drawBitmap(XX + 223, XY + 11 + HEIGHT_NUMBER_FIELD + 4, icon_noun_Fan_1833383_18x18, 18, 18, colFontColor);
 
-    tft_.setCursor(18, 244 + BASELINE_MIDDLE);
-    tft_.print(F("Fortluft"));
+    // arrow for outlet air
+    tft_.fillRect(XX + 160, XY - 1, 81, 2, colFontColor);
+    tft_.drawLine(XX + 160, XY, XX + 140, XY + 20, colFontColor);
+    tft_.drawLine(XX + 160, XY - 1, XX + 140, XY + 19, colFontColor);
+    tft_.fillRect(XX + 140, XY + 19, 10, 2, colFontColor);
+    tft_.fillRect(XX + 140, XY + 10, 2, 10, colFontColor);
+    tft_.drawBitmap(XX + 223, XY + 126 - 2 * HEIGHT_NUMBER_FIELD - 4, icon_noun_Fan_1833383_18x18, 18, 18, colFontColor);
 
-    tft_.setCursor(18, 270 + BASELINE_MIDDLE);
-    tft_.print(F("Wirkungsgrad"));
+    // house schematics
+    tft_.fillRect(HX, HY + 59, 120, 2, colFontColor);
+    tft_.drawLine(HX, HY + 60, HX + 60, HY, colFontColor);
+    tft_.drawLine(HX, HY + 59, HX + 60, HY - 1, colFontColor);
+    tft_.drawLine(HX + 60, HY, HX + 120, HY + 60, colFontColor);
+    tft_.drawLine(HX + 60, HY - 1, HX + 120, HY + 59, colFontColor);
+    tft_.fillRect(HX, HY + 60, 2, 165, colFontColor);
+    tft_.fillRect(HX + 119, HY + 60, 2, 165, colFontColor);
+    tft_.fillRect(HX, HY + 225, 121, 2, colFontColor);
+
+    // VOC and CO2
+    tft_.drawBitmap(HX + 8, HY + 120 - 54, icon_noun_molecule_669068_20x20, 20, 20, colFontColor);
+    tft_.drawBitmap(HX + 8, HY + 120 - 30, icon_noun_Carbon_Dioxide_183795_20x20, 20, 20, colFontColor);
+
+    // DHT1 and DHT2
+    tft_.drawFastHLine(HX, HY + 115, 120, colFontColor);
+    tft_.drawBitmap(HX + 6, HY + 175 - 32, icon_noun_Water_927349_24x24, 24, 24, colFontColor);
+    tft_.drawBitmap(HX + 6, HY + 175 - 55, icon_noun_Temperature_1365226_24x24, 24, 24, colFontColor);
+    tft_.drawFastHLine(HX, HY + 170, 120, colFontColor);
+    tft_.drawBitmap(HX + 6, HY + 230 - 32, icon_noun_Water_927349_24x24, 24, 24, colFontColor);
+    tft_.drawBitmap(HX + 6, HY + 230 - 55, icon_noun_Temperature_1365226_24x24, 24, 24, colFontColor);
 
     auto& ctrl = getControls<control_type>();
-    ctrl.newMenuEntry(1, F("->"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetup>();
-      }
-    );
-    ctrl.newMenuEntry(2, F("<-"),
-      [this]() noexcept {
-        gotoScreen<ScreenAdditionalSensors>();
-      }
-    );
-    ctrl.newMenuEntry(3, F("+"),
+    ctrl.setMenuButtonCount(4);
+    ctrl.newMenuEntry(1, icon_noun_Fan_1833383_52x52, 52,
       [this]() noexcept {
         auto& fan = getControl().getFanControl();
         if (fan.getVentilationMode() < int(KWLConfig::StandardModeCnt - 1)) {
@@ -1425,7 +1525,7 @@ protected:
         }
       }
     );
-    ctrl.newMenuEntry(4, F("-"),
+    ctrl.newMenuEntry(2, icon_noun_Fan_1833383_24x24, 24,
       [this]() noexcept {
         auto& fan = getControl().getFanControl();
         if (fan.getVentilationMode() > 0) {
@@ -1434,7 +1534,12 @@ protected:
         }
       }
     );
-    ctrl.newMenuEntry(6, F("Off"),
+    ctrl.newMenuEntry(3, icon_noun_Settings_18125_56x56, 56,
+      [this]() noexcept {
+        gotoScreen<ScreenSetup>();
+      }
+    );
+    ctrl.newMenuEntry(4, icon_noun_off_1916005_40x40, 40,
       [this]() noexcept {
         gotoScreen<ScreenSaver>();
       }
@@ -1443,97 +1548,86 @@ protected:
 
   virtual void update() noexcept override
   {
-    char buffer[8];
     auto& fan = getControl().getFanControl();
     auto& temp = getControl().getTempSensors();
 
     auto currentMode = fan.getVentilationMode();
     if (kwl_mode_ != currentMode) {
       // KWL Mode
-      tft_.setFont(&FreeSansBold24pt7b);
       tft_.setTextColor(colFontColor, colBackColor);
-      tft_.setTextSize(2);
-
-      tft_.setCursor(200, 55 + 2 * BASELINE_BIGNUMBER);
-      snprintf(buffer, sizeof(buffer), "%-1i", currentMode);
-      tft_.fillRect(200, 55, 60, 80, colBackColor);
-      tft_.print(buffer);
+      tft_.setFont(&Nimbus_Sans_L_Bold_Condensed_84);
+      char buffer[2];
+      buffer[0] = char('0' + currentMode);
+      buffer[1] = 0;
+      int16_t tx, ty;
+      uint16_t tw, th;
+      tft_.getTextBounds(buffer, 0, 0, &tx, &ty, &tw, &th);
+      tft_.setCursor(XX + 120 - int16_t(tw) / 2, 64 + 62);
+      tft_.fillRect(XX + 90, 60, 60, 80, colBackColor);
+      tft_.print(buffer[0]);
       kwl_mode_ = currentMode;
-      tft_.setTextSize(1);
     }
+
+    // Now update various sensor readings
     tft_.setFont(&FreeSans12pt7b);
     tft_.setTextColor(colFontColor, colBackColor);
+    // T1-T4
+    update_temp(XX, XY + 10, t1_, temp.get_t1_outside(), false);
+    update_temp(XX + 161, XY + 125 - HEIGHT_NUMBER_FIELD, t2_, temp.get_t2_inlet(), true);
+    update_temp(XX + 161, XY + 10, t3_, temp.get_t3_outlet(), true);
+    update_temp(XX, XY + 125 - HEIGHT_NUMBER_FIELD, t4_, temp.get_t4_exhaust(), false);
+    // Fans (exhaust is on the top)
+    update_fan(XX + 162, XY + 10 + HEIGHT_NUMBER_FIELD + 4, tacho_fan2_, int(fan.getFan2().getSpeed()));
+    update_fan(XX + 162, XY + 125 - 2 * HEIGHT_NUMBER_FIELD - 4, tacho_fan1_, int(fan.getFan1().getSpeed()));
+    // Efficiency between intake and exhaust temperatures
+    update_eff(XX, XY + 10 + (115 - HEIGHT_NUMBER_FIELD) / 2, 78, temp.getEfficiency());
 
-    int16_t  x1, y1;
-    uint16_t w, h;
+    // Display symbol for antifreeze or bypass, if needed
+    int8_t new_sym = 0;
+    if (getControl().getAntifreeze().getState() != AntifreezeState::OFF) {
+      new_sym = 1;
+    } else if (getControl().getBypass().getState() == SummerBypassFlapState::OPEN) {
+      new_sym = 2;
+    }
+    if (symbol_ != new_sym) {
+      tft_.fillRect(SX + 2, SY, 61, 64, colBackColor + DEBUG_HIGHLIGHT);
+      tft_.fillRect(SX + 1, SY + 1, 1, 62, colBackColor + DEBUG_HIGHLIGHT);
+      tft_.fillRect(SX + 63, SY + 1, 1, 62, colBackColor + DEBUG_HIGHLIGHT);
+      #if DEBUG_HIGHLIGHT > 0
+      // Draw symbols unconditionally to check display
+      tft_.drawBitmap(SX, SY, icon_noun_Bypass_542021_64x64, 64, 64, 0xf800); // red
+      tft_.drawBitmap(SX, SY, icon_noun_low_temperature_641749_64x64, 64, 64, 0x07e0); // green
+      #endif
+      switch (new_sym) {
+        case 1:
+          tft_.drawBitmap(SX, SY, icon_noun_low_temperature_641749_64x64, 64, 64, colFontColor);
+          break;
+        case 2:
+          tft_.drawBitmap(SX, SY, icon_noun_Bypass_542021_64x64, 64, 64, colFontColor);
+          break;
+      }
+      symbol_ = new_sym;
+    }
 
-    // Speed Fan1
-    int speed1 = int(fan.getFan1().getSpeed());
-    if (abs(tacho_fan1_ - speed1) > 10) {
-      tacho_fan1_ = speed1;
-      tft_.fillRect(280, 192, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-      snprintf(buffer, sizeof(buffer), "%5i", speed1);
-      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-      tft_.setCursor(340 - int(w), 192 + BASELINE_MIDDLE);
-      tft_.print(buffer);
-    }
-    // Speed Fan2
-    int speed2 = int(fan.getFan2().getSpeed());
-    if (abs(tacho_fan2_ - speed2) > 10) {
-      tacho_fan2_ = speed2;
-      snprintf(buffer, sizeof(buffer), "%5i", speed2);
-      // Debug einkommentieren
-      // tft_.fillRect(280, 218, 60, HEIGHT_NUMBER_FIELD, colWindowTitle);
-      tft_.fillRect(280, 218, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-      tft_.setCursor(340 - int(w), 218 + BASELINE_MIDDLE);
-      tft_.print(buffer);
-    }
-    // T1
-    if (abs(t1_ - temp.get_t1_outside()) > 0.5) {
-      t1_ = temp.get_t1_outside();
-      tft_.fillRect(160, 166, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-      dtostrf(t1_, 5, 1, buffer);
-      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-      tft_.setCursor(240 - int(w), 166 + BASELINE_MIDDLE);
-      tft_.print(buffer);
-    }
-    // T2
-    if (abs(t2_ - temp.get_t2_inlet()) > 0.5) {
-      t2_ = temp.get_t2_inlet();
-      tft_.fillRect(160, 192, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-      dtostrf(t2_, 5, 1, buffer);
-      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-      tft_.setCursor(240 - int(w), 192 + BASELINE_MIDDLE);
-      tft_.print(buffer);
-    }
-    // T3
-    if (abs(t3_ - temp.get_t3_outlet()) > 0.5) {
-      t3_ = temp.get_t3_outlet();
-      tft_.fillRect(160, 218, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-      dtostrf(t3_, 5, 1, buffer);
-      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-      tft_.setCursor(240 - int(w), 218 + BASELINE_MIDDLE);
-      tft_.print(buffer);
-    }
-    // T4
-    if (abs(t4_ - temp.get_t4_exhaust()) > 0.5) {
-      t4_ = temp.get_t4_exhaust();
-      tft_.fillRect(160, 244, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-      dtostrf(t4_, 5, 1, buffer);
-      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-      tft_.setCursor(240 - int(w), 244 + BASELINE_MIDDLE);
-      tft_.print(buffer);
-    }
-    // Wirkungsgrad
-    if (abs(efficiency_ - temp.getEfficiency()) > 1) {
-      efficiency_ = temp.getEfficiency();
-      tft_.fillRect(160, 270, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-      snprintf(buffer, sizeof(buffer), "%5d %%", efficiency_);
-      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-      tft_.setCursor(240 - int(w), 270 + BASELINE_MIDDLE);
-      tft_.print(buffer);
-    }
+    // additional sensors
+    auto& addt = getControl().getAdditionalSensors();
+    if (addt.hasDHT1())
+      update_dht(HX + 35, HY + 175 - 54, dht1t_, dht1h_, addt.getDHT1Temp(), addt.getDHT1Hum());
+    else
+      update_dht(HX + 35, HY + 175 - 54, dht1t_, dht1h_, -999, -99);
+    if (addt.hasDHT2())
+      update_dht(HX + 35, HY + 230 - 54, dht2t_, dht2h_, addt.getDHT2Temp(), addt.getDHT2Hum());
+    else
+      update_dht(HX + 35, HY + 230 - 54, dht2t_, dht2h_, -999, -99);
+    if (addt.hasVOC())
+      update_qual(HX + 35, HY + 120 - 54, voc_, addt.getVOC());
+    else
+      update_qual(HX + 35, HY + 120 - 54, voc_, -1);
+    if (addt.hasCO2())
+      update_qual(HX + 35, HY + 120 - 30, co2_, addt.getCO2());
+    else
+      update_qual(HX + 35, HY + 120 - 30, co2_, -1);
+
     ScreenWithSmallTitle::update();
   }
 
@@ -1559,148 +1653,134 @@ protected:
   }
 
 private:
+  /// Update temperature reading, if needed.
+  void update_temp(int x, int y, float& last, double cur, bool ralign) noexcept
+  {
+    auto f = float(cur);
+    auto delta = last - f;
+    if (delta >= 0.1F || delta <= -0.1F) {
+      last = f;
+      char buffer[10];
+      int16_t x1, y1;
+      uint16_t w, h;
+      uint16_t fill_color = colBackColor + DEBUG_HIGHLIGHT;
+      tft_.setTextColor(colFontColor);
+      if (cur > -126 && cur < 150) {
+        if (cur < -99.9)
+          cur = -99.9;
+        else if (cur > 99.9)
+          cur = 99.9;
+        dtostrf(cur, 3, 1, buffer);
+        strcat_P(buffer, PSTR("*C"));
+      } else if (&last == &dht1t_ || &last == &dht2t_) {
+        // for DHT not present, we just display n/a, not an error
+        strcpy_P(buffer, PSTR("n/a *C"));
+      } else {
+        // for missing value from T1-T4, we display error
+        tft_.setTextColor(colErrorFontColor);
+        fill_color = colErrorBackColor;
+        strcpy_P(buffer, PSTR("?? *C"));
+      }
+      tft_.fillRect(x, y, 80, HEIGHT_NUMBER_FIELD, fill_color);
+      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
+      tft_.setCursor(ralign ? (x + 77 - int(w)) : x, y + BASELINE_MIDDLE);
+      tft_.print(buffer);
+    }
+  }
+
+  /// Update fan reading, if needed.
+  void update_fan(int x, int y, int& last, int cur) noexcept
+  {
+    int delta = last - cur;
+    if (delta >= 10 || delta <= -10) {
+      last = cur;
+      char buffer[8];
+      int16_t x1, y1;
+      uint16_t w, h;
+      tft_.fillRect(x, y, 59, HEIGHT_NUMBER_FIELD, colBackColor + DEBUG_HIGHLIGHT);
+      snprintf(buffer, sizeof(buffer), "%i", cur);
+      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
+      tft_.setCursor(x + 55 - int(w), y + BASELINE_MIDDLE);
+      tft_.setTextColor(colFontColor);
+      tft_.print(buffer);
+    }
+  }
+
+  /// Update efficiency reading, if needed.
+  void update_eff(int x, int y, int tw, int cur) noexcept
+  {
+    auto delta = efficiency_ - cur;
+    if (delta > 1 || delta < -1) {
+      efficiency_ = cur;
+      char buffer[8];
+      int16_t x1, y1;
+      uint16_t w, h;
+      tft_.fillRect(x, y, tw, HEIGHT_NUMBER_FIELD, colBackColor + DEBUG_HIGHLIGHT);
+      if (cur >= 0 && cur <= 100)
+        snprintf(buffer, sizeof(buffer), "%d %%", cur);
+      else
+        strcpy_P(buffer, PSTR("?? %"));
+      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
+      tft_.setCursor(x, y + BASELINE_MIDDLE);
+      tft_.setTextColor(colFontColor);
+      tft_.print(buffer);
+    }
+  }
+
+  /// Update DHT sensor reading, if needed.
+  void update_dht(int x, int y, float& last_t, int& last_h, float cur_t, float cur_h)
+  {
+    update_temp(x, y, last_t, double(cur_t), false);
+    auto h = int(cur_h);
+    if (h != last_h) {
+      last_h = h;
+      char buffer[8];
+      int16_t x1, y1;
+      uint16_t tw, th;
+      tft_.fillRect(x, y + 24, 80, HEIGHT_NUMBER_FIELD, colBackColor + DEBUG_HIGHLIGHT);
+      if (h >= 0 && h <= 100)
+        snprintf_P(buffer, sizeof(buffer), PSTR("%d %%"), h);
+      else
+        strcpy_P(buffer, PSTR("n/a %"));
+      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &tw, &th);
+      tft_.setCursor(x, y + 24 + BASELINE_MIDDLE);
+      tft_.print(buffer);
+    }
+  }
+
+  /// Update air quality reading, if needed.
+  void update_qual(int x, int y, int& last, int cur) noexcept
+  {
+    if (cur > 9999)
+      cur = 9999;
+    auto delta = last - cur;
+    if (delta >= 10 || delta <= -10 || (cur == 9999 && delta != 0)) {
+      last = cur;
+      char buffer[8];
+      int16_t x1, y1;
+      uint16_t w, h;
+      tft_.fillRect(x, y, 80, HEIGHT_NUMBER_FIELD, colBackColor + DEBUG_HIGHLIGHT);
+      if (cur >= 0)
+        snprintf(buffer, sizeof(buffer), "%d/m", cur);
+      else
+        strcpy_P(buffer, PSTR("n/a"));
+      tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
+      tft_.setCursor(x, y + BASELINE_MIDDLE);
+      tft_.setTextColor(colFontColor);
+      tft_.print(buffer);
+    }
+  }
+
   // Last displayed values
   // Set to invalid values to force refresh on first display update
-  int tacho_fan1_ = -1;
-  int tacho_fan2_ = -1;
+  int tacho_fan1_ = -100;
+  int tacho_fan2_ = -100;
   int kwl_mode_ = -1;
-  int efficiency_ = -1;
-  double t1_ = -1000, t2_ = -1000, t3_ = -1000, t4_ = -1000;
+  int8_t symbol_ = -1;
+  int efficiency_ = -100;
+  float t1_ = -1000, t2_ = -1000, t3_ = -1000, t4_ = -1000, dht1t_ = -1000, dht2t_ = -1000;
+  int dht1h_ = -1000, dht2h_ = -1000, voc_ = -1000, co2_ = -1000;
   unsigned long touch_start_ = 0;
-};
-
-/// Screen displaying additional sensors.
-class ScreenAdditionalSensors : public ScreenWithSmallTitle
-{
-public:
-  /// Screen ID.
-  static constexpr uint32_t ID = 1 << 5;
-  /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithSmallTitle::IDS;
-
-  using control_type = ControlMenuButtons;
-
-  explicit ScreenAdditionalSensors(TFT& owner) noexcept : ScreenWithSmallTitle(owner, F("Weitere Sensorwerte")) {}
-
-protected:
-  virtual void init() noexcept override
-  {
-    ScreenWithSmallTitle::init();
-
-    auto& control = getControl();
-    auto& sensors = control.getAdditionalSensors();
-
-    tft_.setFont(&FreeSans12pt7b);
-
-    if (sensors.hasDHT1()) {
-      tft_.setCursor(18, 166 + BASELINE_MIDDLE);
-      tft_.print(F("DHT1"));
-    }
-
-    if (sensors.hasDHT2()) {
-      tft_.setCursor(18, 192 + BASELINE_MIDDLE);
-      tft_.print(F("DHT2"));
-    }
-
-    if (sensors.hasCO2()) {
-      tft_.setCursor(18, 218 + BASELINE_MIDDLE);
-      tft_.print(F("CO2"));
-    }
-    if (sensors.hasVOC()) {
-      tft_.setCursor(18, 244 + BASELINE_MIDDLE);
-      tft_.print(F("VOC"));
-    }
-
-    auto& ctrl = getControls<control_type>();
-    ctrl.newMenuEntry(1, F("->"),
-      [this]() noexcept {
-        gotoScreen<ScreenMain>();
-      }
-    );
-  }
-
-  virtual void update() noexcept override
-  {
-    tft_.setFont(&FreeSans12pt7b);
-    tft_.setTextColor(colFontColor, colBackColor);
-
-    auto& control = getControl();
-    auto& sensors = control.getAdditionalSensors();
-
-    char buffer[16];
-    int16_t  x1, y1;
-    uint16_t w, h;
-
-    // DHT 1
-    if (sensors.hasDHT1()) {
-      if (abs(double(dht1_temp_ - sensors.getDHT1Temp())) > 0.1) {
-        dht1_temp_ = sensors.getDHT1Temp();
-        tft_.fillRect(160, 166, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-        dtostrf(double(dht1_temp_), 5, 1, buffer);
-        tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-        tft_.setCursor(240 - int(w), 166 + BASELINE_MIDDLE);
-        tft_.print(buffer);
-      }
-      if (abs(double(dht1_hum_ - sensors.getDHT1Hum())) > 0.1) {
-        dht1_hum_ = sensors.getDHT1Hum();
-        tft_.fillRect(240, 166, 100, HEIGHT_NUMBER_FIELD, colBackColor);
-        dtostrf(double(dht1_hum_), 5, 1, buffer);
-        strcat_P(buffer, PSTR("%"));
-        tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-        tft_.setCursor(340 - int(w), 166 + BASELINE_MIDDLE);
-        tft_.print(buffer);
-      }
-    }
-    // DHT 2
-    if (sensors.hasDHT2()) {
-      if (abs(double(dht2_temp_ - sensors.getDHT2Temp())) > 0.1) {
-        dht2_temp_ = sensors.getDHT2Temp();
-        tft_.fillRect(160, 192, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-        dtostrf(double(dht2_temp_), 5, 1, buffer);
-        tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-        tft_.setCursor(240 - int(w), 192 + BASELINE_MIDDLE);
-        tft_.print(buffer);
-      }
-      if (abs(double(dht2_hum_ - sensors.getDHT2Hum())) > 0.1) {
-        dht2_hum_ = sensors.getDHT2Hum();
-        tft_.fillRect(240, 192, 100, HEIGHT_NUMBER_FIELD, colBackColor);
-        dtostrf(double(dht2_hum_), 5, 1, buffer);
-        strcat_P(buffer, PSTR("%"));
-        tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-        tft_.setCursor(340 - int(w), 192 + BASELINE_MIDDLE);
-        tft_.print(buffer);
-      }
-    }
-
-    // CO2
-    if (sensors.hasCO2()) {
-      if (abs(mhz14_co2_ppm_ - sensors.getCO2()) > 10) {
-        mhz14_co2_ppm_ = sensors.getCO2();
-        tft_.fillRect(160, 218, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-        snprintf(buffer, sizeof(buffer), "%5d", mhz14_co2_ppm_);
-        tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-        tft_.setCursor(240 - int(w), 218 + BASELINE_MIDDLE);
-        tft_.print(buffer);
-      }
-    }
-
-    // VOC
-    if (sensors.hasVOC()) {
-      if (abs(tgs2600_voc_ppm_ - sensors.getVOC()) > 10) {
-        tgs2600_voc_ppm_ = sensors.getVOC();
-        tft_.fillRect(160, 244, 80, HEIGHT_NUMBER_FIELD, colBackColor);
-        snprintf(buffer, sizeof(buffer), "%5d", tgs2600_voc_ppm_);
-        tft_.getTextBounds(buffer, 0, 0, &x1, &y1, &w, &h);
-        tft_.setCursor(240 - int(w), 244 + BASELINE_MIDDLE);
-        tft_.print(buffer);
-      }
-    }
-  }
-
-private:
-  float dht1_temp_ = -1000, dht2_temp_ = -1000;
-  float dht1_hum_ = -1000, dht2_hum_ = -1000;
-  int mhz14_co2_ppm_ = INT16_MIN / 2, tgs2600_voc_ppm_ = INT16_MIN / 2;
 };
 
 /// Setup screen.
@@ -3303,25 +3383,17 @@ void TFT::setupDisplay() noexcept
 
   int16_t  x1, y1;
   uint16_t w, h;
-  tft_.setFont(&FreeSansBold24pt7b);  // Großer Font
-  // Baseline bestimmen für kleinen Font
-  char CharM[] = "M";
-  tft_.getTextBounds(CharM, 0, 0, &x1, &y1, &w, &h);
-  BASELINE_BIGNUMBER = int(h);
-  Serial.print (F("Font baseline (big / middle / small): "));
-  Serial.print (h);
-  Serial.print (F(" / "));
+  Serial.print (F("Font baseline (middle / small): "));
   tft_.setFont(&FreeSans12pt7b);  // Mittlerer Font
-  // Baseline bestimmen für kleinen Font
-  char Char9[] = "9";
-  tft_.getTextBounds(Char9, 0, 0, &x1, &y1, &w, &h);
+  // Baseline bestimmen für mittleren Font
+  tft_.getTextBounds(F("0123456789?-"), 0, 0, &x1, &y1, &w, &h);
   BASELINE_MIDDLE = int(h);
-  HEIGHT_NUMBER_FIELD = int(h + 1);
+  HEIGHT_NUMBER_FIELD = int(h + 2);
   Serial.print (HEIGHT_NUMBER_FIELD);
   Serial.print (F(" / "));
   tft_.setFont(&FreeSans9pt7b);  // Kleiner Font
   // Baseline bestimmen für kleinen Font
-  tft_.getTextBounds(CharM, 0, 0, &x1, &y1, &w, &h);
+  tft_.getTextBounds(F("M"), 0, 0, &x1, &y1, &w, &h);
   BASELINE_SMALL = int(h);
   Serial.print (h);
   Serial.println ();
