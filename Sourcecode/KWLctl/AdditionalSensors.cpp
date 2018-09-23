@@ -183,10 +183,11 @@ void AdditionalSensors::readDHT1()
   sensors_event_t event;
 
   dht1.temperature().getEvent(&event);
-  if (isnan(event.temperature)) {
+  if (isnanf(event.temperature)) {
+    if (!KWLConfig::SendErroneousMeasurement)
+      dht1_temp_ = event.temperature;
     Serial.println(F("Failed reading temperature from DHT1"));
-  }
-  else if (event.temperature != dht1_temp_) {
+  } else if (event.temperature != dht1_temp_) {
     dht1_temp_ = event.temperature;
     if (KWLConfig::serialDebugSensor) {
       Serial.print(F("DHT1 T: "));
@@ -195,10 +196,11 @@ void AdditionalSensors::readDHT1()
   }
 
   dht1.humidity().getEvent(&event);
-  if (isnan(event.relative_humidity)) {
+  if (isnanf(event.relative_humidity)) {
+    if (!KWLConfig::SendErroneousMeasurement)
+      dht1_hum_ = event.relative_humidity;
     Serial.println(F("Failed reading humidity from DHT1"));
-  }
-  else if (event.relative_humidity != dht1_hum_) {
+  } else if (event.relative_humidity != dht1_hum_) {
     dht1_hum_ = event.relative_humidity;
     if (KWLConfig::serialDebugSensor) {
       Serial.print(F("DHT1 H: "));
@@ -212,10 +214,11 @@ void AdditionalSensors::readDHT2()
   sensors_event_t event;
 
   dht2.temperature().getEvent(&event);
-  if (isnan(event.temperature)) {
+  if (isnanf(event.temperature)) {
+    if (!KWLConfig::SendErroneousMeasurement)
+      dht2_temp_ = event.temperature;
     Serial.println(F("Failed reading temperature from DHT2"));
-  }
-  else if (event.temperature != dht2_temp_) {
+  } else if (event.temperature != dht2_temp_) {
     dht2_temp_ = event.temperature;
     if (KWLConfig::serialDebugSensor) {
       Serial.print(F("DHT2 T: "));
@@ -224,10 +227,11 @@ void AdditionalSensors::readDHT2()
   }
 
   dht2.humidity().getEvent(&event);
-  if (isnan(event.relative_humidity)) {
+  if (isnanf(event.relative_humidity)) {
+    if (!KWLConfig::SendErroneousMeasurement)
+      dht2_hum_ = event.relative_humidity;
     Serial.println(F("Failed reading humidity from DHT2"));
-  }
-  else if (event.relative_humidity != dht2_hum_) {
+  } else if (event.relative_humidity != dht2_hum_) {
     dht2_hum_ = event.relative_humidity;
     if (KWLConfig::serialDebugSensor) {
       Serial.print(F("DHT2 H: "));
@@ -254,6 +258,8 @@ void AdditionalSensors::readMHZ14()
     //  KWLConfig::SerialMHZ14.write(cmdCalZeroPoint, 9);
 
     co2_ppm_ = ppm;
+  } else {
+    co2_ppm_ = -1000;
   }
 }
 
@@ -345,10 +351,10 @@ void AdditionalSensors::sendDHT(bool force) noexcept
       if (bitmap & bit) {
         bool res = true;
         switch (bit) {
-          case 1: res = MessageHandler::publish(MQTTTopic::KwlDHT1Temperatur, dht1_temp_, 1, KWLConfig::RetainAdditionalSensors); break;
-          case 2: res = MessageHandler::publish(MQTTTopic::KwlDHT1Humidity, dht1_hum_, 1, KWLConfig::RetainAdditionalSensors); break;
-          case 4: res = MessageHandler::publish(MQTTTopic::KwlDHT2Temperatur, dht2_temp_, 1, KWLConfig::RetainAdditionalSensors); break;
-          case 8: res = MessageHandler::publish(MQTTTopic::KwlDHT2Humidity, dht2_hum_, 1, KWLConfig::RetainAdditionalSensors); break;
+          case 1: res = isnanf(dht1_temp_) || MessageHandler::publish(MQTTTopic::KwlDHT1Temperatur, dht1_temp_, 1, KWLConfig::RetainAdditionalSensors); break;
+          case 2: res = isnanf(dht1_hum_)  || MessageHandler::publish(MQTTTopic::KwlDHT1Humidity, dht1_hum_, 1, KWLConfig::RetainAdditionalSensors); break;
+          case 4: res = isnanf(dht2_temp_) || MessageHandler::publish(MQTTTopic::KwlDHT2Temperatur, dht2_temp_, 1, KWLConfig::RetainAdditionalSensors); break;
+          case 8: res = isnanf(dht2_hum_)  || MessageHandler::publish(MQTTTopic::KwlDHT2Humidity, dht2_hum_, 1, KWLConfig::RetainAdditionalSensors); break;
           default: return true; // paranoia
         }
         if (!res)
@@ -369,7 +375,10 @@ void AdditionalSensors::sendCO2(bool force) noexcept
     // not enough change
     return;
   }
-  publish_co2_.publish(MQTTTopic::KwlCO2Abluft, co2_ppm_, KWLConfig::RetainAdditionalSensors);
+  if (co2_ppm_ >= 0)
+    publish_co2_.publish(MQTTTopic::KwlCO2Abluft, co2_ppm_, KWLConfig::RetainAdditionalSensors);
+  else if (KWLConfig::SendErroneousMeasurement)
+    publish_co2_.publish(MQTTTopic::KwlCO2Abluft, -1, KWLConfig::RetainAdditionalSensors);
   co2_send_task_.runRepeated(INTERVAL_MQTT_MHZ14);
   co2_send_oversample_task_.runRepeated(INTERVAL_MQTT_MHZ14_FORCE);
 }

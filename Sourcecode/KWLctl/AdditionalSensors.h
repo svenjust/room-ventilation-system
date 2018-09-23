@@ -27,6 +27,8 @@
 #include "TimeScheduler.h"
 #include "MessageHandler.h"
 
+#include <math.h>
+
 class Print;
 
 /*!
@@ -105,11 +107,11 @@ private:
   bool MHZ14_available_ = false;
 
   // current values
-  float dht1_temp_ = 0;
-  float dht2_temp_ = 0;
-  float dht1_hum_ = 0;
-  float dht2_hum_ = 0;
-  int co2_ppm_ = -1;
+  float dht1_temp_ = NAN;
+  float dht2_temp_ = NAN;
+  float dht1_hum_ = NAN;
+  float dht2_hum_ = NAN;
+  int co2_ppm_ = -1000;
   int voc_ = -1;
 
   // last sent values per MQTT

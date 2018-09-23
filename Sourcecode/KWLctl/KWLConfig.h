@@ -376,6 +376,9 @@ public:
   /// Retain last status bits readings in the MQTT broker.
   static const bool RetainStatusBits;
 
+  /// If set, also erroneous measurements (like -127C for temperature) will be sent.
+  static constexpr bool SendErroneousMeasurement = false;
+
   // ************************************** E N D E   M Q T T   R E P O R T I N G ***********************************************************************
 
   // ***************************************************  D E B U G E I N S T E L L U N G E N ********************************************************

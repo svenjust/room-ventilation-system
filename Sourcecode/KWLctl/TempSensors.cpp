@@ -188,14 +188,18 @@ void TempSensors::sendMQTT() {
 
   uint8_t bitmask = 31;
   publish_task_.publish([this, bitmask]() mutable {
-    if (!publish_if(bitmask, uint8_t(1), MQTTTopic::KwlTemperaturAussenluft, last_mqtt_t1_, 2, KWLConfig::RetainTemperature))
-      return false;
-    if (!publish_if(bitmask, uint8_t(2), MQTTTopic::KwlTemperaturZuluft, last_mqtt_t2_, 2, KWLConfig::RetainTemperature))
-      return false;
-    if (!publish_if(bitmask, uint8_t(4), MQTTTopic::KwlTemperaturAbluft, last_mqtt_t3_, 2, KWLConfig::RetainTemperature))
-      return false;
-    if (!publish_if(bitmask, uint8_t(8), MQTTTopic::KwlTemperaturFortluft, last_mqtt_t4_, 2, KWLConfig::RetainTemperature))
-      return false;
+    if (last_mqtt_t1_ > INVALID || KWLConfig::SendErroneousMeasurement)
+      if (!publish_if(bitmask, uint8_t(1), MQTTTopic::KwlTemperaturAussenluft, last_mqtt_t1_, 2, KWLConfig::RetainTemperature))
+        return false;
+    if (last_mqtt_t2_ > INVALID || KWLConfig::SendErroneousMeasurement)
+      if (!publish_if(bitmask, uint8_t(2), MQTTTopic::KwlTemperaturZuluft, last_mqtt_t2_, 2, KWLConfig::RetainTemperature))
+        return false;
+    if (last_mqtt_t3_ > INVALID || KWLConfig::SendErroneousMeasurement)
+      if (!publish_if(bitmask, uint8_t(4), MQTTTopic::KwlTemperaturAbluft, last_mqtt_t3_, 2, KWLConfig::RetainTemperature))
+        return false;
+    if (last_mqtt_t4_ > INVALID || KWLConfig::SendErroneousMeasurement)
+      if (!publish_if(bitmask, uint8_t(8), MQTTTopic::KwlTemperaturFortluft, last_mqtt_t4_, 2, KWLConfig::RetainTemperature))
+        return false;
     if (!publish_if(bitmask, uint8_t(16), MQTTTopic::KwlEffiency, getEfficiency(), KWLConfig::RetainTemperature))
       return false;
     return true;
