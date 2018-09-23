@@ -66,6 +66,7 @@ void ScreenshotService::make(MCUFRIEND_kbv& tft, Print& client) noexcept
   hdr->biHeight = -h;
   hdr->biSizeImage = uint32_t(w * h * 2);
   client.write(reinterpret_cast<const uint8_t*>(hdr), sizeof(bmp_header));
+  wdt_reset();
   for (int16_t i = 0; i < h; ++i) {
     for (int16_t j = 0; j < w / (STRIDE_SIZE / 2); ++j) {
       tft.readGRAM(j * (STRIDE_SIZE / 2), i, buffer, STRIDE_SIZE / 2, 1);

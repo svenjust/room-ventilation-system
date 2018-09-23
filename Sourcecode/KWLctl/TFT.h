@@ -57,6 +57,15 @@ public:
   /// Start TFT component.
   void begin(Print& initTracer, KWLControl& control) noexcept;
 
+  /// Prepare for screenshot by waking from display off.
+  void prepareForScreenshot() noexcept;
+
+  /// Switch to given screen.
+  void gotoScreen(int id) noexcept;
+
+  /// Simulate touch at given coordinates.
+  void makeTouch(int x, int y) noexcept;
+
 private:
   friend class Screen;
   friend class ScreenCalibration;

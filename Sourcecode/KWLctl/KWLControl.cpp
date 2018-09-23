@@ -302,6 +302,7 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
       Serial.print(F(" received at "));
       Serial.println(millis());
     }
+    tft_.prepareForScreenshot();
     EthernetClient client;
     if (!client.connect(ip, port)) {
       if (KWLConfig::serialDebug) {
@@ -318,6 +319,14 @@ bool KWLControl::mqttReceiveMsg(const StringView& topic, const StringView& s)
       Serial.print(F("Screenshot: done at "));
       Serial.println(millis());
     }
+  } else if (topic == MQTTTopic::CmdScreen) {
+    // switch to given screen by ID
+    tft_.gotoScreen(s.toInt());
+  } else if (topic == MQTTTopic::CmdTouch) {
+    // simulate touch at x,y
+    int x, y;
+    if (sscanf_P(s.c_str(), PSTR("%d,%d"), &x, &y) == 2)
+      tft_.makeTouch(x, y);
   } else {
     return false;
   }

@@ -91,6 +91,8 @@ static int HEIGHT_NUMBER_FIELD = 0;
 #define colMenuBtnFrame             0x0000
 #define colMenuBackColor            0xFFFF
 #define colMenuFontColor            0x0000
+#define colMenuOkColor              0x0400 // 50% green
+#define colMenuCancelColor          0x8000 // 50% red
 #define colMenuBtnFrameHL           0xF800
 #define colInputBackColor           0x31A6 // 20% grau
 #define colInputFontColor           0xFFFF
@@ -268,7 +270,6 @@ private:
 class ScreenMain;
 class ScreenSaver;
 class ScreenSetup;
-class ScreenSetup2;
 class ScreenSetupFan;
 class ScreenSetupBypass;
 class ScreenSetupIPAddress;
@@ -285,9 +286,6 @@ public:
   static constexpr uint32_t ID = 1 << 0;
   /// Screen IDs of this screen and all base classes.
   static constexpr uint32_t IDS = ID;
-
-  /// Define control type to create, if any.
-  using control_type = TFT::Control;
 
   /*!
    * @brief Construct a screen.
@@ -451,8 +449,11 @@ protected:
     const __FlashStringHelper* flag_names_;
   };
 
-  /// Specify space to be left for controls on this screen.
+  /// Specify space to be left for controls on the right side of the screen.
   void setControlWidth(uint8_t width) noexcept { control_width_ = width; }
+
+  /// Get control width for controls on the right side of the screen.
+  uint8_t getControlWidth() const noexcept { return control_width_; }
 
   virtual void init() noexcept override
   {
@@ -881,11 +882,17 @@ protected:
     tft_.setFont(&FreeSans12pt7b);
     tft_.setTextSize(1);
     tft_.getTextBounds(title_, 0, 0, &x1, &y1, &w, &h);
-    tft_.setCursor((480 - TOUCH_BTN_WIDTH) / 2 - w / 2, 33 + BASELINE_MIDDLE);
+    tft_.setCursor((480 - getControlWidth()) / 2 - w / 2, 33 + BASELINE_MIDDLE);
     tft_.setTextColor(colWindowTitleFontColor, colWindowTitleBackColor);
-    tft_.fillRect(0, 30, 480 - TOUCH_BTN_WIDTH, 30, colWindowTitleBackColor);
+    tft_.fillRect(0, 30, 480 - getControlWidth(), 30, colWindowTitleBackColor);
     tft_.print(title_);
     tft_.setTextColor(colFontColor, colBackColor);
+  }
+
+  /// Show 24x24 bitmap in window title.
+  void initBitmap(const uint8_t bitmap24x24[]) noexcept
+  {
+    tft_.drawBitmap(10, 33, bitmap24x24, 24, 24, colWindowTitleFontColor);
   }
 
 private:
@@ -959,7 +966,7 @@ public:
    * @param action action to execute when button pressed.
    */
   template<typename Func>
-  void newMenuEntry(byte mnuBtn, const uint8_t mnuIcon[], uint8_t iconSize, Func&& action) noexcept
+  void newMenuEntry(byte mnuBtn, const uint8_t mnuIcon[], uint8_t iconSize, Func&& action, uint16_t color = colMenuFontColor) noexcept
   {
     if (mnuBtn < 1 || mnuBtn > btn_count_) {
       Serial.println(F("Trying to set menu action for invalid index"));
@@ -967,8 +974,8 @@ public:
     }
     menu_btn_action_[mnuBtn - 1] = action;
     drawMenuButton(mnuBtn, colMenuBtnFrame,
-      [this, mnuIcon, iconSize](int16_t bx, int16_t by, int16_t bw, int16_t bh) {
-        this->tft_.drawBitmap(bx + (bw - iconSize) / 2, by + (bh - iconSize) / 2, mnuIcon, iconSize, iconSize, colMenuFontColor);
+      [this, mnuIcon, iconSize, color](int16_t bx, int16_t by, int16_t bw, int16_t bh) {
+        this->tft_.drawBitmap(bx + (bw - iconSize) / 2, by + (bh - iconSize) / 2, mnuIcon, iconSize, iconSize, color);
       }
     );
   }
@@ -1434,7 +1441,7 @@ protected:
     tft_.setFont(&FreeSans9pt7b);
 
     // fan symbol
-    tft_.drawBitmap(XX + 90 - 64, 64, icon_noun_Fan_1833383_64x64, 64, 64, colFontColor);
+    tft_.drawBitmap(XX + 90 - 64, 64, icon_fan_64x64, 64, 64, colFontColor);
 
     // heat exchange symbol
     tft_.drawLine(XX + 120, XY + 5, XX + 80, XY + 45, colFontColor);
@@ -1472,7 +1479,7 @@ protected:
     tft_.drawLine(XX + 240, XY + 134, XX + 233, XY + 127, colFontColor);
     tft_.drawLine(XX + 240, XY + 135, XX + 233, XY + 142, colFontColor);
     tft_.drawLine(XX + 240, XY + 134, XX + 233, XY + 141, colFontColor);
-    tft_.drawBitmap(XX + 223, XY + 11 + HEIGHT_NUMBER_FIELD + 4, icon_noun_Fan_1833383_18x18, 18, 18, colFontColor);
+    tft_.drawBitmap(XX + 223, XY + 11 + HEIGHT_NUMBER_FIELD + 4, icon_fan_18x18, 18, 18, colFontColor);
 
     // arrow for outlet air
     tft_.fillRect(XX + 160, XY - 1, 81, 2, colFontColor);
@@ -1480,7 +1487,7 @@ protected:
     tft_.drawLine(XX + 160, XY - 1, XX + 140, XY + 19, colFontColor);
     tft_.fillRect(XX + 140, XY + 19, 10, 2, colFontColor);
     tft_.fillRect(XX + 140, XY + 10, 2, 10, colFontColor);
-    tft_.drawBitmap(XX + 223, XY + 126 - 2 * HEIGHT_NUMBER_FIELD - 4, icon_noun_Fan_1833383_18x18, 18, 18, colFontColor);
+    tft_.drawBitmap(XX + 223, XY + 126 - 2 * HEIGHT_NUMBER_FIELD - 4, icon_fan_18x18, 18, 18, colFontColor);
 
     // house schematics
     tft_.fillRect(HX, HY + 59, 120, 2, colFontColor);
@@ -1493,19 +1500,19 @@ protected:
     tft_.fillRect(HX, HY + 225, 121, 2, colFontColor);
 
     // VOC and CO2
-    tft_.drawBitmap(HX + 8, HY + 120 - 54, icon_noun_molecule_669068_20x20, 20, 20, colFontColor);
-    tft_.drawBitmap(HX + 8, HY + 120 - 30, icon_noun_Carbon_Dioxide_183795_20x20, 20, 20, colFontColor);
+    tft_.drawBitmap(HX + 8, HY + 120 - 54, icon_voc_20x20, 20, 20, colFontColor);
+    tft_.drawBitmap(HX + 8, HY + 120 - 30, icon_co2_20x20, 20, 20, colFontColor);
 
     // DHT1 and DHT2
     tft_.drawFastHLine(HX, HY + 115, 120, colFontColor);
-    tft_.drawBitmap(HX + 6, HY + 175 - 32, icon_noun_Water_927349_24x24, 24, 24, colFontColor);
-    tft_.drawBitmap(HX + 6, HY + 175 - 55, icon_noun_Temperature_1365226_24x24, 24, 24, colFontColor);
+    tft_.drawBitmap(HX + 6, HY + 175 - 32, icon_humidity_24x24, 24, 24, colFontColor);
+    tft_.drawBitmap(HX + 6, HY + 175 - 55, icon_temperature_24x24, 24, 24, colFontColor);
     tft_.drawFastHLine(HX, HY + 170, 120, colFontColor);
-    tft_.drawBitmap(HX + 6, HY + 230 - 32, icon_noun_Water_927349_24x24, 24, 24, colFontColor);
-    tft_.drawBitmap(HX + 6, HY + 230 - 55, icon_noun_Temperature_1365226_24x24, 24, 24, colFontColor);
+    tft_.drawBitmap(HX + 6, HY + 230 - 32, icon_humidity_24x24, 24, 24, colFontColor);
+    tft_.drawBitmap(HX + 6, HY + 230 - 55, icon_temperature_24x24, 24, 24, colFontColor);
 
     setMenuButtonCount(4);
-    newMenuEntry(1, icon_noun_Fan_1833383_52x52, 52,
+    newMenuEntry(1, icon_fan_52x52, 52,
       [this]() noexcept {
         auto& fan = getControl().getFanControl();
         if (fan.getVentilationMode() < int(KWLConfig::StandardModeCnt - 1)) {
@@ -1514,7 +1521,7 @@ protected:
         }
       }
     );
-    newMenuEntry(2, icon_noun_Fan_1833383_24x24, 24,
+    newMenuEntry(2, icon_fan_24x24, 24,
       [this]() noexcept {
         auto& fan = getControl().getFanControl();
         if (fan.getVentilationMode() > 0) {
@@ -1523,12 +1530,12 @@ protected:
         }
       }
     );
-    newMenuEntry(3, icon_noun_Settings_18125_56x56, 56,
+    newMenuEntry(3, icon_settings_56x56, 56,
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    newMenuEntry(4, icon_noun_off_1916005_40x40, 40,
+    newMenuEntry(4, icon_off_40x40, 40,
       [this]() noexcept {
         gotoScreen<ScreenSaver>();
       }
@@ -1584,15 +1591,15 @@ protected:
       tft_.fillRect(SX + 63, SY + 1, 1, 62, colBackColor + DEBUG_HIGHLIGHT);
       #if DEBUG_HIGHLIGHT > 0
       // Draw symbols unconditionally to check display
-      tft_.drawBitmap(SX, SY, icon_noun_Bypass_542021_64x64, 64, 64, 0xf800); // red
-      tft_.drawBitmap(SX, SY, icon_noun_low_temperature_641749_64x64, 64, 64, 0x07e0); // green
+      tft_.drawBitmap(SX, SY, icon_bypass_64x64, 64, 64, 0xf800); // red
+      tft_.drawBitmap(SX, SY, icon_freeze_64x64, 64, 64, 0x07e0); // green
       #endif
       switch (new_sym) {
         case 1:
-          tft_.drawBitmap(SX, SY, icon_noun_low_temperature_641749_64x64, 64, 64, colFontColor);
+          tft_.drawBitmap(SX, SY, icon_freeze_64x64, 64, 64, colFontColor);
           break;
         case 2:
-          tft_.drawBitmap(SX, SY, icon_noun_Bypass_542021_64x64, 64, 64, colFontColor);
+          tft_.drawBitmap(SX, SY, icon_bypass_64x64, 64, 64, colFontColor);
           break;
       }
       symbol_ = new_sym;
@@ -1773,124 +1780,70 @@ private:
 };
 
 /// Setup screen.
-class ScreenSetup : public ScreenWithMenuButtons<ScreenWithBigTitle>
+class ScreenSetup : public ScreenWithBigTitle
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 6;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithMenuButtons::IDS;
+  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
 
-  explicit ScreenSetup(TFT& owner) noexcept : ScreenWithMenuButtons(owner, F("Einstellungen")) {}
-
-protected:
-  virtual void init() noexcept override
+  explicit ScreenSetup(TFT& owner) noexcept :
+    ScreenWithBigTitle(owner, F("Einstellungen"))
   {
-    ScreenWithMenuButtons::init();
-
-    tft_.setTextColor(colFontColor, colBackColor );
-
-    tft_.setFont(&FreeSans12pt7b);
-    tft_.setCursor(18, 121 + BASELINE_MIDDLE);
-    tft_.print (F("FAN: Enstellungen Ventilatoren"));
-    tft_.setCursor(18, 166 + BASELINE_MIDDLE);
-    tft_.print (F("BYP: Einstellungen Sommer-Bypass"));
-    tft_.setCursor(18, 211 + BASELINE_MIDDLE);
-    tft_.print(F("NET: Netzwerkeinstellungen"));
-    tft_.setCursor(18, 256 + BASELINE_MIDDLE);
-    tft_.print(F("ZEIT: Zeiteinstellungen"));
-
-    newMenuEntry(1, F("->"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetup2>();
-      }
-    );
-    newMenuEntry(2, F("<-"),
-      [this]() noexcept {
-        gotoScreen<ScreenMain>();
-      }
-    );
-    newMenuEntry(3, F("FAN"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetupFan>();
-      }
-    );
-    newMenuEntry(4, F("BYP"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetupBypass>();
-      }
-    );
-    newMenuEntry(5, F("NET"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetupIPAddress>();
-      }
-    );
-    newMenuEntry(6, F("ZEIT"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetupTime>();
-      }
-    );
+    setControlWidth(0);
   }
-};
-
-/// Setup screen (cont).
-class ScreenSetup2 : public ScreenWithMenuButtons<ScreenWithBigTitle>
-{
-public:
-  /// Screen ID.
-  static constexpr uint32_t ID = 1 << 7;
-  /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithMenuButtons::IDS;
-
-  explicit ScreenSetup2(TFT& owner) noexcept : ScreenWithMenuButtons(owner, F("Einstellungen")) {}
 
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithMenuButtons::init();
+    ScreenWithBigTitle::init();
+    initBitmap(icon_settings_24x24);
 
-    tft_.setTextColor(colFontColor, colBackColor );
+    drawIcon(0, F(""), icon_back_56x56, 56, 56);
+    drawIcon(1, F("Ventilatoren"), icon_fan_52x52, 52, 52);
+    drawIcon(2, F("Bypass"), icon_bypass_56x56, 56, 56);
+    drawIcon(3, F("Frostschutz"), icon_freeze_56x56, 56, 56);
+    drawIcon(4, F("Zeit"), icon_time_56x56, 56, 56);
+    drawIcon(5, F("Programm"), icon_program_56x56, 56, 56);
+    drawIcon(6, F("Netzwerk"), icon_network_56x56, 56, 56);
+    drawIcon(7, F("Werkseinstel."), icon_factory_56x56, 56, 56);
+  }
 
-    tft_.setFont(&FreeSans12pt7b);
-    tft_.setCursor(18, 121 + BASELINE_MIDDLE);
-    tft_.print (F("AF: Enstellungen Frostschutz"));
-    tft_.setCursor(18, 166 + BASELINE_MIDDLE);
-    tft_.print (F("PGM: Programmeinstellungen"));
-  //  tft_.setCursor(18, 211 + BASELINE_MIDDLE);
-  //  tft_.print(F("XXX: XXXeinstellungen"));
-    tft_.setCursor(18, 256 + BASELINE_MIDDLE);
-    tft_.print(F("RST: Werkseinstellungen"));
+  virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept override
+  {
+    if (ScreenWithBigTitle::touch(x, y, time))
+      return true;
 
-    newMenuEntry(1, F("<-"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetup>();
-      }
-    );
-  //  newMenuEntry(2, F("XXX"),
-  //    [this]() noexcept {
-  //      gotoScreen<ScreenSetupXXX>();
-  //    }
-  //  );
-    newMenuEntry(3, F("AF"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetupAntifreeze>();
-      }
-    );
-    newMenuEntry(4, F("PGM"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetupProgram>();
-      }
-    );
-  //  newMenuEntry(5, F("XXX"),
-  //    [this]() noexcept {
-  //      gotoScreen<ScreenSetupXXX>();
-  //    }
-  //  );
-    newMenuEntry(6, F("RST"),
-      [this]() noexcept {
-        gotoScreen<ScreenSetupFactoryDefaults>();
-      }
-    );
+    if (y < 60 || y >= 300)
+      return false;
+
+    switch (((y - 60) / 120) * 4 + (x / 120)) {
+      case 0: gotoScreen<ScreenMain>(); return true;
+      case 1: gotoScreen<ScreenSetupFan>(); return true;
+      case 2: gotoScreen<ScreenSetupBypass>(); return true;
+      case 3: gotoScreen<ScreenSetupAntifreeze>(); return true;
+      case 4: gotoScreen<ScreenSetupTime>(); return true;
+      case 5: gotoScreen<ScreenSetupProgram>(); return true;
+      case 6: gotoScreen<ScreenSetupIPAddress>(); return true;
+      case 7: gotoScreen<ScreenSetupFactoryDefaults>(); return true;
+      default: return false;
+    }
+  }
+
+private:
+  void drawIcon(uint8_t index, const __FlashStringHelper* text, const uint8_t bitmap[], uint8_t bw, uint8_t bh) noexcept
+  {
+    auto x = (index & 3) * int16_t(120);
+    auto y = (index / 4) * int16_t(120) + 60;
+    tft_.drawBitmap(x + 60 - bw / 2, y + 45 - bh / 2, bitmap, bw, bh, colFontColor);
+    int16_t x1, y1;
+    uint16_t tw, th;
+    tft_.setFont(&FreeSans9pt7b);
+    tft_.getTextBounds(text, 0, 0, &x1, &y1, &tw, &th);
+    tft_.setTextColor(colFontColor);
+    tft_.setCursor(x + 60 - int16_t(tw / 2), y + 85 + BASELINE_MIDDLE);
+    tft_.print(text);
   }
 };
 
@@ -1925,6 +1878,7 @@ protected:
   virtual void init() noexcept override
   {
     ScreenSetupBase::init();
+    initBitmap(icon_fan_24x24);
 
     setupInputFieldColumns(260, 90);
     setupInputFieldRow(1, 1, F("Normdrehzahl Zuluft:"));
@@ -1945,12 +1899,12 @@ protected:
     tft_.setCursor(18, 260 + BASELINE_MIDDLE);
     tft_.print (F("PWM-Werte fuer jede Stufe gespeichert."));
 
-    newMenuEntry(1, F("<-"),
+    newMenuEntry(1, icon_back_32x32, 32,
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    newMenuEntry(2, F("+"),
+    newMenuEntry(2, icon_up_40x40, 40,
       [this]() noexcept {
         switch (getCurrentRow()) {
           case 1:
@@ -1970,7 +1924,7 @@ protected:
         updateCurrentInputField();
       }
     );
-    newMenuEntry(3, F("-"),
+    newMenuEntry(3, icon_down_40x40, 40,
       [this]() noexcept {
         switch (getCurrentRow()) {
           case 1:
@@ -1992,7 +1946,7 @@ protected:
          updateCurrentInputField();
        }
     );
-    newMenuEntry(4, F("OK"),
+    newMenuEntry(4, icon_ok_40x40, 40,
       [this]() noexcept {
         resetInput();
         // write to EEPROM and restart
@@ -2016,7 +1970,8 @@ protected:
           // no change
           gotoScreen<ScreenSetup>();
         }
-      }
+      },
+      colMenuOkColor
     );
     newMenuEntry(6, F("KAL"),
       [this]() noexcept {
@@ -2092,6 +2047,7 @@ protected:
   virtual void init() noexcept override
   {
     ScreenSetupBase::init();
+    initBitmap(icon_network_24x24);
 
     setupInputFieldColumns(170, 48);
     setupInputFieldRow(1, 4, F("IP Adresse:"), F("."));
@@ -2104,12 +2060,12 @@ protected:
     setupInputFieldColumnWidth(7, 32);
     setupInputFieldRow(7, 6, F("MAC"), F(":"));
 
-    newMenuEntry(1, F("<-"),
+    newMenuEntry(1, icon_back_32x32, 32,
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    newMenuEntry(2, F("+10"),
+    newMenuEntry(2, icon_up2_40x40, 40,
       [this]() noexcept {
         if (getCurrentRow() == 7)
           updateValue(16);
@@ -2117,17 +2073,17 @@ protected:
           updateValue(10);
       }
     );
-    newMenuEntry(3, F("+1"),
+    newMenuEntry(3, icon_up_40x40, 40,
       [this]() noexcept {
         updateValue(1);
       }
     );
-    newMenuEntry(4, F("-1"),
+    newMenuEntry(4, icon_down_40x40, 40,
       [this]() noexcept {
         updateValue(-1);
       }
     );
-    newMenuEntry(5, F("-10"),
+    newMenuEntry(5, icon_down2_40x40, 40,
       [this]() noexcept {
         if (getCurrentRow() == 7)
           updateValue(-16);
@@ -2135,7 +2091,7 @@ protected:
           updateValue(-10);
       }
     );
-    newMenuEntry(6, F("OK"),
+    newMenuEntry(6, icon_ok_40x40, 40,
       [this]() noexcept {
         resetInput();
         // write to EEPROM and restart
@@ -2150,7 +2106,8 @@ protected:
         doRestart(
           F("Einstellungen gespeichert"),
           F("Die Steuerung wird jetzt neu gestartet."));
-      }
+      },
+      colMenuOkColor
     );
   }
 
@@ -2388,6 +2345,7 @@ protected:
   virtual void init() noexcept override
   {
     ScreenSetupBase::init();
+    initBitmap(icon_bypass_24x24);
 
     setupInputFieldColumns(240, 60);
     setupInputFieldRow(1, 1, F("Temp. Abluft Min:"));
@@ -2397,22 +2355,22 @@ protected:
     setupInputFieldColumnWidth(5, 170);
     setupInputFieldRow(5, 1, F("Modus:"));
 
-    newMenuEntry(1, F("<-"),
+    newMenuEntry(1, icon_back_32x32, 32,
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    newMenuEntry(3, F("+"),
+    newMenuEntry(3, icon_up_40x40, 40,
       [this]() noexcept {
         updateValue(1);
       }
     );
-    newMenuEntry(4, F("-"),
+    newMenuEntry(4, icon_down_40x40, 40,
       [this]() noexcept {
         updateValue(-1);
       }
     );
-    newMenuEntry(6, F("OK"),
+    newMenuEntry(6, icon_ok_40x40, 40,
       [this]() noexcept {
         resetInput();
         auto& config = getControl().getPersistentConfig();
@@ -2429,7 +2387,8 @@ protected:
         doPopup<ScreenSetup>(
           F("Einstellungen gespeichert"),
           F("Neue Bypasseinstellungen wurden\nin EEPROM gespeichert\nund sind sofort aktiv."));
-      }
+      },
+      colMenuOkColor
     );
   }
 
@@ -2517,18 +2476,19 @@ protected:
   virtual void init() noexcept override
   {
     ScreenSetupBase::init();
+    initBitmap(icon_time_24x24);
 
     setupInputFieldColumns(180, 160);
     setupInputFieldColumnWidth(1, 100);
     setupInputFieldRow(1, 1, F("Zeitzone:"));
     setupInputFieldRow(2, 1, F("DST Flag:"));
 
-    newMenuEntry(1, F("<-"),
+    newMenuEntry(1, icon_back_32x32, 32,
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    newMenuEntry(3, F("+"),
+    newMenuEntry(3, icon_up_40x40, 40,
       [this]() noexcept {
         switch (getCurrentRow()) {
           case 1:
@@ -2543,7 +2503,7 @@ protected:
         updateCurrentInputField();
       }
     );
-    newMenuEntry(4, F("-"),
+    newMenuEntry(4, icon_down_40x40, 40,
       [this]() noexcept {
         switch (getCurrentRow()) {
           case 1:
@@ -2558,7 +2518,7 @@ protected:
         updateCurrentInputField();
       }
     );
-    newMenuEntry(6, F("OK"),
+    newMenuEntry(6, icon_ok_40x40, 40,
       [this]() noexcept {
         resetInput();
         auto& config = getControl().getPersistentConfig();
@@ -2567,7 +2527,8 @@ protected:
         doPopup<ScreenSetup>(
           F("Einstellungen gespeichert"),
           F("Neue Zeiteinstellungen wurden\nin EEPROM gespeichert\nund sind sofort aktiv."));
-      }
+      },
+      colMenuOkColor
     );
   }
 
@@ -2623,17 +2584,18 @@ protected:
   virtual void init() noexcept override
   {
     ScreenSetupBase::init();
+    initBitmap(icon_freeze_24x24);
 
     setupInputFieldColumns(300, 80);
     setupInputFieldRow(1, 1, F("Temperaturhysterese:"));
     setupInputFieldRow(2, 1, F("Kaminbetrieb:"));
 
-    newMenuEntry(1, F("<-"),
+    newMenuEntry(1, icon_back_32x32, 32,
       [this]() noexcept {
-        gotoScreen<ScreenSetup2>();
+        gotoScreen<ScreenSetup>();
       }
     );
-    newMenuEntry(3, F("+"),
+    newMenuEntry(3, icon_up_40x40, 40,
       [this]() noexcept {
         switch (getCurrentRow()) {
           case 1:
@@ -2648,7 +2610,7 @@ protected:
         updateCurrentInputField();
       }
     );
-    newMenuEntry(4, F("-"),
+    newMenuEntry(4, icon_down_40x40, 40,
       [this]() noexcept {
         switch (getCurrentRow()) {
           case 1:
@@ -2663,17 +2625,18 @@ protected:
         updateCurrentInputField();
       }
     );
-    newMenuEntry(6, F("OK"),
+    newMenuEntry(6, icon_ok_40x40, 40,
       [this]() noexcept {
         resetInput();
         auto& config = getControl().getPersistentConfig();
         config.setAntifreezeHystereseTemp(temp_hysteresis_);
         config.setHeatingAppCombUse(heating_app_);
         getControl().getAntifreeze().begin(Serial);  // restart antifreeze
-        doPopup<ScreenSetup2>(
+        doPopup<ScreenSetup>(
           F("Einstellungen gespeichert"),
           F("Einstellungen der Frostschutzschaltung\nwurden in EEPROM gespeichert\nund sind sofort aktiv."));
-      }
+      },
+      colMenuOkColor
     );
   }
 
@@ -2719,6 +2682,7 @@ protected:
   virtual void init() noexcept override
   {
     ScreenSetupBase::init();
+    initBitmap(icon_program_24x24);
 
     setupInputFieldColumns(210, 40);
     setupInputFieldRow(1, 1, F("Programm:"));
@@ -2730,22 +2694,22 @@ protected:
     setupInputFieldColumnWidth(6, 120);
     setupInputFieldRow(6, 1, F("Programmsaetze:"));
 
-    newMenuEntry(1, F("<-"),
+    newMenuEntry(1, icon_back_32x32, 32,
       [this]() noexcept {
         updateProgram(0);
       }
     );
-    newMenuEntry(3, F("+"),
+    newMenuEntry(3, icon_up_40x40, 40,
       [this]() noexcept {
         updateProgram(1);
       }
     );
-    newMenuEntry(4, F("-"),
+    newMenuEntry(4, icon_down_40x40, 40,
       [this]() noexcept {
         updateProgram(-1);
       }
     );
-    newMenuEntry(5, F("OK"),
+    newMenuEntry(5, icon_ok_40x40, 40,
       [this]() noexcept {
         // store changes
         resetInput();
@@ -2760,9 +2724,10 @@ protected:
             F("Keine Programmnummer"),
             F("Bitte zuerst Programmnummer waehlen."));
         }
-      }
+      },
+      colMenuOkColor
     );
-    newMenuEntry(6, F("RST"),
+    newMenuEntry(6, icon_cancel_40x40, 40,
       [this]() noexcept {
         // reload program, cancel changes
         resetInput();
@@ -2773,7 +2738,8 @@ protected:
             F("Einstellungen zurueckgesetzt"),
             F("Die Programmeinstellungen\nwurden zurueckgesetzt."));
         }
-      }
+      },
+      colMenuCancelColor
     );
   }
 
@@ -2792,8 +2758,8 @@ private:
       }
       // data unchanged
       if (delta == 0) {
-        // special case for "<-" button
-        gotoScreen<ScreenSetup2>();
+        // special case for Back button
+        gotoScreen<ScreenSetup>();
         return;
       }
       index_ += delta;
@@ -2912,6 +2878,7 @@ protected:
   virtual void init() noexcept override
   {
     ScreenWithMenuButtons::init();
+    initBitmap(icon_factory_24x24);
 
     tft_.setTextColor(colFontColor, colBackColor);
     tft_.setFont(&FreeSans9pt7b);
@@ -2923,12 +2890,12 @@ protected:
     tft_.setCursor(18, 175 + BASELINE_MIDDLE);
     tft_.print(F("Die Steuerung wird anschliessend neu gestartet."));
 
-    newMenuEntry(1, F("<-"),
+    newMenuEntry(1, icon_back_32x32, 32,
       [this]() noexcept {
-        gotoScreen<ScreenSetup2>();
+        gotoScreen<ScreenSetup>();
       }
     );
-    newMenuEntry(6, F("OK"),
+    newMenuEntry(6, icon_ok_40x40, 40,
       [this]() noexcept {
         Serial.print(F("Speicherbereich wird geloescht... "));
         tft_.setFont(&FreeSans9pt7b);
@@ -2943,7 +2910,8 @@ protected:
         doRestart(
           F("Einstellungen gespeichert"),
           F("Werkseinstellungen wiederhergestellt.\nDie Steuerung wird jetzt neu gestartet."));
-      }
+      },
+      colMenuOkColor
     );
   }
 };
@@ -3219,6 +3187,53 @@ void TFT::begin(Print& /*initTracer*/, KWLControl& control) noexcept {
   }
 }
 
+void TFT::prepareForScreenshot() noexcept
+{
+  if (current_screen_id_ == ScreenSaver::ID) {
+    // wake up from screensaver
+    gotoScreen<ScreenMain>();
+    wdt_reset();
+  }
+}
+
+void TFT::gotoScreen(int id) noexcept
+{
+  if (KWLConfig::serialDebugDisplay) {
+    Serial.print(F("TFT: external screen switch to screen "));
+    Serial.println(id);
+  }
+  switch (id)
+  {
+    case ScreenMain::ID: gotoScreen<ScreenMain>(); break;
+    case ScreenSaver::ID: gotoScreen<ScreenSaver>(); break;
+    case ScreenSetup::ID: gotoScreen<ScreenSetup>(); break;
+    case ScreenSetupAntifreeze::ID: gotoScreen<ScreenSetupAntifreeze>(); break;
+    case ScreenSetupBypass::ID: gotoScreen<ScreenSetupBypass>(); break;
+    case ScreenSetupFactoryDefaults::ID: gotoScreen<ScreenSetupFactoryDefaults>(); break;
+    case ScreenSetupFan::ID: gotoScreen<ScreenSetupFan>(); break;
+    case ScreenSetupIPAddress::ID: gotoScreen<ScreenSetupIPAddress>(); break;
+    case ScreenSetupProgram::ID: gotoScreen<ScreenSetupProgram>(); break;
+    case ScreenSetupTime::ID: gotoScreen<ScreenSetupTime>(); break;
+  }
+}
+
+void TFT::makeTouch(int x, int y) noexcept
+{
+  auto time = millis();
+  touch_in_progress_ = true;
+  millis_last_touch_ = time;
+  if (KWLConfig::serialDebugDisplay) {
+    Serial.print(F("TFT: external touch trigger at "));
+    Serial.print(x);
+    Serial.print(',');
+    Serial.print(y);
+    Serial.print(F(", ms="));
+    Serial.println(time);
+  }
+  if (current_screen_)
+    current_screen_->touch(x, y, time);
+}
+
 template<typename ScreenClass>
 inline void TFT::gotoScreen() noexcept
 {
@@ -3239,6 +3254,8 @@ inline void TFT::gotoScreen() noexcept
   current_screen_id_ = ScreenClass::ID;
 
   touch_in_progress_ = false;
+
+  wdt_reset();
 
   displayUpdate();
 }
