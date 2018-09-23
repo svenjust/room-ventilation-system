@@ -25,9 +25,10 @@ Funktion und sonstige Werte zurück und es können verschiedene Parameter gesetz
 
 Zusätzlich bietet die Steuerung Unterstützung für TFT Touchscreen, um einerseits die Messwerte
 anzuzeigen und andererseits die Steuerung zu konfigurieren. Touchkalibrierung erfolgt bei dem
-ersten Touch oder nach langen Touch auf Hauptseite (8 Sekunden).
+ersten Touch oder nach langen Touch auf Hauptseite (8 Sekunden). Im Verzeichnis Screenshots
+befinden sich ein paar Screenshots.
 
-In Verzeichnis Docs befindet sich weitere Dokumentation zu verschiedenen Themen.
+Im Verzeichnis Docs befindet sich weitere Dokumentation zu verschiedenen Themen.
 
 Um das Projekt zu bauen müssen folgende Voraussetzungen erfüllt sein:
   - Folgende Libraries müssen installiert werden: SPI, EEPROM, PubSubClient,
