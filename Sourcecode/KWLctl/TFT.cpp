@@ -265,223 +265,6 @@ private:
   char state_[6];
 };
 
-/// Base class for all control elements (buttons, etc.).
-class TFT::Control
-{
-public:
-  Control(TFT& owner) noexcept : owner_(owner), tft_(owner.getTFT()) {}
-
-protected:
-  friend class TFT;
-
-  /*!
-   * @brief Initialize the screen or control.
-   *
-   * This is called after constructing the object to draw initial contents.
-   */
-  virtual void init() noexcept
-  {}
-
-  /*!
-   * @brief React to touch input.
-   *
-   * @param x,y coordinates of input touch.
-   * @param time time of the touch in milliseconds.
-   * @return @c true, if touch consumed, @c false if not.
-   */
-  virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept { return false; }
-
-  /// React to touch input release, passes time in milliseconds.
-  virtual void release(unsigned long time) noexcept {}
-
-  /// Controller to use.
-  TFT& owner_;
-  /// Reference to low-level TFT object.
-  MCUFRIEND_kbv& tft_;
-};
-
-/// Control element with menu buttons.
-class ControlMenuButtons : public TFT::Control
-{
-public:
-  ControlMenuButtons(TFT& owner) noexcept :
-    Control(owner)
-  {
-    memset(menu_btn_action_, 0, sizeof(menu_btn_action_));
-  }
-
-  void setMenuButtonCount(uint8_t count) noexcept
-  {
-    if (count > MAX_MENU_BTN_COUNT)
-      count = MAX_MENU_BTN_COUNT;
-    else if (count < 2)
-      count = 2;
-    btn_count_ = count;
-    btn_h_ = uint8_t(270 / btn_count_);
-    if (btn_h_ > TOUCH_BTN_WIDTH)
-      btn_h_ = TOUCH_BTN_WIDTH;
-    btn_y_ = uint8_t(TOUCH_BTN_YOFFSET + 270 - btn_h_ * btn_count_);
-  }
-
-  /*!
-   * @brief Set up new menu entry when creating a screen.
-   *
-   * @param mnuBtn button index.
-   * @param mnuTxt button text.
-   * @param action action to execute when button pressed.
-   */
-  template<typename Func>
-  void newMenuEntry(byte mnuBtn, const __FlashStringHelper* mnuTxt, Func&& action) noexcept
-  {
-    if (mnuBtn < 1 || mnuBtn > btn_count_) {
-      Serial.println(F("Trying to set menu action for invalid index"));
-      return;
-    }
-    menu_btn_action_[mnuBtn - 1] = action;
-    drawMenuButton(mnuBtn, colMenuBtnFrame,
-      [this, mnuTxt](int16_t bx, int16_t by, int16_t bw, int16_t bh) {
-        int16_t  x1, y1;
-        uint16_t w, h;
-        tft_.setFont(&FreeSans12pt7b);
-        tft_.setTextColor(colMenuFontColor, colMenuBackColor);
-        tft_.getTextBounds(mnuTxt, 0, 0, &x1, &y1, &w, &h);
-        tft_.setCursor(bx + (bw - int16_t(w)) / 2 , by + (bh - int16_t(h)) / 2 + BASELINE_SMALL);
-        tft_.print(mnuTxt);
-      }
-    );
-  }
-
-  /*!
-   * @brief Set up new menu entry when creating a screen.
-   *
-   * @param mnuBtn button index.
-   * @param mnuIcon button icon.
-   * @param iconSize icon size in pixels (assumed square).
-   * @param action action to execute when button pressed.
-   */
-  template<typename Func>
-  void newMenuEntry(byte mnuBtn, const uint8_t mnuIcon[], uint8_t iconSize, Func&& action) noexcept
-  {
-    if (mnuBtn < 1 || mnuBtn > btn_count_) {
-      Serial.println(F("Trying to set menu action for invalid index"));
-      return;
-    }
-    menu_btn_action_[mnuBtn - 1] = action;
-    drawMenuButton(mnuBtn, colMenuBtnFrame,
-      [this, mnuIcon, iconSize](int16_t bx, int16_t by, int16_t bw, int16_t bh) {
-        tft_.drawBitmap(bx + (bw - iconSize) / 2, by + (bh - iconSize) / 2, mnuIcon, iconSize, iconSize, colMenuFontColor);
-      }
-    );
-  }
-
-protected:
-  friend class TFT;
-
-  virtual void init() noexcept override
-  {
-    Control::init();
-
-    // Menu Hintergrund
-    tft_.fillRect(480 - TOUCH_BTN_WIDTH, TOUCH_BTN_YOFFSET, TOUCH_BTN_WIDTH , 320 - TOUCH_BTN_YOFFSET - 20, colMenuBackColor );
-    last_highlighed_menu_btn_ = 0;
-  }
-
-  virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept override
-  {
-    if (Control::touch(x, y, time))
-      return true;
-
-    if (time - millis_last_menu_btn_press_ > INTERVAL_MENU_BTN &&
-        x >= 480 - TOUCH_BTN_WIDTH) {
-      // we are in menu area and there was enough time between touches
-      uint8_t button = uint8_t((y - btn_y_) / btn_h_);
-      if (button < btn_count_) {
-        // touched a menu button
-        millis_last_menu_btn_press_ = time;
-
-        if (KWLConfig::serialDebugDisplay) {
-          Serial.print(F("TFT: menu button touched: "));
-          Serial.println(button);
-        }
-
-        if (menu_btn_action_[button]) {
-          // run appropriate menu action
-          setMenuBorder(button + 1);
-          menu_btn_action_[button].invoke();
-        }
-      }
-      return true;
-    }
-    if (time - millis_last_menu_btn_press_ > INTERVAL_MENU_BTN - 100)
-      setMenuBorder(0); // clear button highlight after timeout
-
-    return (x >= 480 - TOUCH_BTN_WIDTH);
-  }
-
-  virtual void release(unsigned long time) noexcept override
-  {
-    setMenuBorder(0);
-  }
-
-private:
-  /// Print a menu entry with given color for the frame.
-  template<typename DrawFunc>
-  void drawMenuButton(byte mnuBtn, uint16_t colFrame, DrawFunc&& func) noexcept
-  {
-    // ohne mnuTxt wird vom Button nur der Rand gezeichnet
-    if (mnuBtn > 0 && mnuBtn <= btn_count_ && menu_btn_action_[mnuBtn - 1]) {
-      int x, y;
-      x = 480 - TOUCH_BTN_WIDTH + 1;
-      y = btn_y_ + 1 + int(btn_h_) * (mnuBtn - 1);
-
-      if (colFrame == colMenuBtnFrameHL) {
-        // Highlight Frame
-        tft_.drawRoundRect(x, y, TOUCH_BTN_WIDTH - 2, btn_h_ - 2, 5, colFrame);
-        tft_.drawRoundRect(x + 1, y + 1, TOUCH_BTN_WIDTH - 4, btn_h_ - 4, 5, colFrame);
-        tft_.drawRoundRect(x + 2, y + 2, TOUCH_BTN_WIDTH - 6, btn_h_ - 6, 5, colFrame);
-      } else {
-        tft_.drawRoundRect(x, y, TOUCH_BTN_WIDTH - 2, btn_h_ - 2, 5, colFrame);
-        tft_.drawRoundRect(x + 1, y + 1, TOUCH_BTN_WIDTH - 4, btn_h_ - 4, 5, colMenuBackColor);
-        tft_.drawRoundRect(x + 2, y + 2, TOUCH_BTN_WIDTH - 6, btn_h_ - 6, 5, colMenuBackColor);
-      }
-
-      func(x, y, TOUCH_BTN_WIDTH - 2, btn_h_ - 2);
-    }
-  }
-
-  /// Draw menu border around given menu button.
-  void setMenuBorder(byte menuBtn) noexcept
-  {
-    if (menuBtn == last_highlighed_menu_btn_)
-      return;
-
-    if (last_highlighed_menu_btn_)
-      drawMenuButton(last_highlighed_menu_btn_, colMenuBtnFrame, empty_draw_func);
-    if (menuBtn)
-      drawMenuButton(menuBtn, colMenuBtnFrameHL, empty_draw_func);
-
-    last_highlighed_menu_btn_ = menuBtn;
-  }
-
-  /// Draw function doing nothing.
-  static void empty_draw_func(int16_t bx, int16_t by, int16_t bw, int16_t bh) noexcept {}
-
-  /// Maximum menu button count.
-  static constexpr uint8_t MAX_MENU_BTN_COUNT = 6;
-  /// Menu button height.
-  uint8_t btn_h_ = 45;
-  /// First menu button Y offset.
-  uint8_t btn_y_ = TOUCH_BTN_YOFFSET;
-  /// Menu button count.
-  uint8_t btn_count_ = 6;
-  /// Last menu button, which was highlighted.
-  byte last_highlighed_menu_btn_ = 0;
-  /// Time at which the menu button was last pressed.
-  unsigned long millis_last_menu_btn_press_ = 0;
-  /// Menu actions.
-  MenuAction menu_btn_action_[MAX_MENU_BTN_COUNT];
-};
-
 class ScreenMain;
 class ScreenSaver;
 class ScreenSetup;
@@ -495,7 +278,7 @@ class ScreenSetupProgram;
 class ScreenSetupFactoryDefaults;
 
 /// Base class for all screens.
-class TFT::Screen : public TFT::Control
+class TFT::Screen
 {
 public:
   /// Screen ID.
@@ -515,17 +298,37 @@ public:
    * @param owner owner of the screen.
    */
   explicit Screen(TFT& owner) noexcept :
-    Control(owner),
+    tft_(owner.getTFT()),
+    owner_(owner),
     last_input_time_(millis())
   {}
 
-  template<typename Control>
-  Control& getControls() noexcept {
-    return *static_cast<Control*>(owner_.current_control_);
-  }
-
 protected:
   friend class TFT;
+
+  /*!
+   * @brief Initialize the screen or control.
+   *
+   * This is called after constructing the object to draw initial contents.
+   */
+  virtual void init() noexcept
+  {}
+
+  /*!
+   * @brief React to touch input.
+   *
+   * @param x,y coordinates of input touch.
+   * @param time time of the touch in milliseconds.
+   * @return @c true, if touch consumed, @c false if not.
+   */
+  virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept
+  {
+    last_input_time_ = time;
+    return false;
+  }
+
+  /// React to touch input release, passes time in milliseconds.
+  virtual void release(unsigned long time) noexcept {}
 
   /*!
    * @brief Check whether last screen displayed was of the specified class.
@@ -555,16 +358,16 @@ protected:
   /// Update the screen periodically, if needed.
   virtual void update() noexcept;
 
-  virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept override
-  {
-    last_input_time_ = time;
-    return false;
-  }
-
   /// Check whether the screen contains changed values.
   virtual bool is_changed() noexcept { return false; }
 
+  /// TFT controller interface to display graphics.
+  MCUFRIEND_kbv& tft_;
+
 private:
+  /// Owner of the screen.
+  TFT& owner_;
+  /// Last time an input was detected.
   unsigned long last_input_time_;
 };
 
@@ -1089,6 +892,195 @@ private:
   const __FlashStringHelper* title_;
 };
 
+/// Screen with menu buttons.
+template<typename ScreenBase>
+class ScreenWithMenuButtons : public ScreenBase
+{
+public:
+  /// Screen ID.
+  static constexpr uint32_t ID = 1 << 5;
+  /// Screen IDs of this screen and all base classes.
+  static constexpr uint32_t IDS = ID | ScreenBase::IDS;
+
+  template<typename... Args>
+  ScreenWithMenuButtons(TFT& owner, Args... args) noexcept :
+    ScreenBase(owner, args...)
+  {
+    memset(menu_btn_action_, 0, sizeof(menu_btn_action_));
+  }
+
+  void setMenuButtonCount(uint8_t count) noexcept
+  {
+    if (count > MAX_MENU_BTN_COUNT)
+      count = MAX_MENU_BTN_COUNT;
+    else if (count < 2)
+      count = 2;
+    btn_count_ = count;
+    btn_h_ = uint8_t(270 / btn_count_);
+    if (btn_h_ > TOUCH_BTN_WIDTH)
+      btn_h_ = TOUCH_BTN_WIDTH;
+    btn_y_ = uint8_t(TOUCH_BTN_YOFFSET + 270 - btn_h_ * btn_count_);
+  }
+
+  /*!
+   * @brief Set up new menu entry when creating a screen.
+   *
+   * @param mnuBtn button index.
+   * @param mnuTxt button text.
+   * @param action action to execute when button pressed.
+   */
+  template<typename Func>
+  void newMenuEntry(byte mnuBtn, const __FlashStringHelper* mnuTxt, Func&& action) noexcept
+  {
+    if (mnuBtn < 1 || mnuBtn > btn_count_) {
+      Serial.println(F("Trying to set menu action for invalid index"));
+      return;
+    }
+    menu_btn_action_[mnuBtn - 1] = action;
+    drawMenuButton(mnuBtn, colMenuBtnFrame,
+      [this, mnuTxt](int16_t bx, int16_t by, int16_t bw, int16_t bh) {
+        int16_t  x1, y1;
+        uint16_t w, h;
+        this->tft_.setFont(&FreeSans12pt7b);
+        this->tft_.setTextColor(colMenuFontColor, colMenuBackColor);
+        this->tft_.getTextBounds(mnuTxt, 0, 0, &x1, &y1, &w, &h);
+        this->tft_.setCursor(bx + (bw - int16_t(w)) / 2 , by + (bh - int16_t(h)) / 2 + BASELINE_SMALL);
+        this->tft_.print(mnuTxt);
+      }
+    );
+  }
+
+  /*!
+   * @brief Set up new menu entry when creating a screen.
+   *
+   * @param mnuBtn button index.
+   * @param mnuIcon button icon.
+   * @param iconSize icon size in pixels (assumed square).
+   * @param action action to execute when button pressed.
+   */
+  template<typename Func>
+  void newMenuEntry(byte mnuBtn, const uint8_t mnuIcon[], uint8_t iconSize, Func&& action) noexcept
+  {
+    if (mnuBtn < 1 || mnuBtn > btn_count_) {
+      Serial.println(F("Trying to set menu action for invalid index"));
+      return;
+    }
+    menu_btn_action_[mnuBtn - 1] = action;
+    drawMenuButton(mnuBtn, colMenuBtnFrame,
+      [this, mnuIcon, iconSize](int16_t bx, int16_t by, int16_t bw, int16_t bh) {
+        this->tft_.drawBitmap(bx + (bw - iconSize) / 2, by + (bh - iconSize) / 2, mnuIcon, iconSize, iconSize, colMenuFontColor);
+      }
+    );
+  }
+
+protected:
+  friend class TFT;
+
+  virtual void init() noexcept override
+  {
+    ScreenBase::init();
+
+    // Menu Hintergrund
+    this->tft_.fillRect(480 - TOUCH_BTN_WIDTH, TOUCH_BTN_YOFFSET, TOUCH_BTN_WIDTH , 320 - TOUCH_BTN_YOFFSET - 20, colMenuBackColor );
+    last_highlighed_menu_btn_ = 0;
+  }
+
+  virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept override
+  {
+    if (ScreenBase::touch(x, y, time))
+      return true;
+
+    if (time - millis_last_menu_btn_press_ > INTERVAL_MENU_BTN &&
+        x >= 480 - TOUCH_BTN_WIDTH) {
+      // we are in menu area and there was enough time between touches
+      uint8_t button = uint8_t((y - btn_y_) / btn_h_);
+      if (button < btn_count_) {
+        // touched a menu button
+        millis_last_menu_btn_press_ = time;
+
+        if (KWLConfig::serialDebugDisplay) {
+          Serial.print(F("TFT: menu button touched: "));
+          Serial.println(button);
+        }
+
+        if (menu_btn_action_[button]) {
+          // run appropriate menu action
+          setMenuBorder(button + 1);
+          menu_btn_action_[button].invoke();
+        }
+      }
+      return true;
+    }
+    if (time - millis_last_menu_btn_press_ > INTERVAL_MENU_BTN - 100)
+      setMenuBorder(0); // clear button highlight after timeout
+
+    return (x >= 480 - TOUCH_BTN_WIDTH);
+  }
+
+  virtual void release(unsigned long time) noexcept override
+  {
+    setMenuBorder(0);
+  }
+
+private:
+  /// Print a menu entry with given color for the frame.
+  template<typename DrawFunc>
+  void drawMenuButton(byte mnuBtn, uint16_t colFrame, DrawFunc&& func) noexcept
+  {
+    // ohne mnuTxt wird vom Button nur der Rand gezeichnet
+    if (mnuBtn > 0 && mnuBtn <= btn_count_ && menu_btn_action_[mnuBtn - 1]) {
+      int x, y;
+      x = 480 - TOUCH_BTN_WIDTH + 1;
+      y = btn_y_ + 1 + int(btn_h_) * (mnuBtn - 1);
+
+      if (colFrame == colMenuBtnFrameHL) {
+        // Highlight Frame
+        this->tft_.drawRoundRect(x, y, TOUCH_BTN_WIDTH - 2, btn_h_ - 2, 5, colFrame);
+        this->tft_.drawRoundRect(x + 1, y + 1, TOUCH_BTN_WIDTH - 4, btn_h_ - 4, 5, colFrame);
+        this->tft_.drawRoundRect(x + 2, y + 2, TOUCH_BTN_WIDTH - 6, btn_h_ - 6, 5, colFrame);
+      } else {
+        this->tft_.drawRoundRect(x, y, TOUCH_BTN_WIDTH - 2, btn_h_ - 2, 5, colFrame);
+        this->tft_.drawRoundRect(x + 1, y + 1, TOUCH_BTN_WIDTH - 4, btn_h_ - 4, 5, colMenuBackColor);
+        this->tft_.drawRoundRect(x + 2, y + 2, TOUCH_BTN_WIDTH - 6, btn_h_ - 6, 5, colMenuBackColor);
+      }
+
+      func(x, y, TOUCH_BTN_WIDTH - 2, btn_h_ - 2);
+    }
+  }
+
+  /// Draw menu border around given menu button.
+  void setMenuBorder(byte menuBtn) noexcept
+  {
+    if (menuBtn == last_highlighed_menu_btn_)
+      return;
+
+    if (last_highlighed_menu_btn_)
+      drawMenuButton(last_highlighed_menu_btn_, colMenuBtnFrame, empty_draw_func);
+    if (menuBtn)
+      drawMenuButton(menuBtn, colMenuBtnFrameHL, empty_draw_func);
+
+    last_highlighed_menu_btn_ = menuBtn;
+  }
+
+  /// Draw function doing nothing.
+  static void empty_draw_func(int16_t bx, int16_t by, int16_t bw, int16_t bh) noexcept {}
+
+  /// Maximum menu button count.
+  static constexpr uint8_t MAX_MENU_BTN_COUNT = 6;
+  /// Menu button height.
+  uint8_t btn_h_ = 45;
+  /// First menu button Y offset.
+  uint8_t btn_y_ = TOUCH_BTN_YOFFSET;
+  /// Menu button count.
+  uint8_t btn_count_ = 6;
+  /// Last menu button, which was highlighted.
+  byte last_highlighed_menu_btn_ = 0;
+  /// Time at which the menu button was last pressed.
+  unsigned long millis_last_menu_btn_press_ = 0;
+  /// Menu actions.
+  MenuAction menu_btn_action_[MAX_MENU_BTN_COUNT];
+};
+
 /// Screen with input fields.
 template<typename ScreenBase>
 class ScreenWithInput : public ScreenBase
@@ -1417,7 +1409,7 @@ private:
 };
 
 /// Main screen displaying current status.
-class ScreenMain final : public ScreenWithSmallTitle
+class ScreenMain final : public ScreenWithMenuButtons<ScreenWithSmallTitle>
 {
   static constexpr int16_t XX = 18;
   static constexpr int16_t XY = 145;
@@ -1430,16 +1422,14 @@ public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 4;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithSmallTitle::IDS;
+  static constexpr uint32_t IDS = ID | ScreenWithMenuButtons::IDS;
 
-  using control_type = ControlMenuButtons;
-
-  explicit ScreenMain(TFT& owner) noexcept : ScreenWithSmallTitle(owner, F("Messwerte")) {}
+  explicit ScreenMain(TFT& owner) noexcept : ScreenWithMenuButtons(owner, F("Messwerte")) {}
 
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithSmallTitle::init();
+    ScreenWithMenuButtons::init();
 
     tft_.setFont(&FreeSans9pt7b);
 
@@ -1514,9 +1504,8 @@ protected:
     tft_.drawBitmap(HX + 6, HY + 230 - 32, icon_noun_Water_927349_24x24, 24, 24, colFontColor);
     tft_.drawBitmap(HX + 6, HY + 230 - 55, icon_noun_Temperature_1365226_24x24, 24, 24, colFontColor);
 
-    auto& ctrl = getControls<control_type>();
-    ctrl.setMenuButtonCount(4);
-    ctrl.newMenuEntry(1, icon_noun_Fan_1833383_52x52, 52,
+    setMenuButtonCount(4);
+    newMenuEntry(1, icon_noun_Fan_1833383_52x52, 52,
       [this]() noexcept {
         auto& fan = getControl().getFanControl();
         if (fan.getVentilationMode() < int(KWLConfig::StandardModeCnt - 1)) {
@@ -1525,7 +1514,7 @@ protected:
         }
       }
     );
-    ctrl.newMenuEntry(2, icon_noun_Fan_1833383_24x24, 24,
+    newMenuEntry(2, icon_noun_Fan_1833383_24x24, 24,
       [this]() noexcept {
         auto& fan = getControl().getFanControl();
         if (fan.getVentilationMode() > 0) {
@@ -1534,12 +1523,12 @@ protected:
         }
       }
     );
-    ctrl.newMenuEntry(3, icon_noun_Settings_18125_56x56, 56,
+    newMenuEntry(3, icon_noun_Settings_18125_56x56, 56,
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    ctrl.newMenuEntry(4, icon_noun_off_1916005_40x40, 40,
+    newMenuEntry(4, icon_noun_off_1916005_40x40, 40,
       [this]() noexcept {
         gotoScreen<ScreenSaver>();
       }
@@ -1628,12 +1617,12 @@ protected:
     else
       update_qual(HX + 35, HY + 120 - 30, co2_, -1);
 
-    ScreenWithSmallTitle::update();
+    ScreenWithMenuButtons::update();
   }
 
   virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept
   {
-    if (ScreenWithSmallTitle::touch(x, y, time))
+    if (ScreenWithMenuButtons::touch(x, y, time))
       return true;
     if (!touch_start_) {
       touch_start_ = time;
@@ -1648,7 +1637,7 @@ protected:
 
   virtual void release(unsigned long time) noexcept
   {
-    ScreenWithSmallTitle::release(time);
+    ScreenWithMenuButtons::release(time);
     touch_start_ = 0;
   }
 
@@ -1784,22 +1773,20 @@ private:
 };
 
 /// Setup screen.
-class ScreenSetup : public ScreenWithBigTitle
+class ScreenSetup : public ScreenWithMenuButtons<ScreenWithBigTitle>
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 6;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
+  static constexpr uint32_t IDS = ID | ScreenWithMenuButtons::IDS;
 
-  using control_type = ControlMenuButtons;
-
-  explicit ScreenSetup(TFT& owner) noexcept : ScreenWithBigTitle(owner, F("Einstellungen")) {}
+  explicit ScreenSetup(TFT& owner) noexcept : ScreenWithMenuButtons(owner, F("Einstellungen")) {}
 
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithBigTitle::init();
+    ScreenWithMenuButtons::init();
 
     tft_.setTextColor(colFontColor, colBackColor );
 
@@ -1813,34 +1800,32 @@ protected:
     tft_.setCursor(18, 256 + BASELINE_MIDDLE);
     tft_.print(F("ZEIT: Zeiteinstellungen"));
 
-    auto& ctrl = getControls<control_type>();
-
-    ctrl.newMenuEntry(1, F("->"),
+    newMenuEntry(1, F("->"),
       [this]() noexcept {
         gotoScreen<ScreenSetup2>();
       }
     );
-    ctrl.newMenuEntry(2, F("<-"),
+    newMenuEntry(2, F("<-"),
       [this]() noexcept {
         gotoScreen<ScreenMain>();
       }
     );
-    ctrl.newMenuEntry(3, F("FAN"),
+    newMenuEntry(3, F("FAN"),
       [this]() noexcept {
         gotoScreen<ScreenSetupFan>();
       }
     );
-    ctrl.newMenuEntry(4, F("BYP"),
+    newMenuEntry(4, F("BYP"),
       [this]() noexcept {
         gotoScreen<ScreenSetupBypass>();
       }
     );
-    ctrl.newMenuEntry(5, F("NET"),
+    newMenuEntry(5, F("NET"),
       [this]() noexcept {
         gotoScreen<ScreenSetupIPAddress>();
       }
     );
-   ctrl. newMenuEntry(6, F("ZEIT"),
+    newMenuEntry(6, F("ZEIT"),
       [this]() noexcept {
         gotoScreen<ScreenSetupTime>();
       }
@@ -1849,22 +1834,20 @@ protected:
 };
 
 /// Setup screen (cont).
-class ScreenSetup2 : public ScreenWithBigTitle
+class ScreenSetup2 : public ScreenWithMenuButtons<ScreenWithBigTitle>
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 7;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
+  static constexpr uint32_t IDS = ID | ScreenWithMenuButtons::IDS;
 
-  using control_type = ControlMenuButtons;
-
-  explicit ScreenSetup2(TFT& owner) noexcept : ScreenWithBigTitle(owner, F("Einstellungen")) {}
+  explicit ScreenSetup2(TFT& owner) noexcept : ScreenWithMenuButtons(owner, F("Einstellungen")) {}
 
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithBigTitle::init();
+    ScreenWithMenuButtons::init();
 
     tft_.setTextColor(colFontColor, colBackColor );
 
@@ -1878,9 +1861,7 @@ protected:
     tft_.setCursor(18, 256 + BASELINE_MIDDLE);
     tft_.print(F("RST: Werkseinstellungen"));
 
-    auto& ctrl = getControls<control_type>();
-
-    ctrl.newMenuEntry(1, F("<-"),
+    newMenuEntry(1, F("<-"),
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
@@ -1890,12 +1871,12 @@ protected:
   //      gotoScreen<ScreenSetupXXX>();
   //    }
   //  );
-    ctrl.newMenuEntry(3, F("AF"),
+    newMenuEntry(3, F("AF"),
       [this]() noexcept {
         gotoScreen<ScreenSetupAntifreeze>();
       }
     );
-    ctrl.newMenuEntry(4, F("PGM"),
+    newMenuEntry(4, F("PGM"),
       [this]() noexcept {
         gotoScreen<ScreenSetupProgram>();
       }
@@ -1905,7 +1886,7 @@ protected:
   //      gotoScreen<ScreenSetupXXX>();
   //    }
   //  );
-    ctrl.newMenuEntry(6, F("RST"),
+    newMenuEntry(6, F("RST"),
       [this]() noexcept {
         gotoScreen<ScreenSetupFactoryDefaults>();
       }
@@ -1913,19 +1894,25 @@ protected:
   }
 };
 
+/// Base screen combining input and menu buttons for setup screens.
+class ScreenSetupBase : public ScreenWithMenuButtons<ScreenWithInput<ScreenWithBigTitle>>
+{
+public:
+  template<typename... Args>
+  ScreenSetupBase(TFT& owner, Args... args) : ScreenWithMenuButtons(owner, args...) {}
+};
+
 /// Fan setup screen.
-class ScreenSetupFan : public ScreenWithInput<ScreenWithBigTitle>
+class ScreenSetupFan : public ScreenSetupBase
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 8;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
-
-  using control_type = ControlMenuButtons;
+  static constexpr uint32_t IDS = ID | ScreenSetupBase::IDS;
 
   explicit ScreenSetupFan(TFT& owner) noexcept :
-    ScreenWithInput(owner, F("Einstellungen Ventilatoren"))
+    ScreenSetupBase(owner, F("Einstellungen Ventilatoren"))
   {
     // copy current state
     auto& config = getControl().getPersistentConfig();
@@ -1937,7 +1924,7 @@ public:
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithInput::init();
+    ScreenSetupBase::init();
 
     setupInputFieldColumns(260, 90);
     setupInputFieldRow(1, 1, F("Normdrehzahl Zuluft:"));
@@ -1958,14 +1945,12 @@ protected:
     tft_.setCursor(18, 260 + BASELINE_MIDDLE);
     tft_.print (F("PWM-Werte fuer jede Stufe gespeichert."));
 
-    auto& ctrl = getControls<control_type>();
-
-    ctrl.newMenuEntry(1, F("<-"),
+    newMenuEntry(1, F("<-"),
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    ctrl.newMenuEntry(2, F("+"),
+    newMenuEntry(2, F("+"),
       [this]() noexcept {
         switch (getCurrentRow()) {
           case 1:
@@ -1985,7 +1970,7 @@ protected:
         updateCurrentInputField();
       }
     );
-    ctrl.newMenuEntry(3, F("-"),
+    newMenuEntry(3, F("-"),
       [this]() noexcept {
         switch (getCurrentRow()) {
           case 1:
@@ -2007,7 +1992,7 @@ protected:
          updateCurrentInputField();
        }
     );
-    ctrl.newMenuEntry(4, F("OK"),
+    newMenuEntry(4, F("OK"),
       [this]() noexcept {
         resetInput();
         // write to EEPROM and restart
@@ -2033,7 +2018,7 @@ protected:
         }
       }
     );
-    ctrl.newMenuEntry(6, F("KAL"),
+    newMenuEntry(6, F("KAL"),
       [this]() noexcept {
         resetInput();
         auto& config = getControl().getPersistentConfig();
@@ -2080,18 +2065,16 @@ private:
 };
 
 /// IP configuration setup screen.
-class ScreenSetupIPAddress : public ScreenWithInput<ScreenWithBigTitle>
+class ScreenSetupIPAddress : public ScreenSetupBase
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 9;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
-
-  using control_type = ControlMenuButtons;
+  static constexpr uint32_t IDS = ID | ScreenSetupBase::IDS;
 
   explicit ScreenSetupIPAddress(TFT& owner) noexcept :
-    ScreenWithInput(owner, F("Netzwerkeinstellungen"))
+    ScreenSetupBase(owner, F("Netzwerkeinstellungen"))
   {
     // copy current state
     auto& config = getControl().getPersistentConfig();
@@ -2108,9 +2091,7 @@ public:
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithInput::init();
-
-    auto& ctrl = getControls<control_type>();
+    ScreenSetupBase::init();
 
     setupInputFieldColumns(170, 48);
     setupInputFieldRow(1, 4, F("IP Adresse:"), F("."));
@@ -2123,12 +2104,12 @@ protected:
     setupInputFieldColumnWidth(7, 32);
     setupInputFieldRow(7, 6, F("MAC"), F(":"));
 
-    ctrl.newMenuEntry(1, F("<-"),
+    newMenuEntry(1, F("<-"),
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    ctrl.newMenuEntry(2, F("+10"),
+    newMenuEntry(2, F("+10"),
       [this]() noexcept {
         if (getCurrentRow() == 7)
           updateValue(16);
@@ -2136,17 +2117,17 @@ protected:
           updateValue(10);
       }
     );
-    ctrl.newMenuEntry(3, F("+1"),
+    newMenuEntry(3, F("+1"),
       [this]() noexcept {
         updateValue(1);
       }
     );
-    ctrl.newMenuEntry(4, F("-1"),
+    newMenuEntry(4, F("-1"),
       [this]() noexcept {
         updateValue(-1);
       }
     );
-    ctrl.newMenuEntry(5, F("-10"),
+    newMenuEntry(5, F("-10"),
       [this]() noexcept {
         if (getCurrentRow() == 7)
           updateValue(-16);
@@ -2154,7 +2135,7 @@ protected:
           updateValue(-10);
       }
     );
-    ctrl.newMenuEntry(6, F("OK"),
+    newMenuEntry(6, F("OK"),
       [this]() noexcept {
         resetInput();
         // write to EEPROM and restart
@@ -2282,6 +2263,9 @@ private:
 
   void updateValue(int delta) noexcept
   {
+    if (getCurrentRow() == 0)
+      return;
+
     uint16_t new_value;
     if (getCurrentRow() == 2) {
       // netmask change is special, it shifts bits
@@ -2377,18 +2361,16 @@ private:
 };
 
 /// Bypass setup screen.
-class ScreenSetupBypass : public ScreenWithInput<ScreenWithBigTitle>
+class ScreenSetupBypass : public ScreenSetupBase
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 10;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
-
-  using control_type = ControlMenuButtons;
+  static constexpr uint32_t IDS = ID | ScreenSetupBase::IDS;
 
   explicit ScreenSetupBypass(TFT& owner) noexcept :
-    ScreenWithInput(owner, F("Einstellungen Sommerbypass"))
+    ScreenSetupBase(owner, F("Einstellungen Sommerbypass"))
   {
     // copy current state
     auto& config = getControl().getPersistentConfig();
@@ -2405,9 +2387,7 @@ public:
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithInput::init();
-
-    auto& ctrl = getControls<control_type>();
+    ScreenSetupBase::init();
 
     setupInputFieldColumns(240, 60);
     setupInputFieldRow(1, 1, F("Temp. Abluft Min:"));
@@ -2417,22 +2397,22 @@ protected:
     setupInputFieldColumnWidth(5, 170);
     setupInputFieldRow(5, 1, F("Modus:"));
 
-    ctrl.newMenuEntry(1, F("<-"),
+    newMenuEntry(1, F("<-"),
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    ctrl.newMenuEntry(3, F("+"),
+    newMenuEntry(3, F("+"),
       [this]() noexcept {
         updateValue(1);
       }
     );
-    ctrl.newMenuEntry(4, F("-"),
+    newMenuEntry(4, F("-"),
       [this]() noexcept {
         updateValue(-1);
       }
     );
-    ctrl.newMenuEntry(6, F("OK"),
+    newMenuEntry(6, F("OK"),
       [this]() noexcept {
         resetInput();
         auto& config = getControl().getPersistentConfig();
@@ -2464,6 +2444,7 @@ private:
       case 3: min = 1; max = 5;  cur = &temp_hysteresis_; break;
       case 4: min = 5; max = 90; cur = &min_hysteresis_; break;
       case 5: min = 0; max = 2;  cur = &mode_; break;
+      default: return;
     }
     delta += *cur;
     if (delta < min)
@@ -2515,18 +2496,16 @@ private:
 };
 
 /// Time zone setup screen.
-class ScreenSetupTime : public ScreenWithInput<ScreenWithBigTitle>
+class ScreenSetupTime : public ScreenSetupBase
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 11;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
-
-  using control_type = ControlMenuButtons;
+  static constexpr uint32_t IDS = ID | ScreenSetupBase::IDS;
 
   explicit ScreenSetupTime(TFT& owner) noexcept :
-    ScreenWithInput(owner, F("Zeiteinstellungen"))
+    ScreenSetupBase(owner, F("Zeiteinstellungen"))
   {
     // copy current state
     auto& config = getControl().getPersistentConfig();
@@ -2537,44 +2516,49 @@ public:
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithInput::init();
+    ScreenSetupBase::init();
 
     setupInputFieldColumns(180, 160);
     setupInputFieldColumnWidth(1, 100);
     setupInputFieldRow(1, 1, F("Zeitzone:"));
     setupInputFieldRow(2, 1, F("DST Flag:"));
 
-    auto& ctrl = getControls<control_type>();
-    ctrl.newMenuEntry(1, F("<-"),
+    newMenuEntry(1, F("<-"),
       [this]() noexcept {
         gotoScreen<ScreenSetup>();
       }
     );
-    ctrl.newMenuEntry(3, F("+"),
+    newMenuEntry(3, F("+"),
       [this]() noexcept {
-        if (getCurrentRow() == 1) {
-          // change tz
-          if (timezone_ < 24*60)
-            timezone_ += 15;
-        } else {
-           dst_ = !dst_;
+        switch (getCurrentRow()) {
+          case 1:
+            // change tz
+            if (timezone_ < 24*60)
+              timezone_ += 15;
+            break;
+          case 2:
+            dst_ = !dst_;
+            break;
         }
         updateCurrentInputField();
       }
     );
-    ctrl.newMenuEntry(4, F("-"),
+    newMenuEntry(4, F("-"),
       [this]() noexcept {
-        if (getCurrentRow() == 1) {
-          // change tz
-          if (timezone_ > -24*60)
-            timezone_ -= 15;
-        } else {
-           dst_ = !dst_;
+        switch (getCurrentRow()) {
+          case 1:
+            // change tz
+            if (timezone_ > -24*60)
+              timezone_ -= 15;
+            break;
+          case 2:
+            dst_ = !dst_;
+            break;
         }
         updateCurrentInputField();
       }
     );
-    ctrl.newMenuEntry(6, F("OK"),
+    newMenuEntry(6, F("OK"),
       [this]() noexcept {
         resetInput();
         auto& config = getControl().getPersistentConfig();
@@ -2618,18 +2602,16 @@ private:
 };
 
 /// Antifreeze setup screen.
-class ScreenSetupAntifreeze : public ScreenWithInput<ScreenWithBigTitle>
+class ScreenSetupAntifreeze : public ScreenSetupBase
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 12;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
-
-  using control_type = ControlMenuButtons;
+  static constexpr uint32_t IDS = ID | ScreenSetupBase::IDS;
 
   explicit ScreenSetupAntifreeze(TFT& owner) noexcept :
-    ScreenWithInput(owner, F("Einstellungen Frostschutz"))
+    ScreenSetupBase(owner, F("Einstellungen Frostschutz"))
   {
     // copy current state
     auto& config = getControl().getPersistentConfig();
@@ -2640,43 +2622,48 @@ public:
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithInput::init();
+    ScreenSetupBase::init();
 
     setupInputFieldColumns(300, 80);
     setupInputFieldRow(1, 1, F("Temperaturhysterese:"));
     setupInputFieldRow(2, 1, F("Kaminbetrieb:"));
 
-    auto& ctrl = getControls<control_type>();
-    ctrl.newMenuEntry(1, F("<-"),
+    newMenuEntry(1, F("<-"),
       [this]() noexcept {
         gotoScreen<ScreenSetup2>();
       }
     );
-    ctrl.newMenuEntry(3, F("+"),
+    newMenuEntry(3, F("+"),
       [this]() noexcept {
-        if (getCurrentRow() == 1) {
-          // change tz
-          if (temp_hysteresis_ < 10)
-            temp_hysteresis_ += 1;
-        } else {
-           heating_app_ = !heating_app_;
+        switch (getCurrentRow()) {
+          case 1:
+            // change hysteresis
+            if (temp_hysteresis_ < 10)
+              temp_hysteresis_ += 1;
+            break;
+          case 2:
+            heating_app_ = !heating_app_;
+            break;
         }
         updateCurrentInputField();
       }
     );
-    ctrl.newMenuEntry(4, F("-"),
+    newMenuEntry(4, F("-"),
       [this]() noexcept {
-        if (getCurrentRow() == 1) {
-          // change tz
-          if (temp_hysteresis_ > 1)
-            temp_hysteresis_ -= 1;
-        } else {
-           heating_app_ = !heating_app_;
+        switch (getCurrentRow()) {
+          case 1:
+            // change hysteresis
+            if (temp_hysteresis_ > 1)
+              temp_hysteresis_ -= 1;
+            break;
+          case 2:
+            heating_app_ = !heating_app_;
+            break;
         }
         updateCurrentInputField();
       }
     );
-    ctrl.newMenuEntry(6, F("OK"),
+    newMenuEntry(6, F("OK"),
       [this]() noexcept {
         resetInput();
         auto& config = getControl().getPersistentConfig();
@@ -2697,10 +2684,8 @@ private:
     switch (row) {
       default:
       case 1:
-      {
         snprintf_P(buf, sizeof(buf), PSTR("%d"), temp_hysteresis_);
         break;
-      }
       case 2:
         strcpy_P(buf, heating_app_ ? PSTR("JA") : PSTR("NEIN"));
         break;
@@ -2715,18 +2700,16 @@ private:
 };
 
 /// Program setup screen.
-class ScreenSetupProgram : public ScreenWithInput<ScreenWithBigTitle>
+class ScreenSetupProgram : public ScreenSetupBase
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 13;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
-
-  using control_type = ControlMenuButtons;
+  static constexpr uint32_t IDS = ID | ScreenSetupBase::IDS;
 
   explicit ScreenSetupProgram(TFT& owner) noexcept :
-    ScreenWithInput(owner, F("Programmmanager"))
+    ScreenSetupBase(owner, F("Programmmanager"))
   {
     index_ = -1;
     memset(&pgm_, 0, sizeof(pgm_));
@@ -2735,7 +2718,7 @@ public:
 protected:
   virtual void init() noexcept override
   {
-    ScreenWithInput::init();
+    ScreenSetupBase::init();
 
     setupInputFieldColumns(210, 40);
     setupInputFieldRow(1, 1, F("Programm:"));
@@ -2747,23 +2730,22 @@ protected:
     setupInputFieldColumnWidth(6, 120);
     setupInputFieldRow(6, 1, F("Programmsaetze:"));
 
-    auto& ctrl = getControls<control_type>();
-    ctrl.newMenuEntry(1, F("<-"),
+    newMenuEntry(1, F("<-"),
       [this]() noexcept {
         updateProgram(0);
       }
     );
-    ctrl.newMenuEntry(3, F("+"),
+    newMenuEntry(3, F("+"),
       [this]() noexcept {
         updateProgram(1);
       }
     );
-    ctrl.newMenuEntry(4, F("-"),
+    newMenuEntry(4, F("-"),
       [this]() noexcept {
         updateProgram(-1);
       }
     );
-    ctrl.newMenuEntry(5, F("OK"),
+    newMenuEntry(5, F("OK"),
       [this]() noexcept {
         // store changes
         resetInput();
@@ -2780,7 +2762,7 @@ protected:
         }
       }
     );
-    ctrl.newMenuEntry(6, F("RST"),
+    newMenuEntry(6, F("RST"),
       [this]() noexcept {
         // reload program, cancel changes
         resetInput();
@@ -2913,24 +2895,24 @@ private:
 };
 
 /// Factory defaults screen.
-class ScreenSetupFactoryDefaults : public ScreenWithBigTitle
+class ScreenSetupFactoryDefaults : public ScreenWithMenuButtons<ScreenWithBigTitle>
 {
 public:
   /// Screen ID.
   static constexpr uint32_t ID = 1 << 14;
   /// Screen IDs of this screen and all base classes.
-  static constexpr uint32_t IDS = ID | ScreenWithBigTitle::IDS;
-
-  using control_type = ControlMenuButtons;
+  static constexpr uint32_t IDS = ID | ScreenWithMenuButtons::IDS;
 
   explicit ScreenSetupFactoryDefaults(TFT& owner) noexcept :
-    ScreenWithBigTitle(owner, F("Werkseinstellungen"))
+    ScreenWithMenuButtons(owner, F("Werkseinstellungen"))
   {
   }
 
 protected:
   virtual void init() noexcept override
   {
+    ScreenWithMenuButtons::init();
+
     tft_.setTextColor(colFontColor, colBackColor);
     tft_.setFont(&FreeSans9pt7b);
 
@@ -2941,13 +2923,12 @@ protected:
     tft_.setCursor(18, 175 + BASELINE_MIDDLE);
     tft_.print(F("Die Steuerung wird anschliessend neu gestartet."));
 
-    auto& ctrl = getControls<control_type>();
-    ctrl.newMenuEntry(1, F("<-"),
+    newMenuEntry(1, F("<-"),
       [this]() noexcept {
         gotoScreen<ScreenSetup2>();
       }
     );
-    ctrl.newMenuEntry(6, F("OK"),
+    newMenuEntry(6, F("OK"),
       [this]() noexcept {
         Serial.print(F("Speicherbereich wird geloescht... "));
         tft_.setFont(&FreeSans9pt7b);
@@ -2975,8 +2956,6 @@ public:
   static constexpr uint32_t ID = 1U << 15;
   /// Screen IDs of this screen and all base classes.
   static constexpr uint32_t IDS = ID | Screen::IDS;
-
-  using control_type = ControlMenuButtons;
 
   explicit ScreenCalibration(TFT& owner) noexcept :
     ScreenWithHeader(owner)
@@ -3245,20 +3224,15 @@ inline void TFT::gotoScreen() noexcept
 {
   if (current_screen_id_ == ScreenClass::ID) {
     // we are already on the right screen
-    current_control_->init();
     current_screen_->init();
     displayUpdate();
     return;
   }
 
-  using ControlClass = typename ScreenClass::control_type;
-  static_assert(sizeof(ScreenClass) + sizeof(ControlClass) <= sizeof(dynamic_space_), "Screen+control too big");
+  static_assert(sizeof(ScreenClass) <= sizeof(dynamic_space_), "Screen object too big");
 
   // instantiate new screen
-  current_control_ = new(dynamic_space_ + sizeof(ScreenClass)) ControlClass(*this);
   current_screen_ = new(dynamic_space_) ScreenClass(*this);
-
-  current_control_->init();
   current_screen_->init();
 
   last_screen_ids_ = ScreenClass::IDS;
@@ -3351,11 +3325,8 @@ void TFT::loopTouch() noexcept
 
     touch_in_progress_ = true;
     millis_last_touch_ = time;
-    bool consumed = false;
     if (current_screen_)
-      consumed = current_screen_->touch(xpos, ypos, time);
-    if (current_control_ && !consumed)
-      consumed = current_control_->touch(xpos, ypos, time);
+      current_screen_->touch(xpos, ypos, time);
 
   } else if (touch_in_progress_) {
     // released
@@ -3364,8 +3335,6 @@ void TFT::loopTouch() noexcept
       Serial.println(time);
     }
     touch_in_progress_ = false;
-    if (current_control_)
-      current_control_->release(time);
     if (current_screen_)
       current_screen_->release(time);
     if (!cal_->calibrated_)

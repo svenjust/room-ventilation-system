@@ -117,9 +117,6 @@ private:
   /// Type hierarchy of last screen.
   uint32_t last_screen_ids_ = 0;
 
-  /// Currently-displayed control.
-  Control* current_control_ = nullptr;
-
   /// Calibration for touch.
   const TouchCalibration* cal_;
 
@@ -130,7 +127,7 @@ private:
   unsigned long millis_last_touch_ = 0;
 
   /// Space for screen and controls.
-  char dynamic_space_[156];
+  char dynamic_space_[150];
 
   /// Statistics for display update.
   Scheduler::TaskTimingStats display_update_stats_;
