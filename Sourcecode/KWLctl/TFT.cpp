@@ -1119,12 +1119,13 @@ protected:
    * @param width width of one column.
    * @param spacing spacing between columns.
    */
-  void setupInputFieldColumns(unsigned left = 180, unsigned width = 50, unsigned spacing = 10) noexcept
+  void setupInputFieldColumns(unsigned left = 180, unsigned width = 50, int8_t spacing = 10) noexcept
   {
     input_x_ = int(left);
-    input_spacing_ = int(spacing);
-    for (uint8_t i = 0; i < INPUT_ROW_COUNT; ++i)
+    for (uint8_t i = 0; i < INPUT_ROW_COUNT; ++i) {
       input_w_[i] = int(width);
+      input_spacing_[i] = spacing;
+    }
   }
 
   /*!
@@ -1134,11 +1135,15 @@ protected:
    *
    * @param row Row for which to set the new width.
    * @param width Column width for the row.
+   * @param spacing Spacing between fields (optional, if different from global spacing).
    */
-  void setupInputFieldColumnWidth(uint8_t row, unsigned width) noexcept
+  void setupInputFieldColumnWidth(uint8_t row, unsigned width, int8_t spacing = -1) noexcept
   {
-    if (row > 0 && row <= INPUT_ROW_COUNT)
+    if (row > 0 && row <= INPUT_ROW_COUNT) {
       input_w_[row - 1] = int(width);
+      if (spacing >= 0)
+        input_spacing_[row - 1] = spacing;
+    }
   }
 
   /*!
@@ -1164,9 +1169,9 @@ protected:
       this->tft_.getTextBounds(separator, 0, 0, &x1, &y1, &tw, &th);
       auto x = input_x_;
       auto w = input_w_[row];
-      for (uint8_t i = 0; i < count - 1; ++i, x += w + input_spacing_) {
+      for (uint8_t i = 0; i < count - 1; ++i, x += w + input_spacing_[row]) {
         int x1 = x + w;
-        int x2 = x1 + input_spacing_ - 4;
+        int x2 = x1 + input_spacing_[row] - 4;
         this->tft_.setCursor((x1 + x2 - int(tw)) / 2, y + 12 + BASELINE_SMALL);
         this->tft_.print(separator);
       }
@@ -1279,7 +1284,7 @@ protected:
     --row;
 
     int w = input_w_[row];
-    int x = input_x_ + col * (w + input_spacing_);
+    int x = input_x_ + col * (w + input_spacing_[row]);
     int y = INPUT_FIELD_YOFFSET + 1 + INPUT_FIELD_HEIGHT * row;
 
     if (highlight) {
@@ -1355,8 +1360,8 @@ protected:
     if (row < INPUT_ROW_COUNT && input_active_[row]) {
       // potentially touched an input field
       auto mask = input_active_[row];
-      auto w = input_w_[row] + input_spacing_;
-      auto cx = input_x_ + input_spacing_ / 2;
+      auto w = input_w_[row] + input_spacing_[row];
+      auto cx = input_x_ - input_spacing_[row] / 2;
       auto col = uint8_t((x - cx) / w);
       if (col < INPUT_COL_COUNT && (mask & (uint8_t(1) << col)) != 0) {
         // active input field
@@ -1402,7 +1407,7 @@ private:
   /// First input field X coordinates.
   int input_x_ = 0;
   /// Spacing between input fields.
-  int input_spacing_ = 0;
+  int8_t input_spacing_[INPUT_ROW_COUNT];
   /// Input field width for individual rows.
   int input_w_[INPUT_ROW_COUNT];
   /// Bitmask of active input fields for individual menu rows.
@@ -1848,11 +1853,11 @@ private:
 };
 
 /// Base screen combining input and menu buttons for setup screens.
-class ScreenSetupBase : public ScreenWithMenuButtons<ScreenWithInput<ScreenWithBigTitle>>
+class ScreenSetupBase : public ScreenWithInput<ScreenWithMenuButtons<ScreenWithBigTitle>>
 {
 public:
   template<typename... Args>
-  ScreenSetupBase(TFT& owner, Args... args) : ScreenWithMenuButtons(owner, args...) {}
+  ScreenSetupBase(TFT& owner, Args... args) : ScreenWithInput(owner, args...) {}
 };
 
 /// Fan setup screen.
