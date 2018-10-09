@@ -1370,7 +1370,13 @@ protected:
           Serial.print(F("TFT: Input field touched: row="));
           Serial.print(row);
           Serial.print(F(", col="));
-          Serial.println(col);
+          Serial.print(col);
+          Serial.print(F("; cx/w/x="));
+          Serial.print(cx);
+          Serial.print('/');
+          Serial.print(w);
+          Serial.print('/');
+          Serial.println(x);
         }
         if (input_current_row_ != row || input_current_col_ != col) {
           if (input_current_row_) {
@@ -2680,6 +2686,7 @@ public:
     ScreenSetupBase(owner, F("Programmmanager"))
   {
     index_ = -1;
+    program_set_ = getControl().getPersistentConfig().getProgramSetIndex();
     memset(&pgm_, 0, sizeof(pgm_));
   }
 
@@ -2690,7 +2697,8 @@ protected:
     initBitmap(icon_program_24x24);
 
     setupInputFieldColumns(210, 40);
-    setupInputFieldRow(1, 1, F("Programm:"));
+    setupInputFieldColumnWidth(1, 40, 120);
+    setupInputFieldRow(1, 2, F("Programm:"), F("Akt. Satz:"));
     setupInputFieldRow(2, 1, F("Stufe:"));
     setupInputFieldRow(3, 2, F("Startzeit:"), F(":"));
     setupInputFieldRow(4, 2, F("Endzeit:"), F(":"));
@@ -2719,8 +2727,10 @@ protected:
         // store changes
         resetInput();
         auto& config = getControl().getPersistentConfig();
-        if (index_ >= 0) {
-          config.setProgram(uint8_t(index_), pgm_);
+        if (index_ >= 0 || program_set_ != config.getProgramSetIndex()) {
+          if (index_ >= 0)
+            config.setProgram(uint8_t(index_), pgm_);
+          config.setProgramSetIndex(program_set_);
           doPopup<ScreenSetupProgram>(
             F("Einstellungen gespeichert"),
             F("Neue Programmeinstellungen\nwurden in EEPROM gespeichert\nund sind sofort aktiv."));
@@ -2737,8 +2747,10 @@ protected:
         // reload program, cancel changes
         resetInput();
         auto& config = getControl().getPersistentConfig();
-        if (index_ >= 0) {
-          pgm_ = config.getProgram(uint8_t(index_));
+        if (index_ >= 0 || program_set_ != config.getProgramSetIndex()) {
+          program_set_ = config.getProgramSetIndex();
+          if (index_ >= 0)
+            pgm_ = config.getProgram(uint8_t(index_));
           doPopup<ScreenSetupProgram>(
             F("Einstellungen zurueckgesetzt"),
             F("Die Programmeinstellungen\nwurden zurueckgesetzt."));
@@ -2753,8 +2765,27 @@ private:
   {
     auto& config = getControl().getPersistentConfig();
     if (getCurrentRow() == 1 || delta == 0) {
+      if (getCurrentColumn() == 1) {
+        // program set changed
+        if (delta > 0) {
+          if (program_set_ < 7) {
+            ++program_set_;
+            updateCurrentInputField();
+          }
+          return;
+        } else if (delta < 0) {
+          if (program_set_ > 0) {
+            --program_set_;
+            updateCurrentInputField();
+          }
+          return;
+        } else {
+          // special case for back button, fall through to below
+        }
+      }
       // index change, check whether program data changed
-      if (index_ >= 0 && pgm_ != config.getProgram(uint8_t(index_))) {
+      if ((index_ >= 0 && pgm_ != config.getProgram(uint8_t(index_))) ||
+        program_set_ != config.getProgramSetIndex()) {
         // program changed, but not saved
         doPopup<ScreenSetupProgram>(
           F("Einstellungen nicht gespeichert"),
@@ -2827,7 +2858,7 @@ private:
 
   virtual void input_field_draw(uint8_t row, uint8_t col) noexcept override
   {
-    if (index_ < 0) {
+    if (index_ < 0 && (row != 1 || col != 1)) {
       // empty screen
       drawCurrentInputField("", false);
       return;
@@ -2836,7 +2867,12 @@ private:
     switch (row) {
       default:
       case 1:
-        snprintf_P(buf, sizeof(buf), PSTR("%02d"), index_);
+        if (col == 0) {
+          snprintf_P(buf, sizeof(buf), PSTR("%02d"), index_);
+        } else {
+          buf[0] = char('0' + program_set_);
+          buf[1] = 0;
+        }
         break;
       case 2:
         snprintf_P(buf, sizeof(buf), PSTR("%d"), pgm_.fan_mode_);
@@ -2859,6 +2895,8 @@ private:
 
   /// Current program index to edit.
   int8_t index_;
+  /// Current program set.
+  uint8_t program_set_;
   /// Program data of the current program.
   ProgramData pgm_;
   /// Currently edited popup flags.
