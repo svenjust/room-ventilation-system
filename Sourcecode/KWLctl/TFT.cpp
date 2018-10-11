@@ -1435,6 +1435,8 @@ class ScreenMain final : public ScreenWithMenuButtons<ScreenWithSmallTitle>
   static constexpr int16_t HY = 60;
   static constexpr int16_t SX = XX + 120 - 32;
   static constexpr int16_t SY = XY + 45 + 23 - 32;
+  static constexpr int16_t PX = XX + 150;
+  static constexpr int16_t PY = 64 + 10;
 
 public:
   /// Screen ID.
@@ -1452,7 +1454,10 @@ protected:
     tft_.setFont(&FreeSans9pt7b);
 
     // fan symbol
-    tft_.drawBitmap(XX + 90 - 64, 64, icon_fan_64x64, 64, 64, colFontColor);
+    tft_.drawBitmap(XX, 64, icon_fan_64x64, 64, 64, colFontColor);
+
+    // program symbol
+    tft_.drawBitmap(PX, PY, icon_program_24x24, 24, 24, colFontColor);
 
     // heat exchange symbol
     tft_.drawLine(XX + 120, XY + 5, XX + 80, XY + 45, colFontColor);
@@ -1556,7 +1561,10 @@ protected:
   virtual void update() noexcept override
   {
     auto& fan = getControl().getFanControl();
+    auto& pgm = getControl().getProgramManager();
+    auto& cfg = getControl().getPersistentConfig();
     auto& temp = getControl().getTempSensors();
+    tft_.setTextColor(colFontColor, colBackColor);
 
     auto currentMode = fan.getVentilationMode();
     if (kwl_mode_ != currentMode) {
@@ -1569,15 +1577,38 @@ protected:
       int16_t tx, ty;
       uint16_t tw, th;
       tft_.getTextBounds(buffer, 0, 0, &tx, &ty, &tw, &th);
-      tft_.setCursor(XX + 120 - int16_t(tw) / 2, 64 + 62);
-      tft_.fillRect(XX + 90, 60, 60, 80, colBackColor);
+      tft_.setCursor(XX + 64 + 30 - int16_t(tw) / 2, 64 + 62);
+      tft_.fillRect(XX + 64, 60, 60, 80, colBackColor);
       tft_.print(buffer[0]);
       kwl_mode_ = currentMode;
     }
 
+    // Show program set index and current program here
+    if (cfg.getProgramSetIndex() != program_set_ || pgm.getCurrentProgram() != program_index_) {
+      // update program set
+      program_set_ = cfg.getProgramSetIndex();
+      program_index_ = pgm.getCurrentProgram();
+
+      tft_.setFont(&FreeSans9pt7b);
+      tft_.fillRect(PX + 28, PY, 90, 22, colBackColor + DEBUG_HIGHLIGHT);
+      tft_.setCursor(PX + 28, PY + BASELINE_SMALL);
+      auto& p = pgm.getProgram(program_index_ >= 0 ? uint8_t(program_index_) : 0);
+      char buffer[24];
+      if (program_index_ >= 0)
+        snprintf_P(buffer, sizeof(buffer), PSTR("S%d/P%d(%d)"), program_set_, program_index_, p.fan_mode_);
+      else
+        snprintf_P(buffer, sizeof(buffer), PSTR("S%d/default"), program_set_);
+      tft_.print(buffer);
+      tft_.fillRect(PX, PY + 28, 100, 20, colBackColor + DEBUG_HIGHLIGHT);
+      if (program_index_ >= 0) {
+        tft_.setCursor(PX, PY + 28 + BASELINE_SMALL);
+        snprintf_P(buffer, sizeof(buffer), PSTR("%02d:%02d-%02d:%02d"), p.start_h_, p.start_m_, p.end_h_, p.end_m_);
+        tft_.print(buffer);
+      }
+    }
+
     // Now update various sensor readings
     tft_.setFont(&FreeSans12pt7b);
-    tft_.setTextColor(colFontColor, colBackColor);
     // T1-T4
     update_temp(XX, XY + 10, t1_, temp.get_t1_outside(), false);
     update_temp(XX + 161, XY + 125 - HEIGHT_NUMBER_FIELD, t2_, temp.get_t2_inlet(), true);
@@ -1787,6 +1818,8 @@ private:
   int efficiency_ = -100;
   float t1_ = -1000, t2_ = -1000, t3_ = -1000, t4_ = -1000, dht1t_ = -1000, dht2t_ = -1000;
   int dht1h_ = -1000, dht2h_ = -1000, voc_ = -1000, co2_ = -1000;
+  uint8_t program_set_ = 255; ///< Active program set.
+  int8_t program_index_ = -1; ///< Active program index.
   unsigned long touch_start_ = 0;
 };
 

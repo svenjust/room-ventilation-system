@@ -45,6 +45,9 @@ public:
   /// Start the program manager.
   void begin();
 
+  /// Get current program index or <0 if none running.
+  int8_t getCurrentProgram() const noexcept { return current_program_; }
+
   /// Reset program, so the next run will choose current program.
   void resetProgram() { current_program_ = -1; }
 
