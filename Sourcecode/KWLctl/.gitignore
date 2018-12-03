@@ -1,0 +1,2 @@
+# Ignore changes in UserConfig.h, since these are not back-propagated to central repo
+UserConfig.h

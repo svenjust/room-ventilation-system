@@ -1,0 +1,20 @@
+Icons used here are from The Noun Project (https://thenounproject.com).
+
+Icons are licensed under creative commons license. Here the list of authors:
+  - noun_agenda_63276: created by Mark Shorter
+  - noun_back_737733: created by Vladimir
+  - noun_Bypass_542021: created by Arthur Shlain
+  - noun_Carbon_Dioxide_183795: created by Nicholas DeForest
+  - noun_check_1833392: created by ratna sri dahlia
+  - noun_clock_130935: created by Michael Thompson
+  - noun_computer_network_1644731: created by b farias
+  - noun_deny_1539031: created by Tereza Moravcová
+  - noun_factory_1531655: created by iconsphere
+  - noun_Fan_1833383: created by kamalstb
+  - noun_low_temperature_641749: created by ProSymbols
+  - noun_molecule_669068: created by Hea Poh Lin
+  - noun_off_1916005: created by labbaik icon
+  - noun_okay_1494764: created by Tereza Moravcová
+  - noun_Settings_18125: created by Joe Mortell
+  - noun_Temperature_1365226: created by shashank singh
+  - noun_Water_927349: created by iconsphere
