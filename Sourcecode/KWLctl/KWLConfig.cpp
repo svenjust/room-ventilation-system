@@ -63,15 +63,28 @@ void KWLPersistentConfig::loadDefaults()
 
   static_assert(KWLConfig::PrefixMQTT.length() < sizeof(mqtt_prefix_), "Too long MQTT prefix");
   strcpy(mqtt_prefix_, PrefixMQTT.load());
-  ip_ = KWLConfig::NetworkIPAddress;
-  netmask_ = KWLConfig::NetworkSubnetMask;
-  gw_ = KWLConfig::NetworkGateway;
-  dns_ = KWLConfig::NetworkDNSServer;
-  mqtt_ = KWLConfig::NetworkMQTTBroker;
-  mqtt_port_ = KWLConfig::NetworkMQTTPort;
-  ntp_ = KWLConfig::NetworkNTPServer;
-  mac_ = KWLConfig::NetworkMACAddress;
+
+  loadNetworkDefaults();
   touch_.reset();
+}
+
+void KWLPersistentConfig::loadNetworkDefaults()
+{
+  static constexpr auto ip = KWLConfig::NetworkIPAddress;
+  static constexpr auto netmask = KWLConfig::NetworkSubnetMask;
+  static constexpr auto gw = KWLConfig::NetworkGateway;
+  static constexpr auto dns = KWLConfig::NetworkDNSServer;
+  static constexpr auto mqtt = KWLConfig::NetworkMQTTBroker;
+  static constexpr auto ntp = KWLConfig::NetworkNTPServer;
+  static constexpr auto mac = KWLConfig::NetworkMACAddress;
+  ip_ = ip;
+  netmask_ = netmask;
+  gw_ = gw;
+  dns_ = dns;
+  mqtt_ = mqtt;
+  mqtt_port_ = KWLConfig::NetworkMQTTPort;
+  ntp_ = ntp;
+  mac_ = mac;
 }
 
 void KWLPersistentConfig::migrate()
@@ -111,14 +124,7 @@ void KWLPersistentConfig::migrate()
   }
   if (ip_[0] == 0xff || ip_[0] == 0) {
     Serial.println(F("Config migration: setting IP addresses and port"));
-    ip_ = KWLConfig::NetworkIPAddress;
-    netmask_ = KWLConfig::NetworkSubnetMask;
-    gw_ = KWLConfig::NetworkGateway;
-    dns_ = KWLConfig::NetworkDNSServer;
-    mqtt_ = KWLConfig::NetworkMQTTBroker;
-    mqtt_port_ = KWLConfig::NetworkMQTTPort;
-    ntp_ = KWLConfig::NetworkNTPServer;
-    mac_ = KWLConfig::NetworkMACAddress;
+    loadNetworkDefaults();
     update(ip_);
     update(netmask_);
     update(gw_);
