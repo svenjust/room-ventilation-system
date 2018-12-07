@@ -40,6 +40,3 @@ Um das Projekt zu bauen müssen folgende Voraussetzungen erfüllt sein:
   - Das Projekt bringt eigene Libraries mit. Diese müssen ebenfalls installiert
     werden, am einfachsten als symbolische Links. Der Skript link_libs.sh
     linkt die Libraries an die (hoffentlich) richtige Stelle.
-  - In der Arduino Entwicklungsumgebung muss unter Werkzeuge, Board: ..., 
-    Boardverwalter für Arduino AVR Boards die Version 1.6.21 installiert werden, 
-    neuere Versionen werfen beim Linken einen Fehler.
