@@ -93,6 +93,9 @@ public:
   /// Get fan controlling object.
   FanControl& getFanControl() { return fan_control_; }
 
+  /// Get program manager.
+  ProgramManager& getProgramManager() { return program_manager_; }
+
   /// Get bypass controlling object.
   SummerBypass& getBypass() { return bypass_; }
 

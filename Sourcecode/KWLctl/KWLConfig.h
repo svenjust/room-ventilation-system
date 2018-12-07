@@ -147,13 +147,13 @@ public:
   static constexpr IPAddressLiteral NetworkSubnetMask = {255, 255, 255,   0};
 
   /// Gateway, defaults to network address with "1" as last element.
-  static const IPAddressLiteral NetworkGateway;
+  static constexpr IPAddressLiteral NetworkGateway = (FinalConfig::NetworkIPAddress & FinalConfig::NetworkSubnetMask) | IPAddressLiteral(0, 0, 0, 1);
 
   /// DNS Server, defaults to gateway.
-  static const IPAddressLiteral NetworkDNSServer;
+  static constexpr IPAddressLiteral NetworkDNSServer = FinalConfig::NetworkGateway;
 
   /// NTP (network time protocol) server, defaults to gateway.
-  static const IPAddressLiteral NetworkNTPServer;
+  static constexpr IPAddressLiteral NetworkNTPServer = FinalConfig::NetworkGateway;
 
   /// IP Adresse des MQTT Brokers.
   static constexpr IPAddressLiteral NetworkMQTTBroker = {192, 168,  20, 240};
@@ -405,11 +405,17 @@ constexpr FlashStringLiteral<6> KWLDefaultConfig<FinalConfig>::VersionString;
 template<typename FinalConfig>
 constexpr MACAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkMACAddress;
 template<typename FinalConfig>
-const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkGateway = (FinalConfig::NetworkIPAddress & FinalConfig::NetworkSubnetMask) | IPAddressLiteral(0, 0, 0, 1);
+constexpr IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkIPAddress;
 template<typename FinalConfig>
-const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkDNSServer = FinalConfig::NetworkGateway;
+constexpr IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkSubnetMask;
 template<typename FinalConfig>
-const IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkNTPServer = FinalConfig::NetworkGateway;
+constexpr IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkGateway;
+template<typename FinalConfig>
+constexpr IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkDNSServer;
+template<typename FinalConfig>
+constexpr IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkNTPServer;
+template<typename FinalConfig>
+constexpr IPAddressLiteral KWLDefaultConfig<FinalConfig>::NetworkMQTTBroker;
 template<typename FinalConfig>
 const bool KWLDefaultConfig<FinalConfig>::RetainTemperature = FinalConfig::RetainMeasurements;
 template<typename FinalConfig>
@@ -567,6 +573,9 @@ private:
 
   /// Initialize with defaults, if version doesn't fit.
   void loadDefaults();
+
+  /// Initialize network default values.
+  void loadNetworkDefaults();
 
   /// Migrate configuration.
   void migrate();

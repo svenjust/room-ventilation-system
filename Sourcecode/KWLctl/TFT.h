@@ -136,7 +136,7 @@ private:
   unsigned long millis_last_touch_ = 0;
 
   /// Space for screen and controls.
-  char dynamic_space_[150];
+  char dynamic_space_[156];
 
   /// Statistics for display update.
   Scheduler::TaskTimingStats display_update_stats_;

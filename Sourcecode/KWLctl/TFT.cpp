@@ -1119,12 +1119,13 @@ protected:
    * @param width width of one column.
    * @param spacing spacing between columns.
    */
-  void setupInputFieldColumns(unsigned left = 180, unsigned width = 50, unsigned spacing = 10) noexcept
+  void setupInputFieldColumns(unsigned left = 180, unsigned width = 50, int8_t spacing = 10) noexcept
   {
     input_x_ = int(left);
-    input_spacing_ = int(spacing);
-    for (uint8_t i = 0; i < INPUT_ROW_COUNT; ++i)
+    for (uint8_t i = 0; i < INPUT_ROW_COUNT; ++i) {
       input_w_[i] = int(width);
+      input_spacing_[i] = spacing;
+    }
   }
 
   /*!
@@ -1134,11 +1135,15 @@ protected:
    *
    * @param row Row for which to set the new width.
    * @param width Column width for the row.
+   * @param spacing Spacing between fields (optional, if different from global spacing).
    */
-  void setupInputFieldColumnWidth(uint8_t row, unsigned width) noexcept
+  void setupInputFieldColumnWidth(uint8_t row, unsigned width, int8_t spacing = -1) noexcept
   {
-    if (row > 0 && row <= INPUT_ROW_COUNT)
+    if (row > 0 && row <= INPUT_ROW_COUNT) {
       input_w_[row - 1] = int(width);
+      if (spacing >= 0)
+        input_spacing_[row - 1] = spacing;
+    }
   }
 
   /*!
@@ -1164,9 +1169,9 @@ protected:
       this->tft_.getTextBounds(separator, 0, 0, &x1, &y1, &tw, &th);
       auto x = input_x_;
       auto w = input_w_[row];
-      for (uint8_t i = 0; i < count - 1; ++i, x += w + input_spacing_) {
+      for (uint8_t i = 0; i < count - 1; ++i, x += w + input_spacing_[row]) {
         int x1 = x + w;
-        int x2 = x1 + input_spacing_ - 4;
+        int x2 = x1 + input_spacing_[row] - 4;
         this->tft_.setCursor((x1 + x2 - int(tw)) / 2, y + 12 + BASELINE_SMALL);
         this->tft_.print(separator);
       }
@@ -1279,7 +1284,7 @@ protected:
     --row;
 
     int w = input_w_[row];
-    int x = input_x_ + col * (w + input_spacing_);
+    int x = input_x_ + col * (w + input_spacing_[row]);
     int y = INPUT_FIELD_YOFFSET + 1 + INPUT_FIELD_HEIGHT * row;
 
     if (highlight) {
@@ -1355,8 +1360,8 @@ protected:
     if (row < INPUT_ROW_COUNT && input_active_[row]) {
       // potentially touched an input field
       auto mask = input_active_[row];
-      auto w = input_w_[row] + input_spacing_;
-      auto cx = input_x_ + input_spacing_ / 2;
+      auto w = input_w_[row] + input_spacing_[row];
+      auto cx = input_x_ - input_spacing_[row] / 2;
       auto col = uint8_t((x - cx) / w);
       if (col < INPUT_COL_COUNT && (mask & (uint8_t(1) << col)) != 0) {
         // active input field
@@ -1365,7 +1370,13 @@ protected:
           Serial.print(F("TFT: Input field touched: row="));
           Serial.print(row);
           Serial.print(F(", col="));
-          Serial.println(col);
+          Serial.print(col);
+          Serial.print(F("; cx/w/x="));
+          Serial.print(cx);
+          Serial.print('/');
+          Serial.print(w);
+          Serial.print('/');
+          Serial.println(x);
         }
         if (input_current_row_ != row || input_current_col_ != col) {
           if (input_current_row_) {
@@ -1402,7 +1413,7 @@ private:
   /// First input field X coordinates.
   int input_x_ = 0;
   /// Spacing between input fields.
-  int input_spacing_ = 0;
+  int8_t input_spacing_[INPUT_ROW_COUNT];
   /// Input field width for individual rows.
   int input_w_[INPUT_ROW_COUNT];
   /// Bitmask of active input fields for individual menu rows.
@@ -1424,6 +1435,8 @@ class ScreenMain final : public ScreenWithMenuButtons<ScreenWithSmallTitle>
   static constexpr int16_t HY = 60;
   static constexpr int16_t SX = XX + 120 - 32;
   static constexpr int16_t SY = XY + 45 + 23 - 32;
+  static constexpr int16_t PX = XX + 150;
+  static constexpr int16_t PY = 64 + 10;
 
 public:
   /// Screen ID.
@@ -1441,7 +1454,10 @@ protected:
     tft_.setFont(&FreeSans9pt7b);
 
     // fan symbol
-    tft_.drawBitmap(XX + 90 - 64, 64, icon_fan_64x64, 64, 64, colFontColor);
+    tft_.drawBitmap(XX, 64, icon_fan_64x64, 64, 64, colFontColor);
+
+    // program symbol
+    tft_.drawBitmap(PX, PY, icon_program_24x24, 24, 24, colFontColor);
 
     // heat exchange symbol
     tft_.drawLine(XX + 120, XY + 5, XX + 80, XY + 45, colFontColor);
@@ -1545,7 +1561,10 @@ protected:
   virtual void update() noexcept override
   {
     auto& fan = getControl().getFanControl();
+    auto& pgm = getControl().getProgramManager();
+    auto& cfg = getControl().getPersistentConfig();
     auto& temp = getControl().getTempSensors();
+    tft_.setTextColor(colFontColor, colBackColor);
 
     auto currentMode = fan.getVentilationMode();
     if (kwl_mode_ != currentMode) {
@@ -1558,15 +1577,38 @@ protected:
       int16_t tx, ty;
       uint16_t tw, th;
       tft_.getTextBounds(buffer, 0, 0, &tx, &ty, &tw, &th);
-      tft_.setCursor(XX + 120 - int16_t(tw) / 2, 64 + 62);
-      tft_.fillRect(XX + 90, 60, 60, 80, colBackColor);
+      tft_.setCursor(XX + 64 + 30 - int16_t(tw) / 2, 64 + 62);
+      tft_.fillRect(XX + 64, 60, 60, 80, colBackColor);
       tft_.print(buffer[0]);
       kwl_mode_ = currentMode;
     }
 
+    // Show program set index and current program here
+    if (cfg.getProgramSetIndex() != program_set_ || pgm.getCurrentProgram() != program_index_) {
+      // update program set
+      program_set_ = cfg.getProgramSetIndex();
+      program_index_ = pgm.getCurrentProgram();
+
+      tft_.setFont(&FreeSans9pt7b);
+      tft_.fillRect(PX + 28, PY, 90, 22, colBackColor + DEBUG_HIGHLIGHT);
+      tft_.setCursor(PX + 28, PY + BASELINE_SMALL);
+      auto& p = pgm.getProgram(program_index_ >= 0 ? uint8_t(program_index_) : 0);
+      char buffer[24];
+      if (program_index_ >= 0)
+        snprintf_P(buffer, sizeof(buffer), PSTR("S%d/P%d(%d)"), program_set_, program_index_, p.fan_mode_);
+      else
+        snprintf_P(buffer, sizeof(buffer), PSTR("S%d/default"), program_set_);
+      tft_.print(buffer);
+      tft_.fillRect(PX, PY + 28, 100, 20, colBackColor + DEBUG_HIGHLIGHT);
+      if (program_index_ >= 0) {
+        tft_.setCursor(PX, PY + 28 + BASELINE_SMALL);
+        snprintf_P(buffer, sizeof(buffer), PSTR("%02d:%02d-%02d:%02d"), p.start_h_, p.start_m_, p.end_h_, p.end_m_);
+        tft_.print(buffer);
+      }
+    }
+
     // Now update various sensor readings
     tft_.setFont(&FreeSans12pt7b);
-    tft_.setTextColor(colFontColor, colBackColor);
     // T1-T4
     update_temp(XX, XY + 10, t1_, temp.get_t1_outside(), false);
     update_temp(XX + 161, XY + 125 - HEIGHT_NUMBER_FIELD, t2_, temp.get_t2_inlet(), true);
@@ -1776,6 +1818,8 @@ private:
   int efficiency_ = -100;
   float t1_ = -1000, t2_ = -1000, t3_ = -1000, t4_ = -1000, dht1t_ = -1000, dht2t_ = -1000;
   int dht1h_ = -1000, dht2h_ = -1000, voc_ = -1000, co2_ = -1000;
+  uint8_t program_set_ = 255; ///< Active program set.
+  int8_t program_index_ = -1; ///< Active program index.
   unsigned long touch_start_ = 0;
 };
 
@@ -1848,11 +1892,11 @@ private:
 };
 
 /// Base screen combining input and menu buttons for setup screens.
-class ScreenSetupBase : public ScreenWithMenuButtons<ScreenWithInput<ScreenWithBigTitle>>
+class ScreenSetupBase : public ScreenWithInput<ScreenWithMenuButtons<ScreenWithBigTitle>>
 {
 public:
   template<typename... Args>
-  ScreenSetupBase(TFT& owner, Args... args) : ScreenWithMenuButtons(owner, args...) {}
+  ScreenSetupBase(TFT& owner, Args... args) : ScreenWithInput(owner, args...) {}
 };
 
 /// Fan setup screen.
@@ -2675,6 +2719,7 @@ public:
     ScreenSetupBase(owner, F("Programmmanager"))
   {
     index_ = -1;
+    program_set_ = getControl().getPersistentConfig().getProgramSetIndex();
     memset(&pgm_, 0, sizeof(pgm_));
   }
 
@@ -2685,7 +2730,8 @@ protected:
     initBitmap(icon_program_24x24);
 
     setupInputFieldColumns(210, 40);
-    setupInputFieldRow(1, 1, F("Programm:"));
+    setupInputFieldColumnWidth(1, 40, 120);
+    setupInputFieldRow(1, 2, F("Programm:"), F("Akt. Satz:"));
     setupInputFieldRow(2, 1, F("Stufe:"));
     setupInputFieldRow(3, 2, F("Startzeit:"), F(":"));
     setupInputFieldRow(4, 2, F("Endzeit:"), F(":"));
@@ -2714,8 +2760,10 @@ protected:
         // store changes
         resetInput();
         auto& config = getControl().getPersistentConfig();
-        if (index_ >= 0) {
-          config.setProgram(uint8_t(index_), pgm_);
+        if (index_ >= 0 || program_set_ != config.getProgramSetIndex()) {
+          if (index_ >= 0)
+            config.setProgram(uint8_t(index_), pgm_);
+          config.setProgramSetIndex(program_set_);
           doPopup<ScreenSetupProgram>(
             F("Einstellungen gespeichert"),
             F("Neue Programmeinstellungen\nwurden in EEPROM gespeichert\nund sind sofort aktiv."));
@@ -2732,8 +2780,10 @@ protected:
         // reload program, cancel changes
         resetInput();
         auto& config = getControl().getPersistentConfig();
-        if (index_ >= 0) {
-          pgm_ = config.getProgram(uint8_t(index_));
+        if (index_ >= 0 || program_set_ != config.getProgramSetIndex()) {
+          program_set_ = config.getProgramSetIndex();
+          if (index_ >= 0)
+            pgm_ = config.getProgram(uint8_t(index_));
           doPopup<ScreenSetupProgram>(
             F("Einstellungen zurueckgesetzt"),
             F("Die Programmeinstellungen\nwurden zurueckgesetzt."));
@@ -2748,8 +2798,27 @@ private:
   {
     auto& config = getControl().getPersistentConfig();
     if (getCurrentRow() == 1 || delta == 0) {
+      if (getCurrentColumn() == 1) {
+        // program set changed
+        if (delta > 0) {
+          if (program_set_ < 7) {
+            ++program_set_;
+            updateCurrentInputField();
+          }
+          return;
+        } else if (delta < 0) {
+          if (program_set_ > 0) {
+            --program_set_;
+            updateCurrentInputField();
+          }
+          return;
+        } else {
+          // special case for back button, fall through to below
+        }
+      }
       // index change, check whether program data changed
-      if (index_ >= 0 && pgm_ != config.getProgram(uint8_t(index_))) {
+      if ((index_ >= 0 && pgm_ != config.getProgram(uint8_t(index_))) ||
+        program_set_ != config.getProgramSetIndex()) {
         // program changed, but not saved
         doPopup<ScreenSetupProgram>(
           F("Einstellungen nicht gespeichert"),
@@ -2822,7 +2891,7 @@ private:
 
   virtual void input_field_draw(uint8_t row, uint8_t col) noexcept override
   {
-    if (index_ < 0) {
+    if (index_ < 0 && (row != 1 || col != 1)) {
       // empty screen
       drawCurrentInputField("", false);
       return;
@@ -2831,7 +2900,12 @@ private:
     switch (row) {
       default:
       case 1:
-        snprintf_P(buf, sizeof(buf), PSTR("%02d"), index_);
+        if (col == 0) {
+          snprintf_P(buf, sizeof(buf), PSTR("%02d"), index_);
+        } else {
+          buf[0] = char('0' + program_set_);
+          buf[1] = 0;
+        }
         break;
       case 2:
         snprintf_P(buf, sizeof(buf), PSTR("%d"), pgm_.fan_mode_);
@@ -2854,6 +2928,8 @@ private:
 
   /// Current program index to edit.
   int8_t index_;
+  /// Current program set.
+  uint8_t program_set_;
   /// Program data of the current program.
   ProgramData pgm_;
   /// Currently edited popup flags.
