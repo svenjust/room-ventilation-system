@@ -16,7 +16,6 @@
  *
  * This copyright notice MUST APPEAR in all copies of the software!
  */
-
 #include "TempSensors.h"
 #include "MQTTTopic.hpp"
 #include "StringView.h"

@@ -46,6 +46,7 @@
  *
  * You can also define DEBUG macro in UserConfig.h to enable debugging MQTT messages.
  */
+#define DEBUG
 
 #pragma once
 
