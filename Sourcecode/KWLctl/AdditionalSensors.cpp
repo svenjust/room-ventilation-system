@@ -146,6 +146,10 @@ bool AdditionalSensors::setupMHZ14()
 
   KWLConfig::SerialMHZ14.begin(9600);
   delay(100);
+  // Folgende zwei Zeilen sind notwendig, damit der Sensor nach Anlegen der Spannung erkannt wird, ansonsten wird er nur nach Reset erkannt.
+  KWLConfig::SerialMHZ14.write(cmdReadGasPpm, 9);
+  KWLConfig::SerialMHZ14.readBytes(response, 9);
+  delay(100);
   KWLConfig::SerialMHZ14.write(cmdReadGasPpm, 9);
   if (KWLConfig::SerialMHZ14.readBytes(response, 9) == 9) {
     int responseHigh = response[2];
