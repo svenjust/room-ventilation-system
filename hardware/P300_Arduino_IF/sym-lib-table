@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name arduino)(type Legacy)(uri ${KIPRJMOD}/additional/arduino-kicad-library-master/arduino.lib)(options "")(descr ""))
+  (lib (name P300_Arduino_IF-rescue)(type Legacy)(uri ${KIPRJMOD}/P300_Arduino_IF-rescue.lib)(options "")(descr ""))
+)

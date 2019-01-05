@@ -6,8 +6,8 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 1
 Title "Ersatzsteuerung für Pluggit P300/P450 Lüftungsanlage"
-Date "2018-12-10"
-Rev "V0.21-dev"
+Date "2018-12-12"
+Rev "V0.23-dev"
 Comp "sven@familie-just.de"
 Comment1 "https://github.com/svenjust/room-ventilation-system"
 Comment2 "basiert auf: https://github.com/herrfrei/pluggit-ctrl"
@@ -28,23 +28,23 @@ $EndComp
 $Comp
 L P300_Arduino_IF-rescue:PC817-Isolator U1
 U 1 1 5B783719
-P 1550 3550
-F 0 "U1" H 1550 3875 50  0000 C CNN
-F 1 "PC817" H 1550 3784 50  0000 C CNN
-F 2 "Package_DIP:DIP-4_W7.62mm" H 1350 3350 50  0001 L CIN
-F 3 "http://www.soselectronic.cz/a_info/resource/d/pc817.pdf" H 1550 3550 50  0001 L CNN
-	1    1550 3550
+P 1550 3000
+F 0 "U1" H 1550 3325 50  0000 C CNN
+F 1 "PC817" H 1550 3234 50  0000 C CNN
+F 2 "Package_DIP:DIP-4_W7.62mm" H 1350 2800 50  0001 L CIN
+F 3 "http://www.soselectronic.cz/a_info/resource/d/pc817.pdf" H 1550 3000 50  0001 L CNN
+	1    1550 3000
 	1    0    0    -1  
 $EndComp
 $Comp
 L P300_Arduino_IF-rescue:PC817-Isolator U2
 U 1 1 5B783787
-P 1550 4100
-F 0 "U2" H 1550 4425 50  0000 C CNN
-F 1 "PC817" H 1550 4334 50  0000 C CNN
-F 2 "Package_DIP:DIP-4_W7.62mm" H 1350 3900 50  0001 L CIN
-F 3 "http://www.soselectronic.cz/a_info/resource/d/pc817.pdf" H 1550 4100 50  0001 L CNN
-	1    1550 4100
+P 1550 3550
+F 0 "U2" H 1550 3875 50  0000 C CNN
+F 1 "PC817" H 1550 3784 50  0000 C CNN
+F 2 "Package_DIP:DIP-4_W7.62mm" H 1350 3350 50  0001 L CIN
+F 3 "http://www.soselectronic.cz/a_info/resource/d/pc817.pdf" H 1550 3550 50  0001 L CNN
+	1    1550 3550
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -187,23 +187,23 @@ Connection ~ 10250 6100
 $Comp
 L P300_Arduino_IF-rescue:GND-power #PWR0105
 U 1 1 5B791D0B
-P 1150 4300
-F 0 "#PWR0105" H 1150 4050 50  0001 C CNN
-F 1 "GND" H 1155 4127 50  0000 C CNN
-F 2 "" H 1150 4300 50  0001 C CNN
-F 3 "" H 1150 4300 50  0001 C CNN
-	1    1150 4300
+P 1150 3750
+F 0 "#PWR0105" H 1150 3500 50  0001 C CNN
+F 1 "GND" H 1155 3577 50  0000 C CNN
+F 2 "" H 1150 3750 50  0001 C CNN
+F 3 "" H 1150 3750 50  0001 C CNN
+	1    1150 3750
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	1150 4300 1150 4200
+	1150 3750 1150 3650
 Wire Wire Line
-	1150 3650 1250 3650
+	1150 3100 1250 3100
 Wire Wire Line
-	1250 4200 1150 4200
-Connection ~ 1150 4200
+	1250 3650 1150 3650
+Connection ~ 1150 3650
 Wire Wire Line
-	1250 3450 1100 3450
+	1250 2900 1100 2900
 $Bitmap
 Pos 9200 1450
 Scale 1.000000
@@ -25505,44 +25505,44 @@ $EndBitmap
 $Comp
 L P300_Arduino_IF-rescue:Conn_01x08-Connector_Generic J4
 U 1 1 5B7977EE
-P 2500 3750
-F 0 "J4" H 2579 3742 50  0000 L CNN
-F 1 "Fan control" H 2579 3651 50  0000 L CNN
-F 2 "Connector_Molex:Molex_KK-254_AE-6410-08A_1x08_P2.54mm_Vertical" H 2500 3750 50  0001 C CNN
-F 3 "~" H 2500 3750 50  0001 C CNN
-	1    2500 3750
+P 2500 3200
+F 0 "J4" H 2579 3192 50  0000 L CNN
+F 1 "Fan control" H 2579 3101 50  0000 L CNN
+F 2 "Connector_Molex:Molex_KK-254_AE-6410-08A_1x08_P2.54mm_Vertical" H 2500 3200 50  0001 C CNN
+F 3 "~" H 2500 3200 50  0001 C CNN
+	1    2500 3200
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	2300 3550 2050 3550
+	2300 3000 2050 3000
 Wire Wire Line
-	2050 3550 2050 3650
+	2050 3000 2050 3100
+Wire Wire Line
+	2050 3100 1850 3100
+Wire Wire Line
+	2300 3100 2150 3100
+Wire Wire Line
+	2150 3100 2150 2900
+Wire Wire Line
+	2150 2900 1850 2900
+Wire Wire Line
+	2300 3400 2050 3400
+Wire Wire Line
+	2050 3400 2050 3650
 Wire Wire Line
 	2050 3650 1850 3650
 Wire Wire Line
-	2300 3650 2150 3650
+	2300 3500 1950 3500
 Wire Wire Line
-	2150 3650 2150 3450
+	1950 3500 1950 3450
 Wire Wire Line
-	2150 3450 1850 3450
-Wire Wire Line
-	2300 3950 2050 3950
-Wire Wire Line
-	2050 3950 2050 4200
-Wire Wire Line
-	2050 4200 1850 4200
-Wire Wire Line
-	2300 4050 1950 4050
-Wire Wire Line
-	1950 4050 1950 4000
-Wire Wire Line
-	1950 4000 1850 4000
-Text GLabel 2150 3200 0    50   Input ~ 0
-Tacho_L1
-Text GLabel 2150 3850 0    50   Input ~ 0
+	1950 3450 1850 3450
+Text GLabel 2150 2650 0    50   Input ~ 0
 Tacho_L2
+Text GLabel 2150 3300 0    50   Input ~ 0
+Tacho_L1
 Wire Wire Line
-	2150 3850 2300 3850
+	2150 3300 2300 3300
 Text GLabel 3250 1900 0    50   Input ~ 0
 Tacho_L1
 Text GLabel 3250 1800 0    50   Input ~ 0
@@ -25616,23 +25616,23 @@ $EndComp
 $Comp
 L P300_Arduino_IF-rescue:R-Device R5
 U 1 1 5B7BF166
-P 1100 3300
-F 0 "R5" V 893 3300 50  0000 C CNN
-F 1 "220" V 984 3300 50  0000 C CNN
-F 2 "Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical" V 1030 3300 50  0001 C CNN
-F 3 "~" H 1100 3300 50  0001 C CNN
-	1    1100 3300
+P 1100 2750
+F 0 "R5" V 893 2750 50  0000 C CNN
+F 1 "220" V 984 2750 50  0000 C CNN
+F 2 "Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical" V 1030 2750 50  0001 C CNN
+F 3 "~" H 1100 2750 50  0001 C CNN
+	1    1100 2750
 	-1   0    0    1   
 $EndComp
 $Comp
 L P300_Arduino_IF-rescue:R-Device R6
 U 1 1 5B7BF281
-P 1050 3850
-F 0 "R6" V 843 3850 50  0000 C CNN
-F 1 "220" V 934 3850 50  0000 C CNN
-F 2 "Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical" V 980 3850 50  0001 C CNN
-F 3 "~" H 1050 3850 50  0001 C CNN
-	1    1050 3850
+P 1050 3300
+F 0 "R6" V 843 3300 50  0000 C CNN
+F 1 "220" V 934 3300 50  0000 C CNN
+F 2 "Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical" V 980 3300 50  0001 C CNN
+F 3 "~" H 1050 3300 50  0001 C CNN
+	1    1050 3300
 	-1   0    0    1   
 $EndComp
 Wire Wire Line
@@ -25702,25 +25702,25 @@ F 3 "~" H 8300 5300 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	1150 3650 1150 4200
+	1150 3100 1150 3650
 Wire Wire Line
-	2150 3200 2300 3200
+	2150 2650 2300 2650
 Wire Wire Line
-	2300 3200 2300 3450
+	2300 2650 2300 2900
 Text GLabel 6200 5200 2    50   Input ~ 0
 PWM_L2
 Text GLabel 6200 5000 2    50   Input ~ 0
 PWM_L1
+Text GLabel 900  2600 0    50   Input ~ 0
+PWM_L2
+Wire Wire Line
+	900  2600 1100 2600
 Text GLabel 900  3150 0    50   Input ~ 0
 PWM_L1
 Wire Wire Line
-	900  3150 1100 3150
-Text GLabel 900  3700 0    50   Input ~ 0
-PWM_L2
+	1050 3450 1250 3450
 Wire Wire Line
-	1050 4000 1250 4000
-Wire Wire Line
-	900  3700 1050 3700
+	900  3150 1050 3150
 Wire Wire Line
 	8100 5200 7900 5200
 Wire Wire Line
@@ -25994,40 +25994,40 @@ Wire Wire Line
 $Comp
 L P300_Arduino_IF-rescue:Conn_01x04-Connector_Generic J12
 U 1 1 5B7C5A57
-P 1050 2400
-F 0 "J12" H 1129 2392 50  0000 L CNN
-F 1 "I2C" H 1129 2301 50  0000 L CNN
-F 2 "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical" H 1050 2400 50  0001 C CNN
-F 3 "~" H 1050 2400 50  0001 C CNN
-	1    1050 2400
+P 1050 1800
+F 0 "J12" H 1129 1792 50  0000 L CNN
+F 1 "I2C" H 1129 1701 50  0000 L CNN
+F 2 "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical" H 1050 1800 50  0001 C CNN
+F 3 "~" H 1050 1800 50  0001 C CNN
+	1    1050 1800
 	-1   0    0    1   
 $EndComp
 $Comp
 L P300_Arduino_IF-rescue:GND-power #PWR0114
 U 1 1 5B7D0670
-P 1350 2500
-F 0 "#PWR0114" H 1350 2250 50  0001 C CNN
-F 1 "GND" H 1355 2327 50  0000 C CNN
-F 2 "" H 1350 2500 50  0001 C CNN
-F 3 "" H 1350 2500 50  0001 C CNN
-	1    1350 2500
+P 1350 1900
+F 0 "#PWR0114" H 1350 1650 50  0001 C CNN
+F 1 "GND" H 1355 1727 50  0000 C CNN
+F 2 "" H 1350 1900 50  0001 C CNN
+F 3 "" H 1350 1900 50  0001 C CNN
+	1    1350 1900
 	1    0    0    -1  
 $EndComp
 $Comp
 L P300_Arduino_IF-rescue:+5V-power #PWR0115
 U 1 1 5B7D07F2
-P 1350 2200
-F 0 "#PWR0115" H 1350 2050 50  0001 C CNN
-F 1 "+5V" H 1365 2373 50  0000 C CNN
-F 2 "" H 1350 2200 50  0001 C CNN
-F 3 "" H 1350 2200 50  0001 C CNN
-	1    1350 2200
+P 1350 1600
+F 0 "#PWR0115" H 1350 1450 50  0001 C CNN
+F 1 "+5V" H 1365 1773 50  0000 C CNN
+F 2 "" H 1350 1600 50  0001 C CNN
+F 3 "" H 1350 1600 50  0001 C CNN
+	1    1350 1600
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	1250 2200 1350 2200
+	1250 1600 1350 1600
 Wire Wire Line
-	1250 2500 1350 2500
+	1250 1900 1350 1900
 Text GLabel 5400 7250 0    50   Input ~ 0
 L2
 Text GLabel 5400 7150 0    50   Input ~ 0
@@ -26046,14 +26046,14 @@ Wire Wire Line
 	3350 2400 3500 2400
 Wire Wire Line
 	3350 2500 3500 2500
-Text GLabel 1350 2400 2    50   Input ~ 0
+Text GLabel 1350 1800 2    50   Input ~ 0
 SDA
-Text GLabel 1350 2300 2    50   Input ~ 0
+Text GLabel 1350 1700 2    50   Input ~ 0
 SCL
 Wire Wire Line
-	1250 2300 1350 2300
+	1250 1700 1350 1700
 Wire Wire Line
-	1250 2400 1350 2400
+	1250 1800 1350 1800
 Text GLabel 3300 2000 0    50   Input ~ 0
 CO2_TX
 Text GLabel 3300 2100 0    50   Input ~ 0
@@ -26065,48 +26065,48 @@ Wire Wire Line
 $Comp
 L P300_Arduino_IF-rescue:Conn_01x04-Connector_Generic J13
 U 1 1 5B7CD69A
-P 1050 1650
-F 0 "J13" H 1129 1642 50  0000 L CNN
-F 1 "CO2" H 1129 1551 50  0000 L CNN
-F 2 "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical" H 1050 1650 50  0001 C CNN
-F 3 "~" H 1050 1650 50  0001 C CNN
-	1    1050 1650
+P 1050 1050
+F 0 "J13" H 1129 1042 50  0000 L CNN
+F 1 "CO2" H 1129 951 50  0000 L CNN
+F 2 "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical" H 1050 1050 50  0001 C CNN
+F 3 "~" H 1050 1050 50  0001 C CNN
+	1    1050 1050
 	-1   0    0    1   
 $EndComp
 $Comp
 L P300_Arduino_IF-rescue:+5V-power #PWR0116
 U 1 1 5B7CD827
-P 1350 1450
-F 0 "#PWR0116" H 1350 1300 50  0001 C CNN
-F 1 "+5V" H 1365 1623 50  0000 C CNN
-F 2 "" H 1350 1450 50  0001 C CNN
-F 3 "" H 1350 1450 50  0001 C CNN
-	1    1350 1450
+P 1350 850
+F 0 "#PWR0116" H 1350 700 50  0001 C CNN
+F 1 "+5V" H 1365 1023 50  0000 C CNN
+F 2 "" H 1350 850 50  0001 C CNN
+F 3 "" H 1350 850 50  0001 C CNN
+	1    1350 850 
 	1    0    0    -1  
 $EndComp
 $Comp
 L P300_Arduino_IF-rescue:GND-power #PWR0117
 U 1 1 5B7CD880
-P 1350 1750
-F 0 "#PWR0117" H 1350 1500 50  0001 C CNN
-F 1 "GND" H 1355 1577 50  0000 C CNN
-F 2 "" H 1350 1750 50  0001 C CNN
-F 3 "" H 1350 1750 50  0001 C CNN
-	1    1350 1750
+P 1350 1150
+F 0 "#PWR0117" H 1350 900 50  0001 C CNN
+F 1 "GND" H 1355 977 50  0000 C CNN
+F 2 "" H 1350 1150 50  0001 C CNN
+F 3 "" H 1350 1150 50  0001 C CNN
+	1    1350 1150
 	1    0    0    -1  
 $EndComp
-Text GLabel 1450 1550 2    50   Input ~ 0
+Text GLabel 1450 950  2    50   Input ~ 0
 CO2_TX
-Text GLabel 1450 1650 2    50   Input ~ 0
+Text GLabel 1450 1050 2    50   Input ~ 0
 CO2_RX
 Wire Wire Line
-	1250 1450 1350 1450
+	1250 850  1350 850 
 Wire Wire Line
-	1250 1750 1350 1750
+	1250 1150 1350 1150
 Wire Wire Line
-	1250 1650 1450 1650
+	1250 1050 1450 1050
 Wire Wire Line
-	1450 1550 1250 1550
+	1450 950  1250 950 
 Wire Wire Line
 	5750 6850 5500 6850
 Wire Wire Line
@@ -26122,7 +26122,7 @@ Pos 9400 3100
 Scale 1.000000
 Data
 89 50 4E 47 0D 0A 1A 0A 00 00 00 0D 49 48 44 52 00 00 03 20 00 00 01 53 08 03 00 00 00 F6 87 98 
-1C 00 00 00 03 73 42 49 54 08 08 08 DB E1 4F E0 00 00 03 00 50 4C 54 45 01 00 00 F0 F0 F0 A0 A0 
+1C 00 00 00 03 73 42 49 54 08 08 08 DB E1 4F E0 00 00 03 00 50 4C 54 45 02 00 00 F0 F0 F0 A0 A0 
 A0 80 80 80 90 90 90 E0 E0 E0 71 71 71 12 12 12 21 21 21 C0 C0 C0 01 01 01 41 41 41 D0 D0 D0 31 
 31 31 51 51 51 61 61 61 B0 B0 B0 B9 E8 F2 B7 E3 ED ED F9 FB C7 EC F4 68 CC E2 DA F2 F8 8E D9 E9 
 AA E2 EF 98 DB EA A1 DF ED 7B D2 E5 E3 F6 FA F6 FC FD 71 CF E4 84 D6 E7 C4 DD E4 11 74 91 57 BB 
@@ -26146,7 +26146,7 @@ D4 DD 3F 3F 3F 2F 2F 2F 35 35 34 3B 3B 3A 30 30 30 42 42 42 3D 3D 3D 43 43 43 47
 67 66 66 2F 54 5F 3F 3F 3E 48 47 41 46 46 41 40 40 3F 53 A4 B8 62 C6 DC 61 BF D4 1B 7F 9B 31 95 
 AF 2C 8F AA 41 49 4C 41 A5 BE 63 BA CD BA D9 E1 5C AF C2 5B A0 AF 34 66 71 66 C3 D7 4D 9A AD 58 
 98 A6 4F 75 7D 52 7D 87 47 56 59 60 AB BB 14 27 2B 0D 57 6D 49 9D B4 09 3A 49 3E 3E 3D 05 40 4F 
-27 4D 55 26 38 3C 69 BA CE 50 69 6E 30 8D A7 92 C4 D2 07 60 76 1A 1A 1A BF 66 E6 41 00 00 00 01 
+27 4D 55 26 38 3C 69 BA CE 50 69 6E 30 8D A7 92 C4 D2 07 60 76 1A 1A 1A 83 02 A9 0F 00 00 00 01 
 74 52 4E 53 00 40 E6 D8 66 00 00 20 00 49 44 41 54 78 9C ED BD 0B A0 24 57 79 DF D9 F7 FD A8 FB 
 18 12 B7 B0 79 59 65 83 00 81 A4 79 EA C1 3C 04 01 E9 CE 0C 66 18 3C 82 51 B8 48 33 23 69 EE 5C 
 79 D0 A0 C5 5E 5B 42 B2 3D D2 D8 A6 DE 55 5D CF D9 24 BB 60 66 17 36 C6 8B 9D B0 CE AE 1D 1C F3 
@@ -26849,4 +26849,187 @@ Wire Wire Line
 	1800 5000 1950 5000
 Wire Wire Line
 	3150 5900 3500 5900
+$Comp
+L P300_Arduino_IF-rescue:Conn_01x08-Connector_Generic J15
+U 1 1 5C116096
+P 1550 6750
+F 0 "J15" H 1500 6250 50  0000 L CNN
+F 1 "TFT Display 1" V 1650 6450 50  0000 L CNN
+F 2 "Connector_Molex:Molex_KK-6410-08_08x2.54mm_Straight" H 1550 6750 50  0001 C CNN
+F 3 "~" H 1550 6750 50  0001 C CNN
+	1    1550 6750
+	1    0    0    -1  
+$EndComp
+$Comp
+L P300_Arduino_IF-rescue:Conn_01x08-Connector_Generic J16
+U 1 1 5C13E74F
+P 4200 7000
+F 0 "J16" H 4150 6500 50  0000 L CNN
+F 1 "TFT Display 2" V 4300 6700 50  0000 L CNN
+F 2 "Connector_Molex:Molex_KK-254_AE-6410-08A_1x08_P2.54mm_Vertical" H 4200 7000 50  0001 C CNN
+F 3 "~" H 4200 7000 50  0001 C CNN
+	1    4200 7000
+	1    0    0    -1  
+$EndComp
+Text GLabel 1350 6450 0    50   Input ~ 0
+LCD_RST
+Text GLabel 1350 6550 0    50   Input ~ 0
+LCD_CS
+Text GLabel 1350 6650 0    50   Input ~ 0
+LCD_RS
+Text GLabel 1350 6750 0    50   Input ~ 0
+LCD_WR
+Text GLabel 1350 6850 0    50   Input ~ 0
+LCD_RD
+$Comp
+L P300_Arduino_IF-rescue:GND-power #PWR0119
+U 1 1 5C1452A8
+P 1000 7450
+F 0 "#PWR0119" H 1000 7200 50  0001 C CNN
+F 1 "GND" H 1005 7277 50  0000 C CNN
+F 2 "" H 1000 7450 50  0001 C CNN
+F 3 "" H 1000 7450 50  0001 C CNN
+	1    1000 7450
+	1    0    0    -1  
+$EndComp
+$Comp
+L P300_Arduino_IF-rescue:+5V-power #PWR0120
+U 1 1 5C158BBD
+P 900 6400
+F 0 "#PWR0120" H 900 6250 50  0001 C CNN
+F 1 "+5V" H 915 6573 50  0000 C CNN
+F 2 "" H 900 6400 50  0001 C CNN
+F 3 "" H 900 6400 50  0001 C CNN
+	1    900  6400
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	900  7050 900  6400
+$Comp
+L P300_Arduino_IF-rescue:+3.3V-power #PWR0121
+U 1 1 5C16CD35
+P 700 6400
+F 0 "#PWR0121" H 700 6250 50  0001 C CNN
+F 1 "+3.3V" H 715 6573 50  0000 C CNN
+F 2 "" H 700 6400 50  0001 C CNN
+F 3 "" H 700 6400 50  0001 C CNN
+	1    700  6400
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	1100 7150 1350 7150
+Wire Wire Line
+	700  7300 1100 7300
+Wire Wire Line
+	1100 7300 1100 7150
+$Comp
+L P300_Arduino_IF-rescue:+3.3V-power #PWR0122
+U 1 1 5C1C40C4
+P 3200 5500
+F 0 "#PWR0122" H 3200 5350 50  0001 C CNN
+F 1 "+3.3V" H 3215 5673 50  0000 C CNN
+F 2 "" H 3200 5500 50  0001 C CNN
+F 3 "" H 3200 5500 50  0001 C CNN
+	1    3200 5500
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3200 5500 3500 5500
+Wire Wire Line
+	900  7050 1350 7050
+Wire Wire Line
+	1350 6950 1000 6950
+Wire Wire Line
+	1000 6950 1000 7450
+Wire Wire Line
+	700  6350 700  6400
+Connection ~ 700  6400
+Wire Wire Line
+	700  6400 700  7300
+Text GLabel 3300 2900 0    50   Input ~ 0
+LCD_RD
+Text GLabel 3300 3000 0    50   Input ~ 0
+LCD_WR
+Text GLabel 3300 3100 0    50   Input ~ 0
+LCD_RS
+Text GLabel 3300 3200 0    50   Input ~ 0
+LCD_CS
+Text GLabel 3300 3300 0    50   Input ~ 0
+LCD_RST
+Wire Wire Line
+	3300 2900 3500 2900
+Wire Wire Line
+	3300 3000 3500 3000
+Wire Wire Line
+	3300 3100 3500 3100
+Wire Wire Line
+	3300 3200 3500 3200
+Wire Wire Line
+	3300 3300 3500 3300
+Text GLabel 6250 2200 2    50   Input ~ 0
+LCD_D7
+Text GLabel 6250 2300 2    50   Input ~ 0
+LCD_D6
+Text GLabel 6250 2400 2    50   Input ~ 0
+LCD_D5
+Text GLabel 6250 2500 2    50   Input ~ 0
+LCD_D4
+Text GLabel 6250 2600 2    50   Input ~ 0
+LCD_D3
+Text GLabel 6250 2700 2    50   Input ~ 0
+LCD_D2
+Text GLabel 6250 2100 2    50   Input ~ 0
+LCD_D0
+Text GLabel 6250 2000 2    50   Input ~ 0
+LCD_D1
+Wire Wire Line
+	6100 2000 6250 2000
+Wire Wire Line
+	6100 2100 6250 2100
+Wire Wire Line
+	6100 2200 6250 2200
+Wire Wire Line
+	6100 2300 6250 2300
+Wire Wire Line
+	6100 2400 6250 2400
+Wire Wire Line
+	6100 2500 6250 2500
+Wire Wire Line
+	6100 2600 6250 2600
+Wire Wire Line
+	6100 2700 6250 2700
+Text GLabel 3850 7300 0    50   Input ~ 0
+LCD_D0
+Text GLabel 3850 7400 0    50   Input ~ 0
+LCD_D1
+Text GLabel 3850 7200 0    50   Input ~ 0
+LCD_D7
+Text GLabel 3850 7100 0    50   Input ~ 0
+LCD_D6
+Text GLabel 3850 7000 0    50   Input ~ 0
+LCD_D5
+Text GLabel 3850 6900 0    50   Input ~ 0
+LCD_D4
+Text GLabel 3850 6800 0    50   Input ~ 0
+LCD_D3
+Text GLabel 3850 6700 0    50   Input ~ 0
+LCD_D2
+Wire Wire Line
+	3850 6700 4000 6700
+Wire Wire Line
+	3850 6800 4000 6800
+Wire Wire Line
+	3850 6900 4000 6900
+Wire Wire Line
+	3850 7000 4000 7000
+Wire Wire Line
+	3850 7100 4000 7100
+Wire Wire Line
+	3850 7200 4000 7200
+Wire Wire Line
+	3850 7300 4000 7300
+Wire Wire Line
+	3850 7400 4000 7400
+Text Notes 1450 4200 0    39   ~ 0
+Lüfter L1 ist Zuluft\nLüfter L2 ist Abluft\n(wegen Belegungskompatibilität \ndes Steckers mit Pluggit ist:\n L2 auf Stecker Pin1-4 und \n L1 auf Stecker Pin5-8)
 $EndSCHEMATC

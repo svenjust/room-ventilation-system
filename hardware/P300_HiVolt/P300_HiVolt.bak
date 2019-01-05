@@ -27574,6 +27574,8 @@ Text Label 3900 4950 0    50   ~ 0
 5V-
 Text Label 3900 5550 0    50   ~ 0
 5V+
+Text Notes 5550 3650 0    50   ~ 10
+Drahtbrücken zum Relais-Board:\n\nIch bin bei der Erstellung des Planes von einer \nanderen Belegung der Kontakte ausgegangen.\nRichtig ist:\nOFF: Kontakt Links-Mitte\nON:  Kontakt Mitte-Rechts
 Wire Notes Line
 	7900 3050 7900 3300
 Wire Notes Line

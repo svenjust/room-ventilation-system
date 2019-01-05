@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name arduino)(type Legacy)(uri "C:/Users/sju.DCC-AD/ownCloud/documents/Dribusch/KWL Steuerung Ersatz/70 Schaltplan/P300_Arduino_IF_V0.23 - Dev/P300_Arduino_IF/additional/arduino-kicad-library-master/arduino.lib")(options "")(descr ""))
+  (lib (name P300_Display_IF-rescue)(type Legacy)(uri ${KIPRJMOD}/P300_Display_IF-rescue.lib)(options "")(descr ""))
+)
