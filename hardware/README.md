@@ -14,6 +14,7 @@
  
 Neu 0.23 - P300_Display_IF
  - Platine zum Aufstecken des Displays für die räumlich getrennte Montage von Display zu P300_Arduino_IF
+ - Bohrlöcher für Befestigung hinzugefügt
 
 Änderungen von 0.20 zu 0.21 - P300_Arduino_IF
  - Pins für Relais auf die ursprünglichen Pins zurückgelegt:
