@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name mardah_power_supply)(type Legacy)(uri ${KIPRJMOD}/additional/symbols/mardah_power_supply.lib)(options "")(descr ""))
+  (lib (name P300_HiVolt-rescue)(type Legacy)(uri ${KIPRJMOD}/P300_HiVolt-rescue.lib)(options "")(descr ""))
+)

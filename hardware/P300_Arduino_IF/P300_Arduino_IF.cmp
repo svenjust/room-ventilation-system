@@ -1,0 +1,243 @@
+Cmp-Mod V01 Created by PcbNew   date = 12.12.2018 13:36:26
+
+BeginCmp
+TimeStamp = 5C1102F2
+Path = 
+Reference = J15;
+ValeurCmp = Molex_KK-6410-08_08x2.54mm_Straight;
+IdModule  = Connectors_Molex:Molex_KK-6410-08_08x2.54mm_Straight;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7D8D68
+Path = /5B82731D
+Reference = JP1;
+ValeurCmp = 12V_en;
+IdModule  = Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7CB9AF
+Path = /5B813B8D
+Reference = J14;
+ValeurCmp = 5V;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B812C7E
+Path = /5B8A319A
+Reference = J9;
+ValeurCmp = 12V;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7BC710
+Path = /5B7BF00C
+Reference = R4;
+ValeurCmp = 4.7k;
+IdModule  = Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7BC6F2
+Path = /5B7BEF96
+Reference = R2;
+ValeurCmp = 4.7k;
+IdModule  = Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7BC701
+Path = /5B7BEFD4
+Reference = R3;
+ValeurCmp = 4.7k;
+IdModule  = Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7BC6E3
+Path = /5B78726A
+Reference = R1;
+ValeurCmp = 4.7k;
+IdModule  = Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B79BA5B
+Path = /5B783564
+Reference = XA1;
+ValeurCmp = Arduino_Mega2560_Shield;
+IdModule  = Arduino:Arduino_Mega2560_Shield_no_ICSP;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7AC773
+Path = /5B7BF281
+Reference = R6;
+ValeurCmp = 220;
+IdModule  = Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B828525
+Path = /5B7BF166
+Reference = R5;
+ValeurCmp = 220;
+IdModule  = Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7ADC2E
+Path = /5B7CD69A
+Reference = J13;
+ValeurCmp = CO2;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7AA54D
+Path = /5B7C5A57
+Reference = J12;
+ValeurCmp = I2C;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7A8ED6
+Path = /5B7AD27C
+Reference = J11;
+ValeurCmp = TGS2600;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B83A8DF
+Path = /5B8DC959
+Reference = R10;
+ValeurCmp = 4.7k;
+IdModule  = Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B839705
+Path = /5B8E940A
+Reference = R8;
+ValeurCmp = 4.7k;
+IdModule  = Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B8396F7
+Path = /5B8D8614
+Reference = R9;
+ValeurCmp = 4.7k;
+IdModule  = Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B839679
+Path = /5B8E9522
+Reference = R7;
+ValeurCmp = 4.7k;
+IdModule  = Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B834DE3
+Path = /5B8B295B
+Reference = J10;
+ValeurCmp = Pressure;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B8260E5
+Path = /5B7977EE
+Reference = J4;
+ValeurCmp = Fan control;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-08A_1x08_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B80EB2C
+Path = /5B7E81A3
+Reference = J3;
+ValeurCmp = DHT2;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B80EAB7
+Path = /5B783D81
+Reference = J6;
+ValeurCmp = TEMP2;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B80EA90
+Path = /5B783D9F
+Reference = J7;
+ValeurCmp = TEMP3;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B80EA69
+Path = /5B783DCB
+Reference = J8;
+ValeurCmp = TEMP4;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B80EA42
+Path = /5B7E1BF6
+Reference = J2;
+ValeurCmp = DHT1;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B80EA0F
+Path = /5B7A1E69
+Reference = J1;
+ValeurCmp = Relay brd;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-06A_1x06_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7FB409
+Path = /5B7839E7
+Reference = J5;
+ValeurCmp = TEMP1;
+IdModule  = Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B7DEC27
+Path = /5B783787
+Reference = U2;
+ValeurCmp = PC817;
+IdModule  = Package_DIP:DIP-4_W7.62mm;
+EndCmp
+
+BeginCmp
+TimeStamp = 5B88CC0B
+Path = /5B783719
+Reference = U1;
+ValeurCmp = PC817;
+IdModule  = Package_DIP:DIP-4_W7.62mm;
+EndCmp
+
+BeginCmp
+TimeStamp = 5C0FC581
+Path = 
+Reference = ICSP;
+ValeurCmp = Pin_Header_Straight_2x03_Pitch2.54mm;
+IdModule  = Pin_Headers:Pin_Header_Straight_2x03_Pitch2.54mm;
+EndCmp
+
+EndListe
