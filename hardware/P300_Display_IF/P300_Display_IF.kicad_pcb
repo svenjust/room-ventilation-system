@@ -1,4 +1,4 @@
-(kicad_pcb (version 20171130) (host pcbnew "(5.0.2)-1")
+(kicad_pcb (version 20171130) (host pcbnew "(5.0.1)-3")
 
   (general
     (thickness 1.6)
@@ -739,8 +739,8 @@
   (gr_text https://github.com/svenjust/room-ventilation-system (at 96.52 106.68) (layer F.SilkS)
     (effects (font (size 1 1) (thickness 0.25)) (justify left))
   )
-  (gr_text "Display-IF\nPluggit P300/P450\nRev 0.23-dev" (at 106.68 77.47) (layer F.SilkS)
-    (effects (font (size 2 2) (thickness 0.3)) (justify left))
+  (gr_text "Display-IF\nPluggit P300/P450\nRev 0.23" (at 106.68 77.47) (layer F.SilkS)
+    (effects (font (size 1.4 1.4) (thickness 0.2)) (justify left))
   )
   (dimension 53.34 (width 0.3) (layer F.Fab)
     (gr_text "53,340 mm" (at 183.709999 95.25 90) (layer F.Fab)

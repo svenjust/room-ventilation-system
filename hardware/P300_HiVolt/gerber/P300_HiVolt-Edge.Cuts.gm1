@@ -1,11 +1,11 @@
-G04 #@! TF.GenerationSoftware,KiCad,Pcbnew,(5.0.2)-1*
-G04 #@! TF.CreationDate,2019-01-05T13:37:38+01:00*
-G04 #@! TF.ProjectId,P300_HiVolt,50333030-5f48-4695-966f-6c742e6b6963,rev?*
+G04 #@! TF.GenerationSoftware,KiCad,Pcbnew,(5.0.1)-3*
+G04 #@! TF.CreationDate,2019-01-09T08:56:28+01:00*
+G04 #@! TF.ProjectId,P300_HiVolt,503330305F4869566F6C742E6B696361,rev?*
 G04 #@! TF.SameCoordinates,Original*
 G04 #@! TF.FileFunction,Profile,NP*
 %FSLAX46Y46*%
 G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
-G04 Created by KiCad (PCBNEW (5.0.2)-1) date 05.01.2019 13:37:38*
+G04 Created by KiCad (PCBNEW (5.0.1)-3) date 09.01.2019 08:56:28*
 %MOMM*%
 %LPD*%
 G01*

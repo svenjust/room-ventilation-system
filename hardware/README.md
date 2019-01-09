@@ -1,3 +1,6 @@
+
+09.01.2019 Version 0.23 in die Platinenerstellung gegeben
+
 Änderungen von 0.22 zu 0.23 - P300_Arduino_IF
  - Linke Seite der Platine vergrößert auf ArduinoMega-Größe
  - Stecker für Displayanschluss ergänzt
@@ -12,6 +15,7 @@
  - Stecker J3, J4 für Relais auf Molex Stiftleiste - Mini-Fit Jr - 2x3-polig - Stecker, Molex-Best-Nr. 39288060 geändert.
  - Änderung der Belegung der Stecker J3, J4 für die Verwendung es Relaisboards mit den Ralaisanschlüssen: Mitte = Stromzuführung, links = Nicht geschaltet, rechts geschaltet
  - Räumliche Trennung von 230V und Niedervoltspannungen auf der Platine
+ - Bohrungen Pins Varistor auf 1mm vergrößert
  
 Neu 0.23 - P300_Display_IF
  - Platine zum Aufstecken des Displays für die räumlich getrennte Montage von Display zu P300_Arduino_IF
