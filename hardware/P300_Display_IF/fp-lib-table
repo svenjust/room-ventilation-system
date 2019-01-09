@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name Arduino_Parts)(type KiCad)(uri ${KIPRJMOD}/Arduino_Parts.pretty)(options "")(descr ""))
+)
