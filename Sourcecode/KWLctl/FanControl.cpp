@@ -181,8 +181,9 @@ bool Fan::speedCalibrationStep(int mode)
     // Faktor ungleich 0
     speed_setpoint_ = standard_speed_ * KWLConfig::StandardKwlModeFactor[mode];
 
+    int maxGap = (speed_setpoint_ / 100 * KWLConfig::StandardKwlFanPrecisionPercent) + 1 ;  // max. StandardKwlFanPrecisionPercent % Abweichung 
     double gap = abs(speed_setpoint_ - current_speed_); //distance away from setpoint
-    if ((gap < 10) && (good_pwm_setpoint_count_ < REQUIRED_GOOD_PWM_COUNT)) {
+    if ((gap < maxGap) && (good_pwm_setpoint_count_ < REQUIRED_GOOD_PWM_COUNT)) {
       // einen PWM Wert gefunden
       good_pwm_setpoint_[good_pwm_setpoint_count_] = int(tech_setpoint_);
       good_pwm_setpoint_count_++;

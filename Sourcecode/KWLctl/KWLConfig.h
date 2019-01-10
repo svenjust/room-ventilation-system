@@ -209,6 +209,8 @@ public:
   static constexpr unsigned StandardSpeedSetpointFan1       = 1550;              // sju: 1450
   /// Drehzahl für Standardlüftungsstufe Abluft.
   static constexpr unsigned StandardSpeedSetpointFan2       = 1550;              // sju: 1100
+   /// Max Abweichung der Istdrehzahl zur Solldrehzahl bei Kalibrierung in Prozent
+  static constexpr double StandardKwlFanPrecisionPercent    = 1.5;
   /// Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min.
   static constexpr unsigned StandardNenndrehzahlFan         = 3200;
   /// Mindestablufttemperatur für die Öffnung des Bypasses im Automatik Betrieb.
