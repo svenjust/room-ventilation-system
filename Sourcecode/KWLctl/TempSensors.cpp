@@ -101,8 +101,8 @@ void TempSensors::begin(Print& initTracer)
 
   // initialize sensors and request temperature reading at startup
   t1_.begin();
-  t1_.begin();
   t2_.begin();
+  t3_.begin();
   t4_.begin();
 
   // call regularly to update
