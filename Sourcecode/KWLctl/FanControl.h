@@ -64,16 +64,18 @@ public:
    * @param powerPin pin on which to drive power relay.
    * @param pwmPin pin on which to send PWM signal.
    * @param tachoPin pin on which to read tacho pulses.
+   * @param multiplier tacho signal frequency multiplier.
    */
-  Fan(uint8_t id, uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin);
+  Fan(uint8_t id, uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin, float multiplier = 1.0);
 
   /*!
    * @brief Start the fan.
    *
    * @param countUp interrupt routine which calls interrupt() for this fan to count RPM.
    * @param standardSpeed standard speed to use initially (in RPM).
+   * @param multiplier tacho signal frequency multiplier.
    */
-  void begin(void (*countUp)(), unsigned standardSpeed);
+  void begin(void (*countUp)(), unsigned standardSpeed, float multiplier = 1.0);
 
   /// Get current speed (RPM) of this fan.
   inline unsigned getSpeed() const { return unsigned(current_speed_); }
@@ -96,6 +98,10 @@ public:
   /// Set PWM signal strength for given ventilation mode at initialization time.
   inline void initPWM(unsigned mode, int pwm) { pwm_setpoint_[mode] = pwm; }
 
+  /// Set RPM multiplier for this fan.
+  void setMultiplier(float multiplier) {
+    rpm_.multiplier() = static_cast<FanRPM::multiplier_t>(multiplier * FanRPM::RPM_MULTIPLIER_BASE);
+  }
 private:
   friend class FanControl;
 

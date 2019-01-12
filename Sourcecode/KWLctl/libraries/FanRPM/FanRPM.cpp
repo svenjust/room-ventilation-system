@@ -21,7 +21,8 @@
 
 #include <Arduino.h>
 
-FanRPM::FanRPM() noexcept {
+FanRPM::FanRPM(multiplier_t multiplier) noexcept : multiplier_(multiplier)
+{
   memset(measurements_, 0, sizeof(measurements_));
 }
 
@@ -33,15 +34,20 @@ void FanRPM::interrupt() noexcept {
     return;
   }
   unsigned long measurement = timer - last_time_;
-  if (measurement > (60000000UL / MIN_RPM)) {
-    // assume fan stopped - it is too slow (more than 1s between signals)
+  if (measurement > ((60000000UL / MIN_RPM / RPM_MULTIPLIER_BASE) * multiplier_)) {
+    // assume fan stopped - it is too slow (more than 1s between rotations)
+    // NOTE: after considering the multiplier, the error of this computation
+    // is about +/-0.01%. Pay attention when changing this code in the future.
     last_time_ = 0;
     last_ = 0;
     valid_ = false;
     return;
   }
-  if (measurement < (60000000UL / MAX_RPM)) {
+  if (measurement < ((60000000UL / MAX_RPM / RPM_MULTIPLIER_BASE) * multiplier_)) {
     // assume outlier (e.g., double signal activation, random noise, etc.)
+    // NOTE: after considering the multiplier, the error of this computation
+    // is about +/-2% or MAX_RPM. This is sufficient for outlier detection,
+    // but pay attention when changing the code in the future.
     return;
   }
   last_time_ = timer;
@@ -95,8 +101,10 @@ int FanRPM::getSpeed() noexcept
   // Create pseudo-measurement to check whether fan has stopped
   // w/o detection in the interrupt routine.
   const unsigned long measurement = micros() - last_time;
-  if (measurement > (60000000UL / MIN_RPM)) {
+  if (measurement > ((60000000UL / MIN_RPM / RPM_MULTIPLIER_BASE) * multiplier_)) {
     // assume fan stopped - it is too slow (more than 1s between signals)
+    // NOTE: the precision of the calculation is +/-0.01%. Pay attention
+    // when changing the code in the future.
     noInterrupts();
     last_time_ = 0;
     last_ = 0;
@@ -107,7 +115,7 @@ int FanRPM::getSpeed() noexcept
 
   // Captured value is effectively sum of MAX_MEASUREMENT measurements, return average.
   if (sum)
-    return int((60000000UL * MAX_MEASUREMENTS) / sum);
+    return int(((60000000UL * MAX_MEASUREMENTS / RPM_MULTIPLIER_BASE) * multiplier_) / sum);
   else
     return 0;
 }

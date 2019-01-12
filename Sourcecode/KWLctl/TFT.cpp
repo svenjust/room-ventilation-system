@@ -1915,6 +1915,8 @@ public:
     auto& config = getControl().getPersistentConfig();
     setpoint_l1_ = config.getSpeedSetpointFan1();
     setpoint_l2_ = config.getSpeedSetpointFan2();
+    multiplier_l1_in_ = multiplier_l1_ = find_mult_index(config.getFan1Multiplier());
+    multiplier_l2_in_ = multiplier_l2_ = find_mult_index(config.getFan2Multiplier());
     calculate_speed_mode_ = getControl().getFanControl().getCalculateSpeedMode();
   }
 
@@ -1929,18 +1931,20 @@ protected:
     setupInputFieldRow(2, 1, F("Normdrehzahl Abluft:"));
     setupInputFieldColumnWidth(3, 130);
     setupInputFieldRow(3, 1, F("Luefterregelung:"));
+    setupInputFieldColumnWidth(4, 60);
+    setupInputFieldRow(4, 2, F("Multiplikator Zu/Ab:"));
 
     tft_.setFont(&FreeSans9pt7b);
     tft_.setTextColor(colFontColor, colBackColor);
-    tft_.setCursor(18, 180 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 198 + BASELINE_MIDDLE);
     tft_.print (F("Nach der Aenderung der Normdrehzahlen"));
-    tft_.setCursor(18, 200 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 216 + BASELINE_MIDDLE);
     tft_.print (F("der Luefter muessen diese kalibriert werden."));
-    tft_.setCursor(18, 220 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 234 + BASELINE_MIDDLE);
     tft_.print (F("Bei der Kalibrierung werden die Drehzahlen"));
-    tft_.setCursor(18, 240 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 252 + BASELINE_MIDDLE);
     tft_.print (F("der Luefter eingestellt und die notwendigen"));
-    tft_.setCursor(18, 260 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 270 + BASELINE_MIDDLE);
     tft_.print (F("PWM-Werte fuer jede Stufe gespeichert."));
 
     newMenuEntry(1, icon_back_32x32, 32,
@@ -1964,6 +1968,9 @@ protected:
           case 3:
             calculate_speed_mode_ = FanCalculateSpeedMode::PID;
             break;
+          case 4:
+            update_multiplier((getCurrentColumn() == 0) ? multiplier_l1_ : multiplier_l2_, +1);
+            break;
         }
         updateCurrentInputField();
       }
@@ -1986,6 +1993,9 @@ protected:
           case 3:
             calculate_speed_mode_ = FanCalculateSpeedMode::PROP;
             break;
+          case 4:
+            update_multiplier((getCurrentColumn() == 0) ? multiplier_l1_ : multiplier_l2_, -1);
+            break;
          }
          updateCurrentInputField();
        }
@@ -1995,12 +2005,22 @@ protected:
         resetInput();
         // write to EEPROM and restart
         auto& config = getControl().getPersistentConfig();
-        bool speed_changed =
+        const bool multiplier_changed =
+            multiplier_l1_in_ != multiplier_l1_ ||
+            multiplier_l2_in_ != multiplier_l2_;
+        const bool speed_changed =
             config.getSpeedSetpointFan1() != setpoint_l1_ ||
-            config.getSpeedSetpointFan2() != setpoint_l2_;
+            config.getSpeedSetpointFan2() != setpoint_l2_ ||
+            multiplier_changed;
         if (speed_changed) {
           config.setSpeedSetpointFan1(setpoint_l1_);
           config.setSpeedSetpointFan2(setpoint_l2_);
+          if (multiplier_changed) {
+            config.setFan1Multiplier(get_mult(multiplier_l1_));
+            config.setFan2Multiplier(get_mult(multiplier_l2_));
+            getControl().getFanControl().getFan1().setMultiplier(get_mult(multiplier_l1_));
+            getControl().getFanControl().getFan2().setMultiplier(get_mult(multiplier_l2_));
+          }
           getControl().getFanControl().setCalculateSpeedMode(calculate_speed_mode_);
           doPopup<ScreenSetupFan>(
             F("Einstellungen gespeichert"),
@@ -2039,6 +2059,8 @@ protected:
     return
         config.getSpeedSetpointFan1() != setpoint_l1_ ||
         config.getSpeedSetpointFan2() != setpoint_l2_ ||
+        multiplier_l1_in_ != multiplier_l1_ ||
+        multiplier_l2_in_ != multiplier_l2_ ||
         getControl().getFanControl().getCalculateSpeedMode() != calculate_speed_mode_;
   }
 
@@ -2051,9 +2073,52 @@ private:
       case 1: snprintf_P(buf, sizeof(buf), PSTR("%u"), setpoint_l1_); break;
       case 2: snprintf_P(buf, sizeof(buf), PSTR("%u"), setpoint_l2_); break;
       case 3: strcpy_P(buf, fanModeToString(calculate_speed_mode_)); break;
+      case 4:
+      {
+        auto val = (col == 0) ? multiplier_l1_ : multiplier_l2_;
+        snprintf_P(buf, sizeof(buf), PSTR("%d:%d"), MULTIPLIERS[val].mul, MULTIPLIERS[val].div);
+        break;
+      }
     }
     drawCurrentInputField(buf, false);
   }
+
+  int8_t find_mult_index(float multiplier)
+  {
+    int8_t minindex = 0;
+    float mindiff = 1e10;
+    for (int8_t i = 0; i < MULT_COUNT; ++i) {
+      auto m = float(MULTIPLIERS[i].mul) / MULTIPLIERS[i].div;
+      auto diff = abs(m - multiplier);
+      if (diff < mindiff) {
+        mindiff = diff;
+        minindex = i;
+      }
+    }
+    return minindex;
+  }
+
+  float get_mult(int8_t i)
+  {
+    return float(MULTIPLIERS[i].mul) / MULTIPLIERS[i].div;
+  }
+
+  void update_multiplier(int8_t& multiplier, int8_t direction)
+  {
+    multiplier += direction;
+    if (multiplier < 0)
+      multiplier = 0;
+    if (multiplier >= MULT_COUNT)
+      multiplier = MULT_COUNT - 1;
+  }
+
+  struct ratio { uint8_t mul; uint8_t div; };
+  static constexpr uint8_t MULT_COUNT = 13;
+  static constexpr ratio MULTIPLIERS[MULT_COUNT] = {
+    {1, 10}, {1, 9}, {1, 8}, {1, 7}, {1, 6},
+    {1, 5}, {1, 4}, {1, 3}, {1, 2}, {2, 3},
+    {1, 1}, {3, 2}, {2, 1}
+  };
 
   /// Mode to calculate fan speed.
   FanCalculateSpeedMode calculate_speed_mode_;
@@ -2061,7 +2126,18 @@ private:
   unsigned setpoint_l1_;
   /// Setpoint for exhaust fan.
   unsigned setpoint_l2_;
+  /// Multipier for intake fan.
+  int8_t multiplier_l1_;
+  /// Multipier for exhaust fan.
+  int8_t multiplier_l2_;
+  /// Multipier for intake fan (at startup).
+  int8_t multiplier_l1_in_;
+  /// Multipier for exhaust fan (at startup).
+  int8_t multiplier_l2_in_;
 };
+
+constexpr uint8_t ScreenSetupFan::MULT_COUNT;
+constexpr ScreenSetupFan::ratio ScreenSetupFan::MULTIPLIERS[MULT_COUNT];
 
 /// IP configuration setup screen.
 class ScreenSetupIPAddress : public ScreenSetupBase
