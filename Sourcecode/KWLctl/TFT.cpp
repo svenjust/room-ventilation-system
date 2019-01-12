@@ -392,6 +392,10 @@ protected:
     tft_.fillScreen(TFT_BLACK);
 
     millis_screen_blank_ = millis();
+    warn_state_ = 0;
+    fan_mode_ = getControl().getFanControl().getVentilationMode();
+    update_timeout_ = 1;
+    last_x_ = last_y_ = 0;
   }
 
   virtual void update() noexcept override
@@ -404,6 +408,29 @@ protected:
     auto time = millis();
     if (time - millis_screen_blank_ > SCREEN_OFF_MIN_TIME)
       millis_screen_blank_ = time - SCREEN_OFF_MIN_TIME;
+
+    uint8_t state = 0;
+    auto err = getControl().getErrors() & ~KWLControl::ERROR_BIT_CRASH;
+    if (err) {
+      state = 2;
+    } else {
+      auto info = getControl().getInfos();
+      if (info)
+        state = 1;
+    }
+    auto mode = getControl().getFanControl().getVentilationMode();
+    if (state != warn_state_ || fan_mode_ != mode) {
+      update_timeout_ = 1;
+    } else {
+      // warning state unchanged
+    }
+    if (--update_timeout_ == 0) {
+      clear_state();
+      warn_state_ = state;
+      fan_mode_ = mode;
+      draw_state();
+      update_timeout_ = 5;
+    }
   }
 
   virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept override
@@ -414,6 +441,7 @@ protected:
     if (time - millis_screen_blank_ >= SCREEN_OFF_MIN_TIME) {
       if (KWLConfig::serialDebugDisplay)
         Serial.println(F("TFT: Display on"));
+      clear_state();
       // now redraw everything
       gotoScreen<ScreenMain>();
     }
@@ -421,8 +449,48 @@ protected:
   }
 
 private:
+  static constexpr int16_t STATE_WIDTH = 36;
+  static constexpr int16_t STATE_HEIGHT = 18;
+
+  void clear_state() {
+    tft_.fillRect(last_x_, last_y_, STATE_WIDTH, STATE_HEIGHT, colBackColor);
+  }
+
+  void draw_state() {
+    last_x_ = micros() % (480 - STATE_WIDTH);
+    last_y_ = micros() % (320 - STATE_HEIGHT);
+    uint16_t color = colFontColor;
+    switch (warn_state_) {
+      case 1:
+        color = colInfoBackColor;
+        tft_.drawBitmap(last_x_, last_y_, icon_warning_18x18, 18, 18, color);
+        break;
+      case 2:
+        color = colErrorBackColor;
+        tft_.drawBitmap(last_x_, last_y_, icon_error_18x18, 18, 18, color);
+        break;
+      default:
+        tft_.drawBitmap(last_x_, last_y_, icon_fan_18x18, 18, 18, color);
+        break;
+    }
+    tft_.setFont(&FreeSans12pt7b);
+    tft_.setCursor(last_x_ + 22, last_y_ + BASELINE_MIDDLE - 1);
+    tft_.setTextColor(color);
+    tft_.print(char('0' + fan_mode_));
+  }
+
   /// Time at which the screen went blank.
   unsigned long millis_screen_blank_;
+  /// Warning state (0 none, 1 info, 2 error).
+  uint8_t warn_state_;
+  /// Fan mode to display.
+  int fan_mode_;
+  /// Timeout to warning position update.
+  uint8_t update_timeout_;
+  /// X position of last warning state display.
+  int16_t last_x_;
+  /// Y position of last warning state display.
+  int16_t last_y_;
 };
 
 /// Screen with global header on top.

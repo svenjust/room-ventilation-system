@@ -1,6 +1,7 @@
 Icons used here are from The Noun Project (https://thenounproject.com).
 
-Icons are licensed under creative commons license. Here the list of authors:
+Icons are licensed under creative commons or public domain licenses.
+Here the list of authors:
   - noun_agenda_63276: created by Mark Shorter
   - noun_back_737733: created by Vladimir
   - noun_Bypass_542021: created by Arthur Shlain
@@ -18,3 +19,5 @@ Icons are licensed under creative commons license. Here the list of authors:
   - noun_Settings_18125: created by Joe Mortell
   - noun_Temperature_1365226: created by shashank singh
   - noun_Water_927349: created by iconsphere
+  - noun_Warning_849636: created by Loudoun Design Co.
+  - noun_Error_2623_000000: created by B. Agustín Amenábar Larraín, CL

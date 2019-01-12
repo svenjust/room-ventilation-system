@@ -86,6 +86,8 @@ convert_icon up "${SRC}/up_40x40.png" -negate 40x40
 convert_icon down "${SRC}/down_40x40.png" -negate 40x40
 convert_icon ok "${SRC}/noun_check_1833392.svg" 40x40
 convert_icon cancel "${SRC}/cancel_40x40.png" 40x40
+convert_icon warning "${SRC}/noun_Warning_849636.svg" 18x18
+convert_icon error "${SRC}/noun_Error_2623_000000.svg" 18x18
 
 # generage header at the end
 echo "Generating header"
