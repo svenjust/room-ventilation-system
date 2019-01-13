@@ -30,7 +30,8 @@ class Print;
  * @brief Stores measurements and computes fan speed.
  *
  * This class measures rotations per minute of a fan reporting its speed
- * by sending a signal once per rotation. The signal is captured from a pin
+ * by sending a signal once per rotation (by default; other signal frequencies
+ * are possible, see multiplier()). The signal is captured from a pin
  * using an associated interrupt. Interrupt's handling routine must call
  * interrupt() routine.
  *
@@ -42,15 +43,46 @@ class Print;
 class FanRPM
 {
 public:
+  /// Type for storing fan multiplier.
+  using multiplier_t = unsigned char;
+
   enum {
     /// Minimum valid RPM.
     MIN_RPM = 60,
     /// Maximum valid RPM.
-    MAX_RPM = 10000
+    MAX_RPM = 10000,
+    /// Multiplier representing 1 tacho signal per rotation.
+    RPM_MULTIPLIER_BASE = 100
+    // NOTE: see usages for these values if you intend to change them, you may
+    // need to adjust RPM and timing computation.
   };
 
-  /// Initialize the fan speed measurement.
-  FanRPM() noexcept;
+  /*!
+   * @brief Initialize the fan speed measurement.
+   *
+   * @param multiplier (optional) multiplier to set, if the tacho signal is
+   *    not sent 1:1 for each rotation. It is set in units of
+   *    1/RPM_MULTIPLIER_BASE.
+   * @see multiplier()
+   */
+  FanRPM(multiplier_t multiplier = RPM_MULTIPLIER_BASE) noexcept;
+
+  /*!
+   * @brief Get or set the multiplier for computing RPM.
+   *
+   * The multiplier is used to compute real RPM of the fan. There are fans,
+   * which do not send one tacho signal per rotation, but rather 2 or 3 or 4.
+   * Setting the multiplier to proper value will correct the measurement.
+   *
+   * The multiplier is set in units of 1/RPM_MULTIPLIER_BASE. I.e., the value
+   * RPM_MULTIPLIER_BASE means identity, or 1:1 speed. Multiplier of RPM_MULTIPLIER_BASE/2
+   * would mean 1/2, i.e., when the fan sends 2 signals per rotation, use this multiplier.
+   *
+   * The change of the multiplier takes effect immediately.
+   *
+   * @return reference to multiplier.
+   */
+  multiplier_t& multiplier() noexcept { return multiplier_; }
 
   /// Call this method in the interrupt function for the RPM measurement pin.
   void interrupt() noexcept;
@@ -81,4 +113,6 @@ private:
   unsigned long last_ = 0;
   /// Current sum of all measurements.
   volatile unsigned long sum_ = 0;
+  /// Multiplier in 1/256 units to convert to real RPM.
+  multiplier_t multiplier_ = RPM_MULTIPLIER_BASE;
 };

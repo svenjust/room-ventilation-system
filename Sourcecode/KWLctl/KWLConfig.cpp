@@ -32,7 +32,7 @@ IPAddressLiteral::operator IPAddress() const noexcept
 
 #define KWL_COPY(name) name##_ = KWLConfig::Standard##name
 
-static_assert(sizeof(KWLPersistentConfig) == 290, "Persistent config size changed, ensure compatibility or increment version");
+static_assert(sizeof(KWLPersistentConfig) == 298, "Persistent config size changed, ensure compatibility or increment version");
 static constexpr auto PrefixMQTT = KWLConfig::PrefixMQTT;
 
 void KWLPersistentConfig::loadDefaults()
@@ -41,6 +41,8 @@ void KWLPersistentConfig::loadDefaults()
 
   KWL_COPY(SpeedSetpointFan1);
   KWL_COPY(SpeedSetpointFan2);
+  KWL_COPY(Fan1Multiplier);
+  KWL_COPY(Fan2Multiplier);
   KWL_COPY(BypassTempAbluftMin);
   KWL_COPY(BypassTempAussenluftMin);
   KWL_COPY(BypassHystereseMinutes);
@@ -139,6 +141,12 @@ void KWLPersistentConfig::migrate()
     Serial.println(F("Config migration: clearing touchscreen calibration"));
     touch_.reset();
     update(touch_);
+  }
+  if (*reinterpret_cast<long*>(&Fan1Multiplier_) == -1) {
+    Fan1Multiplier_ = KWLConfig::StandardFan1Multiplier;
+    Fan2Multiplier_ = KWLConfig::StandardFan2Multiplier;
+    update(Fan1Multiplier_);
+    update(Fan2Multiplier_);
   }
 }
 

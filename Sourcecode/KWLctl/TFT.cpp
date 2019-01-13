@@ -392,6 +392,10 @@ protected:
     tft_.fillScreen(TFT_BLACK);
 
     millis_screen_blank_ = millis();
+    warn_state_ = 0;
+    fan_mode_ = getControl().getFanControl().getVentilationMode();
+    update_timeout_ = 1;
+    last_x_ = last_y_ = 0;
   }
 
   virtual void update() noexcept override
@@ -404,6 +408,29 @@ protected:
     auto time = millis();
     if (time - millis_screen_blank_ > SCREEN_OFF_MIN_TIME)
       millis_screen_blank_ = time - SCREEN_OFF_MIN_TIME;
+
+    uint8_t state = 0;
+    auto err = getControl().getErrors() & ~KWLControl::ERROR_BIT_CRASH;
+    if (err) {
+      state = 2;
+    } else {
+      auto info = getControl().getInfos();
+      if (info)
+        state = 1;
+    }
+    auto mode = getControl().getFanControl().getVentilationMode();
+    if (state != warn_state_ || fan_mode_ != mode) {
+      update_timeout_ = 1;
+    } else {
+      // warning state unchanged
+    }
+    if (--update_timeout_ == 0) {
+      clear_state();
+      warn_state_ = state;
+      fan_mode_ = mode;
+      draw_state();
+      update_timeout_ = 5;
+    }
   }
 
   virtual bool touch(int16_t x, int16_t y, unsigned long time) noexcept override
@@ -414,6 +441,7 @@ protected:
     if (time - millis_screen_blank_ >= SCREEN_OFF_MIN_TIME) {
       if (KWLConfig::serialDebugDisplay)
         Serial.println(F("TFT: Display on"));
+      clear_state();
       // now redraw everything
       gotoScreen<ScreenMain>();
     }
@@ -421,8 +449,48 @@ protected:
   }
 
 private:
+  static constexpr int16_t STATE_WIDTH = 36;
+  static constexpr int16_t STATE_HEIGHT = 18;
+
+  void clear_state() {
+    tft_.fillRect(last_x_, last_y_, STATE_WIDTH, STATE_HEIGHT, colBackColor);
+  }
+
+  void draw_state() {
+    last_x_ = micros() % (480 - STATE_WIDTH);
+    last_y_ = micros() % (320 - STATE_HEIGHT);
+    uint16_t color = colFontColor;
+    switch (warn_state_) {
+      case 1:
+        color = colInfoBackColor;
+        tft_.drawBitmap(last_x_, last_y_, icon_warning_18x18, 18, 18, color);
+        break;
+      case 2:
+        color = colErrorBackColor;
+        tft_.drawBitmap(last_x_, last_y_, icon_error_18x18, 18, 18, color);
+        break;
+      default:
+        tft_.drawBitmap(last_x_, last_y_, icon_fan_18x18, 18, 18, color);
+        break;
+    }
+    tft_.setFont(&FreeSans12pt7b);
+    tft_.setCursor(last_x_ + 22, last_y_ + BASELINE_MIDDLE - 1);
+    tft_.setTextColor(color);
+    tft_.print(char('0' + fan_mode_));
+  }
+
   /// Time at which the screen went blank.
   unsigned long millis_screen_blank_;
+  /// Warning state (0 none, 1 info, 2 error).
+  uint8_t warn_state_;
+  /// Fan mode to display.
+  int fan_mode_;
+  /// Timeout to warning position update.
+  uint8_t update_timeout_;
+  /// X position of last warning state display.
+  int16_t last_x_;
+  /// Y position of last warning state display.
+  int16_t last_y_;
 };
 
 /// Screen with global header on top.
@@ -1915,6 +1983,8 @@ public:
     auto& config = getControl().getPersistentConfig();
     setpoint_l1_ = config.getSpeedSetpointFan1();
     setpoint_l2_ = config.getSpeedSetpointFan2();
+    multiplier_l1_in_ = multiplier_l1_ = find_mult_index(config.getFan1Multiplier());
+    multiplier_l2_in_ = multiplier_l2_ = find_mult_index(config.getFan2Multiplier());
     calculate_speed_mode_ = getControl().getFanControl().getCalculateSpeedMode();
   }
 
@@ -1929,18 +1999,20 @@ protected:
     setupInputFieldRow(2, 1, F("Normdrehzahl Abluft:"));
     setupInputFieldColumnWidth(3, 130);
     setupInputFieldRow(3, 1, F("Luefterregelung:"));
+    setupInputFieldColumnWidth(4, 60);
+    setupInputFieldRow(4, 2, F("Multiplikator Zu/Ab:"));
 
     tft_.setFont(&FreeSans9pt7b);
     tft_.setTextColor(colFontColor, colBackColor);
-    tft_.setCursor(18, 180 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 198 + BASELINE_MIDDLE);
     tft_.print (F("Nach der Aenderung der Normdrehzahlen"));
-    tft_.setCursor(18, 200 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 216 + BASELINE_MIDDLE);
     tft_.print (F("der Luefter muessen diese kalibriert werden."));
-    tft_.setCursor(18, 220 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 234 + BASELINE_MIDDLE);
     tft_.print (F("Bei der Kalibrierung werden die Drehzahlen"));
-    tft_.setCursor(18, 240 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 252 + BASELINE_MIDDLE);
     tft_.print (F("der Luefter eingestellt und die notwendigen"));
-    tft_.setCursor(18, 260 + BASELINE_MIDDLE);
+    tft_.setCursor(18, 270 + BASELINE_MIDDLE);
     tft_.print (F("PWM-Werte fuer jede Stufe gespeichert."));
 
     newMenuEntry(1, icon_back_32x32, 32,
@@ -1964,6 +2036,9 @@ protected:
           case 3:
             calculate_speed_mode_ = FanCalculateSpeedMode::PID;
             break;
+          case 4:
+            update_multiplier((getCurrentColumn() == 0) ? multiplier_l1_ : multiplier_l2_, +1);
+            break;
         }
         updateCurrentInputField();
       }
@@ -1986,6 +2061,9 @@ protected:
           case 3:
             calculate_speed_mode_ = FanCalculateSpeedMode::PROP;
             break;
+          case 4:
+            update_multiplier((getCurrentColumn() == 0) ? multiplier_l1_ : multiplier_l2_, -1);
+            break;
          }
          updateCurrentInputField();
        }
@@ -1995,12 +2073,22 @@ protected:
         resetInput();
         // write to EEPROM and restart
         auto& config = getControl().getPersistentConfig();
-        bool speed_changed =
+        const bool multiplier_changed =
+            multiplier_l1_in_ != multiplier_l1_ ||
+            multiplier_l2_in_ != multiplier_l2_;
+        const bool speed_changed =
             config.getSpeedSetpointFan1() != setpoint_l1_ ||
-            config.getSpeedSetpointFan2() != setpoint_l2_;
+            config.getSpeedSetpointFan2() != setpoint_l2_ ||
+            multiplier_changed;
         if (speed_changed) {
           config.setSpeedSetpointFan1(setpoint_l1_);
           config.setSpeedSetpointFan2(setpoint_l2_);
+          if (multiplier_changed) {
+            config.setFan1Multiplier(get_mult(multiplier_l1_));
+            config.setFan2Multiplier(get_mult(multiplier_l2_));
+            getControl().getFanControl().getFan1().setMultiplier(get_mult(multiplier_l1_));
+            getControl().getFanControl().getFan2().setMultiplier(get_mult(multiplier_l2_));
+          }
           getControl().getFanControl().setCalculateSpeedMode(calculate_speed_mode_);
           doPopup<ScreenSetupFan>(
             F("Einstellungen gespeichert"),
@@ -2039,6 +2127,8 @@ protected:
     return
         config.getSpeedSetpointFan1() != setpoint_l1_ ||
         config.getSpeedSetpointFan2() != setpoint_l2_ ||
+        multiplier_l1_in_ != multiplier_l1_ ||
+        multiplier_l2_in_ != multiplier_l2_ ||
         getControl().getFanControl().getCalculateSpeedMode() != calculate_speed_mode_;
   }
 
@@ -2051,9 +2141,52 @@ private:
       case 1: snprintf_P(buf, sizeof(buf), PSTR("%u"), setpoint_l1_); break;
       case 2: snprintf_P(buf, sizeof(buf), PSTR("%u"), setpoint_l2_); break;
       case 3: strcpy_P(buf, fanModeToString(calculate_speed_mode_)); break;
+      case 4:
+      {
+        auto val = (col == 0) ? multiplier_l1_ : multiplier_l2_;
+        snprintf_P(buf, sizeof(buf), PSTR("%d:%d"), MULTIPLIERS[val].mul, MULTIPLIERS[val].div);
+        break;
+      }
     }
     drawCurrentInputField(buf, false);
   }
+
+  int8_t find_mult_index(float multiplier)
+  {
+    int8_t minindex = 0;
+    float mindiff = 1e10;
+    for (int8_t i = 0; i < MULT_COUNT; ++i) {
+      auto m = float(MULTIPLIERS[i].mul) / MULTIPLIERS[i].div;
+      auto diff = abs(m - multiplier);
+      if (diff < mindiff) {
+        mindiff = diff;
+        minindex = i;
+      }
+    }
+    return minindex;
+  }
+
+  float get_mult(int8_t i)
+  {
+    return float(MULTIPLIERS[i].mul) / MULTIPLIERS[i].div;
+  }
+
+  void update_multiplier(int8_t& multiplier, int8_t direction)
+  {
+    multiplier += direction;
+    if (multiplier < 0)
+      multiplier = 0;
+    if (multiplier >= MULT_COUNT)
+      multiplier = MULT_COUNT - 1;
+  }
+
+  struct ratio { uint8_t mul; uint8_t div; };
+  static constexpr uint8_t MULT_COUNT = 13;
+  static constexpr ratio MULTIPLIERS[MULT_COUNT] = {
+    {1, 10}, {1, 9}, {1, 8}, {1, 7}, {1, 6},
+    {1, 5}, {1, 4}, {1, 3}, {1, 2}, {2, 3},
+    {1, 1}, {3, 2}, {2, 1}
+  };
 
   /// Mode to calculate fan speed.
   FanCalculateSpeedMode calculate_speed_mode_;
@@ -2061,7 +2194,18 @@ private:
   unsigned setpoint_l1_;
   /// Setpoint for exhaust fan.
   unsigned setpoint_l2_;
+  /// Multipier for intake fan.
+  int8_t multiplier_l1_;
+  /// Multipier for exhaust fan.
+  int8_t multiplier_l2_;
+  /// Multipier for intake fan (at startup).
+  int8_t multiplier_l1_in_;
+  /// Multipier for exhaust fan (at startup).
+  int8_t multiplier_l2_in_;
 };
+
+constexpr uint8_t ScreenSetupFan::MULT_COUNT;
+constexpr ScreenSetupFan::ratio ScreenSetupFan::MULTIPLIERS[MULT_COUNT];
 
 /// IP configuration setup screen.
 class ScreenSetupIPAddress : public ScreenSetupBase

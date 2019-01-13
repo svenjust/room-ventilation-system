@@ -209,7 +209,11 @@ public:
   static constexpr unsigned StandardSpeedSetpointFan1       = 1550;              // sju: 1450
   /// Drehzahl für Standardlüftungsstufe Abluft.
   static constexpr unsigned StandardSpeedSetpointFan2       = 1550;              // sju: 1100
-   /// Max Abweichung der Istdrehzahl zur Solldrehzahl bei Kalibrierung in Prozent
+  /// Multiplier for computing RPM of fan 1, if tacho signal is not sent 1:1 for each rotation.
+  static constexpr float StandardFan1Multiplier             = 1.0;
+  /// Multiplier for computing RPM of fan 2, if tacho signal is not sent 1:1 for each rotation.
+  static constexpr float StandardFan2Multiplier             = 1.0;
+  /// Max Abweichung der Istdrehzahl zur Solldrehzahl bei Kalibrierung in Prozent
   static constexpr double StandardKwlFanPrecisionPercent    = 1.5;
   /// Nenndrehzahl Papst Lüfter lt Datenblatt 3200 U/min.
   static constexpr unsigned StandardNenndrehzahlFan         = 3200;
@@ -572,7 +576,11 @@ private:
 
   // Touchscreen configuration
   TouchCalibration touch_;            // 280..290
-  // 290
+
+  // Fan multiplier configuration
+  float Fan1Multiplier_;              // 290
+  float Fan2Multiplier_;              // 294
+  // 298
 
   /// Initialize with defaults, if version doesn't fit.
   void loadDefaults();
@@ -587,6 +595,8 @@ public:
   // default getters/setters
   KWL_GETSET(SpeedSetpointFan1)
   KWL_GETSET(SpeedSetpointFan2)
+  KWL_GETSET(Fan1Multiplier)
+  KWL_GETSET(Fan2Multiplier)
   KWL_GETSET(BypassTempAbluftMin)
   KWL_GETSET(BypassTempAussenluftMin)
   KWL_GETSET(BypassHystereseMinutes)

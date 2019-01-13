@@ -56,7 +56,8 @@ static constexpr unsigned long TIMEOUT_PWM_CALIBRATION = 300000000;
 static constexpr double aggKp  = 0.5,  aggKi = 0.1, aggKd  = 0.001;
 static constexpr double consKp = 0.1, consKi = 0.1, consKd = 0.001;
 
-Fan::Fan(uint8_t id, uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin) :
+Fan::Fan(uint8_t id, uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin, float multiplier) :
+  rpm_(static_cast<FanRPM::multiplier_t>(multiplier * FanRPM::RPM_MULTIPLIER_BASE)),
   power_(powerPin),
   pwm_pin_(pwmPin),
   tacho_pin_(tachoPin),
@@ -64,9 +65,10 @@ Fan::Fan(uint8_t id, uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin) :
   pid_(&current_speed_, &tech_setpoint_, &speed_setpoint_, consKp, consKi, consKd, P_ON_M, DIRECT)
 {}
 
-void Fan::begin(void (*countUp)(), unsigned standardSpeed)
+void Fan::begin(void (*countUp)(), unsigned standardSpeed, float multiplier)
 {
   standard_speed_ = standardSpeed;
+  rpm_.multiplier() = static_cast<FanRPM::multiplier_t>(multiplier * FanRPM::RPM_MULTIPLIER_BASE);
 
   pid_.SetOutputLimits(0, 1000);
   pid_.SetMode(AUTOMATIC);
@@ -81,14 +83,16 @@ void Fan::begin(void (*countUp)(), unsigned standardSpeed)
   auto intr = uint8_t(digitalPinToInterrupt(tacho_pin_));
   attachInterrupt(intr, countUp, KWLConfig::TachoSamplingMode);
 
-  Serial.print(F("Fan pins(tacho/PWM), interrupt, std speed:\t"));
+  Serial.print(F("Fan pins(tacho/PWM), interrupt, std speed, mult:\t"));
   Serial.print(tacho_pin_);
   Serial.print('\t');
   Serial.print(pwm_pin_);
   Serial.print('\t');
   Serial.print(intr);
   Serial.print('\t');
-  Serial.println(standardSpeed);
+  Serial.print(standardSpeed);
+  Serial.print('\t');
+  Serial.println(multiplier);
 
   // Turn on power
   power_.on();
@@ -233,8 +237,8 @@ void Fan::sendMQTTDebug(int id, unsigned long ts, MessageHandler& h)
 
 FanControl::FanControl(KWLPersistentConfig& config, SetSpeedCallback *speedCallback) :
   MessageHandler(F("FanControl")),
-  fan1_(1, KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho),
-  fan2_(2, KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho),
+  fan1_(1, KWLConfig::PinFan1Power, KWLConfig::PinFan1PWM, KWLConfig::PinFan1Tacho, KWLConfig::StandardFan1Multiplier),
+  fan2_(2, KWLConfig::PinFan2Power, KWLConfig::PinFan2PWM, KWLConfig::PinFan2Tacho, KWLConfig::StandardFan2Multiplier),
   speed_callback_(speedCallback),
   ventilation_mode_(KWLConfig::StandardKwlMode),
   persistent_config_(config),
@@ -251,8 +255,8 @@ void FanControl::begin(Print& initTrace)
     fan1_.initPWM(i, persistent_config_.getFanPWMSetpoint(0, i));
     fan2_.initPWM(i, persistent_config_.getFanPWMSetpoint(1, i));
   }
-  fan1_.begin(countUpFan1, persistent_config_.getSpeedSetpointFan1());
-  fan2_.begin(countUpFan2, persistent_config_.getSpeedSetpointFan2());
+  fan1_.begin(countUpFan1, persistent_config_.getSpeedSetpointFan1(), persistent_config_.getFan1Multiplier());
+  fan2_.begin(countUpFan2, persistent_config_.getSpeedSetpointFan2(), persistent_config_.getFan2Multiplier());
 
   timer_task_.runRepeated(FAN_INTERVAL);
 }
