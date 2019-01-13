@@ -41,8 +41,8 @@ void KWLPersistentConfig::loadDefaults()
 
   KWL_COPY(SpeedSetpointFan1);
   KWL_COPY(SpeedSetpointFan2);
-  KWL_COPY(Fan1Multiplier);
-  KWL_COPY(Fan2Multiplier);
+  KWL_COPY(Fan1ImpulsesPerRotation);
+  KWL_COPY(Fan2ImpulsesPerRotation);
   KWL_COPY(BypassTempAbluftMin);
   KWL_COPY(BypassTempAussenluftMin);
   KWL_COPY(BypassHystereseMinutes);
@@ -142,11 +142,11 @@ void KWLPersistentConfig::migrate()
     touch_.reset();
     update(touch_);
   }
-  if (*reinterpret_cast<long*>(&Fan1Multiplier_) == -1) {
-    Fan1Multiplier_ = KWLConfig::StandardFan1Multiplier;
-    Fan2Multiplier_ = KWLConfig::StandardFan2Multiplier;
-    update(Fan1Multiplier_);
-    update(Fan2Multiplier_);
+  if (*reinterpret_cast<long*>(&Fan1ImpulsesPerRotation_) == -1) {
+    Fan1ImpulsesPerRotation_ = KWLConfig::StandardFan1ImpulsesPerRotation;
+    Fan2ImpulsesPerRotation_ = KWLConfig::StandardFan2ImpulsesPerRotation;
+    update(Fan1ImpulsesPerRotation_);
+    update(Fan2ImpulsesPerRotation_);
   }
 }
 

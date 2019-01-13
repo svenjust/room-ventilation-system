@@ -1983,8 +1983,8 @@ public:
     auto& config = getControl().getPersistentConfig();
     setpoint_l1_ = config.getSpeedSetpointFan1();
     setpoint_l2_ = config.getSpeedSetpointFan2();
-    multiplier_l1_in_ = multiplier_l1_ = find_mult_index(config.getFan1Multiplier());
-    multiplier_l2_in_ = multiplier_l2_ = find_mult_index(config.getFan2Multiplier());
+    ipr_l1_in_ = ipr_l1_ = find_ipr_index(config.getFan1ImpulsesPerRotation());
+    ipr_l2_in_ = ipr_l2_ = find_ipr_index(config.getFan2ImpulsesPerRotation());
     calculate_speed_mode_ = getControl().getFanControl().getCalculateSpeedMode();
   }
 
@@ -2000,7 +2000,7 @@ protected:
     setupInputFieldColumnWidth(3, 130);
     setupInputFieldRow(3, 1, F("Luefterregelung:"));
     setupInputFieldColumnWidth(4, 60);
-    setupInputFieldRow(4, 2, F("Multiplikator Zu/Ab:"));
+    setupInputFieldRow(4, 2, F("Impulse/Umdr. Zu/Ab:"));
 
     tft_.setFont(&FreeSans9pt7b);
     tft_.setTextColor(colFontColor, colBackColor);
@@ -2037,7 +2037,7 @@ protected:
             calculate_speed_mode_ = FanCalculateSpeedMode::PID;
             break;
           case 4:
-            update_multiplier((getCurrentColumn() == 0) ? multiplier_l1_ : multiplier_l2_, +1);
+            update_ipr((getCurrentColumn() == 0) ? ipr_l1_ : ipr_l2_, -1);
             break;
         }
         updateCurrentInputField();
@@ -2062,7 +2062,7 @@ protected:
             calculate_speed_mode_ = FanCalculateSpeedMode::PROP;
             break;
           case 4:
-            update_multiplier((getCurrentColumn() == 0) ? multiplier_l1_ : multiplier_l2_, -1);
+            update_ipr((getCurrentColumn() == 0) ? ipr_l1_ : ipr_l2_, +1);
             break;
          }
          updateCurrentInputField();
@@ -2073,21 +2073,23 @@ protected:
         resetInput();
         // write to EEPROM and restart
         auto& config = getControl().getPersistentConfig();
-        const bool multiplier_changed =
-            multiplier_l1_in_ != multiplier_l1_ ||
-            multiplier_l2_in_ != multiplier_l2_;
+        const bool ipr_changed =
+            ipr_l1_in_ != ipr_l1_ ||
+            ipr_l2_in_ != ipr_l2_;
         const bool speed_changed =
             config.getSpeedSetpointFan1() != setpoint_l1_ ||
             config.getSpeedSetpointFan2() != setpoint_l2_ ||
-            multiplier_changed;
+            ipr_changed;
         if (speed_changed) {
           config.setSpeedSetpointFan1(setpoint_l1_);
           config.setSpeedSetpointFan2(setpoint_l2_);
-          if (multiplier_changed) {
-            config.setFan1Multiplier(get_mult(multiplier_l1_));
-            config.setFan2Multiplier(get_mult(multiplier_l2_));
-            getControl().getFanControl().getFan1().setMultiplier(get_mult(multiplier_l1_));
-            getControl().getFanControl().getFan2().setMultiplier(get_mult(multiplier_l2_));
+          if (ipr_changed) {
+            config.setFan1ImpulsesPerRotation(get_ipr(ipr_l1_));
+            config.setFan2ImpulsesPerRotation(get_ipr(ipr_l2_));
+            getControl().getFanControl().getFan1().setImpulsesPerRotation(get_ipr(ipr_l1_));
+            getControl().getFanControl().getFan2().setImpulsesPerRotation(get_ipr(ipr_l2_));
+            ipr_l1_in_ = ipr_l1_;
+            ipr_l2_in_ = ipr_l2_;
           }
           getControl().getFanControl().setCalculateSpeedMode(calculate_speed_mode_);
           doPopup<ScreenSetupFan>(
@@ -2127,8 +2129,8 @@ protected:
     return
         config.getSpeedSetpointFan1() != setpoint_l1_ ||
         config.getSpeedSetpointFan2() != setpoint_l2_ ||
-        multiplier_l1_in_ != multiplier_l1_ ||
-        multiplier_l2_in_ != multiplier_l2_ ||
+        ipr_l1_in_ != ipr_l1_ ||
+        ipr_l2_in_ != ipr_l2_ ||
         getControl().getFanControl().getCalculateSpeedMode() != calculate_speed_mode_;
   }
 
@@ -2143,21 +2145,25 @@ private:
       case 3: strcpy_P(buf, fanModeToString(calculate_speed_mode_)); break;
       case 4:
       {
-        auto val = (col == 0) ? multiplier_l1_ : multiplier_l2_;
-        snprintf_P(buf, sizeof(buf), PSTR("%d:%d"), MULTIPLIERS[val].mul, MULTIPLIERS[val].div);
+        auto val = (col == 0) ? ipr_l1_ : ipr_l2_;
+        auto cfg = IPR_CONFIGS[val];
+        if (cfg.div == 1)
+          snprintf_P(buf, sizeof(buf), PSTR("%d"), cfg.mul);
+        else
+          snprintf_P(buf, sizeof(buf), PSTR("%d/%d"), cfg.mul, cfg.div);
         break;
       }
     }
     drawCurrentInputField(buf, false);
   }
 
-  int8_t find_mult_index(float multiplier)
+  int8_t find_ipr_index(float ipr)
   {
     int8_t minindex = 0;
     float mindiff = 1e10;
-    for (int8_t i = 0; i < MULT_COUNT; ++i) {
-      auto m = float(MULTIPLIERS[i].mul) / MULTIPLIERS[i].div;
-      auto diff = abs(m - multiplier);
+    for (int8_t i = 0; i < IPR_CONFIG_COUNT; ++i) {
+      auto m = float(IPR_CONFIGS[i].mul) / IPR_CONFIGS[i].div;
+      auto diff = abs(m - ipr);
       if (diff < mindiff) {
         mindiff = diff;
         minindex = i;
@@ -2166,26 +2172,26 @@ private:
     return minindex;
   }
 
-  float get_mult(int8_t i)
+  float get_ipr(int8_t i)
   {
-    return float(MULTIPLIERS[i].mul) / MULTIPLIERS[i].div;
+    return float(IPR_CONFIGS[i].mul) / IPR_CONFIGS[i].div;
   }
 
-  void update_multiplier(int8_t& multiplier, int8_t direction)
+  void update_ipr(int8_t& ipr, int8_t direction)
   {
-    multiplier += direction;
-    if (multiplier < 0)
-      multiplier = 0;
-    if (multiplier >= MULT_COUNT)
-      multiplier = MULT_COUNT - 1;
+    ipr += direction;
+    if (ipr < 0)
+      ipr = 0;
+    if (ipr >= IPR_CONFIG_COUNT)
+      ipr = IPR_CONFIG_COUNT - 1;
   }
 
-  struct ratio { uint8_t mul; uint8_t div; };
-  static constexpr uint8_t MULT_COUNT = 13;
-  static constexpr ratio MULTIPLIERS[MULT_COUNT] = {
+  struct ratio { uint8_t div; uint8_t mul; };
+  static constexpr uint8_t IPR_CONFIG_COUNT = 11;
+  static constexpr ratio IPR_CONFIGS[IPR_CONFIG_COUNT] = {
     {1, 10}, {1, 9}, {1, 8}, {1, 7}, {1, 6},
-    {1, 5}, {1, 4}, {1, 3}, {1, 2}, {2, 3},
-    {1, 1}, {3, 2}, {2, 1}
+    {1, 5}, {1, 4}, {1, 3}, {1, 2}, {1, 1},
+    {2, 1}
   };
 
   /// Mode to calculate fan speed.
@@ -2195,17 +2201,17 @@ private:
   /// Setpoint for exhaust fan.
   unsigned setpoint_l2_;
   /// Multipier for intake fan.
-  int8_t multiplier_l1_;
+  int8_t ipr_l1_;
   /// Multipier for exhaust fan.
-  int8_t multiplier_l2_;
+  int8_t ipr_l2_;
   /// Multipier for intake fan (at startup).
-  int8_t multiplier_l1_in_;
+  int8_t ipr_l1_in_;
   /// Multipier for exhaust fan (at startup).
-  int8_t multiplier_l2_in_;
+  int8_t ipr_l2_in_;
 };
 
-constexpr uint8_t ScreenSetupFan::MULT_COUNT;
-constexpr ScreenSetupFan::ratio ScreenSetupFan::MULTIPLIERS[MULT_COUNT];
+constexpr uint8_t ScreenSetupFan::IPR_CONFIG_COUNT;
+constexpr ScreenSetupFan::ratio ScreenSetupFan::IPR_CONFIGS[IPR_CONFIG_COUNT];
 
 /// IP configuration setup screen.
 class ScreenSetupIPAddress : public ScreenSetupBase
