@@ -30,8 +30,8 @@ L P300_HiVolt-rescue:Conn_01x06-Connector_Generic J3
 U 1 1 5B7AA094
 P 8200 2950
 F 0 "J3" V 8166 2562 50  0000 R CNN
-F 1 "Stiftleiste 6P - Molex" V 8075 2562 50  0000 R CNN
-F 2 "Connectors_Molex:Molex_MiniFit-JR-5556-06A_2x03x4.20mm_Straight" H 8200 2950 50  0001 C CNN
+F 1 "Stiftleiste 6P" V 8075 2562 50  0000 R CNN
+F 2 "Connectors_Terminal_Blocks:TerminalBlock_bornier-6_P5.08mm" H 8200 2950 50  0001 C CNN
 F 3 "~" H 8200 2950 50  0001 C CNN
 	1    8200 2950
 	0    1    1    0   
@@ -41,8 +41,8 @@ L P300_HiVolt-rescue:Conn_01x06-Connector_Generic J4
 U 1 1 5B7AA0D8
 P 9100 2950
 F 0 "J4" V 9066 2562 50  0000 R CNN
-F 1 "Stiftleiste 6P - Molex" V 8950 4050 50  0000 R CNN
-F 2 "Connectors_Molex:Molex_MiniFit-JR-5556-06A_2x03x4.20mm_Straight" H 9100 2950 50  0001 C CNN
+F 1 "Stiftleiste 6P" V 8950 4050 50  0000 R CNN
+F 2 "Connectors_Terminal_Blocks:TerminalBlock_bornier-6_P5.08mm" H 9100 2950 50  0001 C CNN
 F 3 "~" H 9100 2950 50  0001 C CNN
 	1    9100 2950
 	0    1    1    0   

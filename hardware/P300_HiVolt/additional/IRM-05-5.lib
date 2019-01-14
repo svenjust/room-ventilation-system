@@ -1,0 +1,30 @@
+EESchema-LIBRARY Version 2.3
+#encoding utf-8
+#(c) SnapEDA 2016 (snapeda.com)
+#This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA) with Design Exception 1.0
+#
+# IRM-05-5
+#
+DEF IRM-05-5 U 0 40 Y Y 1 L N
+F0 "U" -400 300 50 H V L BNN
+F1 "IRM-05-5" -400 -400 50 H V L BNN
+F2 "CONV_IRM-05-5" 0 0 50 H I L BNN
+F3 "MEAN WELL" 0 0 50 H I L BNN
+F4 "AC-DC Single output Encapsulated power supply; Output 5Vdc at 1.0A; PCB mount, miniature size" 0 0 50 H I L BNN
+F5 "None" 0 0 50 H I L BNN
+F6 "DIP-4 Mean Well" 0 0 50 H I L BNN
+F7 "Unavailable" 0 0 50 H I L BNN
+F8 "IRM-05-5" 0 0 50 H I L BNN
+DRAW
+P 2 0 0 10 -400 -300 -400 300 N
+P 2 0 0 10 -400 300 400 300 N
+P 2 0 0 10 400 300 400 -300 N
+P 2 0 0 10 400 -300 -400 -300 N
+X AC(L) AC/L -600 100 200 R 40 40 0 0 I 
+X AC(N) AC/N -600 -100 200 R 40 40 0 0 I 
+X +V VPOS 600 100 200 L 40 40 0 0 O 
+X -V VNEG 600 -100 200 L 40 40 0 0 O 
+ENDDRAW
+ENDDEF
+#
+# End Library
