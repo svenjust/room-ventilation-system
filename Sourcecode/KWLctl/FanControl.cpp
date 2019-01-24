@@ -53,8 +53,9 @@ static constexpr unsigned long TIMEOUT_PWM_CALIBRATION = 300000000;
 
 // Define the aggressive and conservative Tuning Parameters
 // Nenndrehzahl Lüfter 3200, Stellwert 0..1000 entspricht 0-10V
-static constexpr double aggKp  = 0.5,  aggKi = 0.1, aggKd  = 0.001;
-static constexpr double consKp = 0.1, consKi = 0.1, consKd = 0.001;
+static constexpr double aggKp  = 0.25,  aggKi = 0.1, aggKd  = 0.001;
+static constexpr double consKp = 0.05, consKi = 0.1, consKd = 0.001;
+
 
 Fan::Fan(uint8_t id, uint8_t powerPin, uint8_t pwmPin, uint8_t tachoPin, float ipr) :
   rpm_(static_cast<FanRPM::multiplier_t>(FanRPM::RPM_MULTIPLIER_BASE / ipr)),
