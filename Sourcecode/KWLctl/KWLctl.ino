@@ -73,6 +73,11 @@ void setup()
 {
   Serial.begin(57600); // Serielle Ausgabe starten
 
+  // Timebase for PWM Signal
+  //TCCR5B = (TCCR5B & 0xF8) | 0x02 ; // Timer 5, Divisor 8, Frequency 3.921 KHz
+  TCCR5B = (TCCR5B & 0xF8) | 0x03 ; // Timer 5, Divisor 64, Frequency 490.1 Hz            // default
+  //TCCR5B = (TCCR5B & 0xF8) | 0x05 ; // Timer 5, Divisor 1024, Frequency 30.63 Hz
+  
   // *** TFT AUSGABE ***
   kwlControl.getTFT().setup();
 
