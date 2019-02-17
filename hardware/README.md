@@ -1,3 +1,17 @@
+Änderungen von HW-0.25 zu HW-0.26 - P300_Arduino_IF
+ - Korrektur externer Displayanschluss zum Arduino
+
+Änderungen von HW-0.23 zu HW-0.26 - P300_Display_IF
+ - Korrektur Displayanschluss zum Display
+ 
+Änderungen von HW-0.23 zu HW-0.25 - P300_Arduino_IF
+ - Ergänzung von externen Pullup-Widerstand und Glättungskondensator am Tachosignal
+ 
+
+Neu HW-0.25 - P300_Diff_Press
+ - Entwurf einer Platine für den Aufbau von Differenzdrucksensoren
+ 
+-----------------------------------------------------------------------------------------------------
 12.01.2019 Version HW-0.24, nur P300_HiVolt, in die Platinenerstellung gegeben
 
 Änderungen von HW-0.23 zu HW-0.24 - P300_HiVolt
@@ -7,6 +21,7 @@
  - Bohr in Mitte/unten hinzugefügt
  - Leiterbahnen zu den Lüftern auf 2mm verbreitert
 
+ -----------------------------------------------------------------------------------------------------
 09.01.2019 Version HW-0.23 in die Platinenerstellung gegeben
 
 Änderungen von HW-0.22 zu HW-0.23 - P300_Arduino_IF

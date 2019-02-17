@@ -7,7 +7,7 @@ encoding utf-8
 Sheet 1 1
 Title "Interface Platine Display -> Arduino"
 Date "2019-01-24"
-Rev "V0.26-dev"
+Rev "V0.25-dev"
 Comp "sven@familie-just.de"
 Comment1 "https://github.com/svenjust/room-ventilation-system"
 Comment2 ""
