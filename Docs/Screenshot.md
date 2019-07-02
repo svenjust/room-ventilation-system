@@ -5,7 +5,7 @@ can connect to a specified IP address and port 4444 to send the screenshot.
 
 You can use for instance netcat program to receive a screenshot:
 
-`nc -l 4444 >screenshot.bmp`
+`nc -l -p 4444 >screenshot.bmp`
 
 Then, send a MQTT message to generate screenshot:
 
